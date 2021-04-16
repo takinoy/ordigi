@@ -12,6 +12,8 @@ import requests
 import urllib.request
 import urllib.parse
 import urllib.error
+import geopy
+from geopy.geocoders import Nominatim
 
 from elodie.config import load_config
 from elodie import constants
@@ -34,37 +36,50 @@ def coordinates_by_name(name):
         }
 
     # If the name is not cached then we go ahead with an API lookup
-    geolocation_info = lookup(location=name)
-
-    if(geolocation_info is not None):
-        if(
-            'results' in geolocation_info and
-            len(geolocation_info['results']) != 0 and
-            'locations' in geolocation_info['results'][0] and
-            len(geolocation_info['results'][0]['locations']) != 0
-        ):
-
-            # By default we use the first entry unless we find one with
-            #   geocodeQuality=city.
-            geolocation_result = geolocation_info['results'][0]
-            use_location = geolocation_result['locations'][0]['latLng']
-            # Loop over the locations to see if we come accross a
-            #   geocodeQuality=city.
-            # If we find a city we set that to the use_location and break
-            for location in geolocation_result['locations']:
-                if(
-                    'latLng' in location and
-                    'lat' in location['latLng'] and
-                    'lng' in location['latLng'] and
-                    location['geocodeQuality'].lower() == 'city'
-                ):
-                    use_location = location['latLng']
-                    break
-
+    geocoder = get_geocoder()
+    if geocoder == 'Nominatim':
+        locator = Nominatim(user_agent='myGeocoder')
+        geolocation_info = locator.geocode(name)
+        if geolocation_info is not None:
             return {
-                'latitude': use_location['lat'],
-                'longitude': use_location['lng']
+                'latitude': geolocation_info.latitude,
+                'longitude': geolocation_info.longitude
             }
+    elif geocoder == 'MapQuest':
+        geolocation_info = lookup_mapquest(location=name)
+
+        if(geolocation_info is not None):
+            if(
+                'results' in geolocation_info and
+                len(geolocation_info['results']) != 0 and
+                'locations' in geolocation_info['results'][0] and
+                len(geolocation_info['results'][0]['locations']) != 0
+            ):
+
+                # By default we use the first entry unless we find one with
+                #   geocodeQuality=city.
+                geolocation_result = geolocation_info['results'][0]
+                use_location = geolocation_result['locations'][0]['latLng']
+                # Loop over the locations to see if we come accross a
+                #   geocodeQuality=city.
+                # If we find a city we set that to the use_location and break
+                for location in geolocation_result['locations']:
+                    if(
+                        'latLng' in location and
+                        'lat' in location['latLng'] and
+                        'lng' in location['latLng'] and
+                        location['geocodeQuality'].lower() == 'city'
+                    ):
+                        use_location = location['latLng']
+                        break
+
+                return {
+                    'latitude': use_location['lat'],
+                    'longitude': use_location['lng']
+                }
+
+        else:
+            return None
 
     return None
 
@@ -97,6 +112,17 @@ def dms_string(decimal, type='latitude'):
     elif type == 'longitude':
         direction = 'E' if decimal >= 0 else 'W'
     return '{} deg {}\' {}" {}'.format(dms[0], dms[1], dms[2], direction)
+
+
+def get_geocoder():
+    config = load_config(constants.CONFIG_FILE)
+    try:
+        geocoder = config['Geolocation']['geocoder']
+    except KeyError as e:
+        log.error(e)
+        return None
+
+    return geocoder
 
 
 def get_key():
@@ -148,12 +174,19 @@ def place_name(lat, lon):
         return cached_place_name
 
     lookup_place_name = {}
-    geolocation_info = lookup(lat=lat, lon=lon)
+    geocoder = get_geocoder()
+    if geocoder == 'Nominatim':
+        geolocation_info = lookup_osm(lat, lon)
+    elif geocoder == 'MapQuest':
+        geolocation_info = lookup_mapquest(lat=lat, lon=lon)
+    else:
+        return None
+
     if(geolocation_info is not None and 'address' in geolocation_info):
         address = geolocation_info['address']
         # gh-386 adds support for town
         # taking precedence after city for backwards compatability
-        for loc in ['city', 'town', 'state', 'country']:
+        for loc in ['city', 'town', 'village', 'state', 'country']:
             if(loc in address):
                 lookup_place_name[loc] = address[loc]
                 # In many cases the desired key is not available so we
@@ -171,8 +204,27 @@ def place_name(lat, lon):
 
     return lookup_place_name
 
+def lookup_osm(lat, lon):
 
-def lookup(**kwargs):
+    prefer_english_names = get_prefer_english_names()
+    from geopy.geocoders import Nominatim
+    try:
+        locator = Nominatim(user_agent='myGeocoder')
+        coords = (lat, lon)
+        if(prefer_english_names):
+            lang='en'
+        else:
+            lang='local'
+        return locator.reverse(coords, language=lang).raw
+    except geopy.exc.GeocoderUnavailable as e:
+        log.error(e)
+        return None
+    except ValueError as e:
+        log.error(e)
+        return None
+
+
+def lookup_mapquest(**kwargs):
     if(
         'location' not in kwargs and
         'lat' not in kwargs and
@@ -180,14 +232,14 @@ def lookup(**kwargs):
     ):
         return None
 
-    key = get_key()
+    mapquest_key = get_key()
     prefer_english_names = get_prefer_english_names()
 
-    if(key is None):
+    if(mapquest_key is None):
         return None
 
     try:
-        params = {'format': 'json', 'key': key}
+        params = {'format': 'json', 'key': mapquest_key}
         params.update(kwargs)
         path = '/geocoding/v1/address'
         if('lat' in kwargs and 'lon' in kwargs):

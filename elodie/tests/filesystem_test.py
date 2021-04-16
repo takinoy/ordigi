@@ -527,8 +527,8 @@ def test_get_folder_path_with_original_default_unknown_location():
 def test_get_folder_path_with_custom_path():
     with open('%s/config.ini-custom-path' % gettempdir(), 'w') as f:
         f.write("""
-[MapQuest]
-key=czjNKTtFjLydLteUBwdgKAIC8OAbGLUx
+[Geolocation]
+mapquest_key=czjNKTtFjLydLteUBwdgKAIC8OAbGLUx
 
 [Directory]
 date=%Y-%m-%d
@@ -569,8 +569,8 @@ full_path=%year/%month/%album|%"No Album Fool"/%month
 def test_get_folder_path_with_with_more_than_two_levels():
     with open('%s/config.ini-location-date' % gettempdir(), 'w') as f:
         f.write("""
-[MapQuest]
-key=czjNKTtFjLydLteUBwdgKAIC8OAbGLUx
+[Geolocation]
+mapquest_key=czjNKTtFjLydLteUBwdgKAIC8OAbGLUx
 
 [Directory]
 year=%Y

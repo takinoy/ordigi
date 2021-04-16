@@ -80,47 +80,47 @@ def test_dms_string_longitude():
         assert str(dms[0]) in dms_string, '%s not in %s' % (dms[0], dms_string)
 
 def test_reverse_lookup_with_valid_key():
-    res = geolocation.lookup(lat=37.368, lon=-122.03)
+    res = geolocation.lookup_osm(lat=37.368, lon=-122.03)
     assert res['address']['city'] == 'Sunnyvale', res
 
 def test_reverse_lookup_with_invalid_lat_lon():
-    res = geolocation.lookup(lat=999, lon=999)
+    res = geolocation.lookup_osm(lat=999, lon=999)
     assert res is None, res
 
 @mock.patch('elodie.geolocation.__KEY__', 'invalid_key')
 def test_reverse_lookup_with_invalid_key():
-    res = geolocation.lookup(lat=37.368, lon=-122.03)
+    res = geolocation.lookup_mapquest(lat=37.368, lon=-122.03)
     assert res is None, res
 
 def test_lookup_with_valid_key():
-    res = geolocation.lookup(location='Sunnyvale, CA')
+    res = geolocation.lookup_mapquest(location='Sunnyvale, CA')
     latLng = res['results'][0]['locations'][0]['latLng']
     assert latLng['lat'] == 37.36883, latLng
     assert latLng['lng'] == -122.03635, latLng
 
 def test_lookup_with_invalid_location():
-    res = geolocation.lookup(location='foobar dne')
+    res = geolocation.lookup_mapquest(location='foobar dne')
     assert res is None, res
 
 def test_lookup_with_invalid_location():
-    res = geolocation.lookup(location='foobar dne')
+    res = geolocation.lookup_mapquest(location='foobar dne')
     assert res is None, res
 
 def test_lookup_with_valid_key():
-    res = geolocation.lookup(location='Sunnyvale, CA')
+    res = geolocation.lookup_mapquest(location='Sunnyvale, CA')
     latLng = res['results'][0]['locations'][0]['latLng']
     assert latLng['lat'] == 37.36883, latLng
     assert latLng['lng'] == -122.03635, latLng
 
 @mock.patch('elodie.geolocation.__PREFER_ENGLISH_NAMES__', True)
 def test_lookup_with_prefer_english_names_true():
-    res = geolocation.lookup(lat=55.66333, lon=37.61583)
-    assert res['address']['city'] == 'Nagorny District', res
+    res = geolocation.lookup_osm(lat=55.66333, lon=37.61583)
+    assert res['address']['city'] == 'Moscow', res
 
 @mock.patch('elodie.geolocation.__PREFER_ENGLISH_NAMES__', False)
 def test_lookup_with_prefer_english_names_false():
-    res = geolocation.lookup(lat=55.66333, lon=37.61583)
-    assert res['address']['city'] == u'\u041d\u0430\u0433\u043e\u0440\u043d\u044b\u0439 \u0440\u0430\u0439\u043e\u043d', res
+    res = geolocation.lookup_osm(lat=55.66333, lon=37.61583)
+    assert res['address']['city'] == 'Москва', res
 
 @mock.patch('elodie.constants.location_db', '%s/location.json-cached' % gettempdir())
 def test_place_name_deprecated_string_cached():
@@ -159,12 +159,12 @@ def test_place_name_no_default():
 
 @mock.patch('elodie.geolocation.__KEY__', 'invalid_key')
 def test_lookup_with_invalid_key():
-    res = geolocation.lookup(location='Sunnyvale, CA')
+    res = geolocation.lookup_mapquest(location='Sunnyvale, CA')
     assert res is None, res
 
 @mock.patch('elodie.geolocation.__KEY__', '')
 def test_lookup_with_no_key():
-    res = geolocation.lookup(location='Sunnyvale, CA')
+    res = geolocation.lookup_mapquest(location='Sunnyvale, CA')
     assert res is None, res
 
 def test_parse_result_with_error():

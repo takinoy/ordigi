@@ -1,4 +1,5 @@
 [Geolocation]
+; geocoder: Nominatim or MapQuest
 geocoder=Nominatim
-mapquest_key=m5aGo8xGe4LLhxeKZYpHr2MPXGN2aDhe
+mapquest_key=None
 prefer_english_names=False

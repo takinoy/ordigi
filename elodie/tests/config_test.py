@@ -18,18 +18,18 @@ from elodie.config import load_config, load_plugin_config
 def test_load_config_singleton_success():
     with open('%s/config.ini-singleton-success' % gettempdir(), 'w') as f:
         f.write("""
-[MapQuest]
+[Geolocation]
 key=your-api-key-goes-here
 prefer_english_names=False
         """)
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    config = load_config()
-    assert config['MapQuest']['key'] == 'your-api-key-goes-here', config.get('MapQuest', 'key')
+    config = load_config(constants.CONFIG_FILE)
+    assert config['Geolocation']['key'] == 'your-api-key-goes-here', config.get('MapQuest', 'key')
     config.set('MapQuest', 'key', 'new-value')
 
-    config = load_config()
+    config = load_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config
@@ -41,7 +41,7 @@ def test_load_config_singleton_no_file():
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    config = load_config()
+    config = load_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config
