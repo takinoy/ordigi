@@ -355,7 +355,7 @@ def test_import_directory_with_non_matching_exclude():
     assert 'Success         1' in result.output, result.output
     assert 'Error           0' in result.output, result.output
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-import-file-with-single-config-exclude' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-import-file-with-single-config-exclude' % gettempdir())
 def test_import_file_with_single_config_exclude():
     config_string = """
     [Exclusions]
@@ -382,7 +382,7 @@ def test_import_file_with_single_config_exclude():
     assert 'Success         0' in result.output, result.output
     assert 'Error           0' in result.output, result.output
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-import-file-with-multiple-config-exclude' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-import-file-with-multiple-config-exclude' % gettempdir())
 def test_import_file_with_multiple_config_exclude():
     config_string = """
     [Exclusions]
@@ -727,7 +727,7 @@ def test_verify_error():
     assert origin in result.output, result.output
     assert 'Error           1' in result.output, result.output
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-cli-batch-plugin-googlephotos' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-cli-batch-plugin-googlephotos' % gettempdir())
 def test_cli_batch_plugin_googlephotos():
     auth_file = helper.get_file('plugins/googlephotos/auth_file.json')
     secrets_file = helper.get_file('plugins/googlephotos/secrets_file.json')

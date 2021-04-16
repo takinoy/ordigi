@@ -49,3 +49,5 @@ accepted_language = 'en'
 
 # check python version, required in filesystem.py to trigger appropriate method
 python_version = version_info.major
+
+CONFIG_FILE = '%s/config.ini' % application_directory

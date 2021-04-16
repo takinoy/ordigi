@@ -32,7 +32,8 @@ def checksum(file_path, blocksize=65536):
 
 def create_working_folder(format=None):
     temporary_folder = tempfile.gettempdir()
-    folder = os.path.join(temporary_folder, random_string(10, format), random_string(10, format))
+    folder = tempfile.TemporaryDirectory(prefix='elodie-').name
+    folder = os.path.join(folder, random_string(10, format))
     os.makedirs(folder)
 
     return (temporary_folder, folder)

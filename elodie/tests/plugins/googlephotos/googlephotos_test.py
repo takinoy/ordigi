@@ -33,7 +33,7 @@ config_string_fmt = config_string.format(
 setup_module = helper.setup_module
 teardown_module = helper.teardown_module
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-set-session' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-set-session' % gettempdir())
 def test_googlephotos_set_session():
     with open('%s/config.ini-googlephotos-set-session' % gettempdir(), 'w') as f:
         f.write(config_string_fmt)
@@ -49,7 +49,7 @@ def test_googlephotos_set_session():
     gp.set_session()
     assert gp.session is not None, gp.session
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-after-supported' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-after-supported' % gettempdir())
 def test_googlephotos_after_supported():
     with open('%s/config.ini-googlephotos-after-supported' % gettempdir(), 'w') as f:
         f.write(config_string_fmt)
@@ -69,7 +69,7 @@ def test_googlephotos_after_supported():
 
     assert db_row == 'foobar', db_row
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-after-unsupported' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-after-unsupported' % gettempdir())
 def test_googlephotos_after_unsupported():
     with open('%s/config.ini-googlephotos-after-unsupported' % gettempdir(), 'w') as f:
         f.write(config_string_fmt)
@@ -89,7 +89,7 @@ def test_googlephotos_after_unsupported():
 
     assert db_row == None, db_row
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-upload' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-upload' % gettempdir())
 def test_googlephotos_upload():
     with open('%s/config.ini-googlephotos-upload' % gettempdir(), 'w') as f:
         f.write(config_string_fmt)
@@ -106,7 +106,7 @@ def test_googlephotos_upload():
     
     assert status is not None, status
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-upload-session-fail' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-upload-session-fail' % gettempdir())
 def test_googlephotos_upload_session_fail():
     with open('%s/config.ini-googlephotos-upload-session-fail' % gettempdir(), 'w') as f:
         f.write(config_string)
@@ -123,7 +123,7 @@ def test_googlephotos_upload_session_fail():
     
     assert status is None, status
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-upload-invalid-empty' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-upload-invalid-empty' % gettempdir())
 def test_googlephotos_upload_invalid_empty():
     with open('%s/config.ini-googlephotos-upload-invalid-empty' % gettempdir(), 'w') as f:
         f.write(config_string_fmt)
@@ -140,7 +140,7 @@ def test_googlephotos_upload_invalid_empty():
     
     assert status is None, status
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-upload-dne' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-upload-dne' % gettempdir())
 def test_googlephotos_upload_dne():
     with open('%s/config.ini-googlephotos-upload-dne' % gettempdir(), 'w') as f:
         f.write(config_string_fmt)
@@ -157,7 +157,7 @@ def test_googlephotos_upload_dne():
     
     assert status is None, status
 
-@mock.patch('elodie.config.config_file', '%s/config.ini-googlephotos-batch' % gettempdir())
+@mock.patch('elodie.constants.CONFIG_FILE', '%s/config.ini-googlephotos-batch' % gettempdir())
 def test_googlephotos_batch():
     with open('%s/config.ini-googlephotos-batch' % gettempdir(), 'w') as f:
         f.write(config_string_fmt)

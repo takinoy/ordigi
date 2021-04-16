@@ -122,7 +122,7 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
 
     # if no exclude list was passed in we check if there's a config
     if len(exclude_regex) == 0:
-        config = load_config()
+        config = load_config(constants.CONFIG_FILE)
         if 'Exclusions' in config:
             exclude_regex = [value for key, value in config.items('Exclusions')]
 

@@ -15,6 +15,8 @@ from elodie import compatability
 from elodie import geolocation
 from elodie import log
 from elodie.config import load_config
+from elodie import constants
+
 from elodie.localstorage import Db
 from elodie.media.base import Base, get_all_subclasses
 from elodie.plugins.plugins import Plugins
@@ -218,7 +220,7 @@ class FileSystem(object):
                     name,
                 )
 
-        config = load_config()
+        config = load_config(constants.CONFIG_FILE)
 
         if('File' in config and 'capitalization' in config['File'] and config['File']['capitalization'] == 'upper'):
             return name.upper()
@@ -247,7 +249,7 @@ class FileSystem(object):
         if self.cached_file_name_definition is not None:
             return self.cached_file_name_definition
 
-        config = load_config()
+        config = load_config(constants.CONFIG_FILE)
 
         # If File is in the config we assume name and its
         #  corresponding values are also present
@@ -307,7 +309,7 @@ class FileSystem(object):
         if self.cached_folder_path_definition is not None:
             return self.cached_folder_path_definition
 
-        config = load_config()
+        config = load_config(constants.CONFIG_FILE)
 
         # If Directory is in the config we assume full_path and its
         #  corresponding values (date, location) are also present
@@ -390,7 +392,7 @@ class FileSystem(object):
                 )
             return folder
         elif part in ('date'):
-            config = load_config()
+            config = load_config(constants.CONFIG_FILE)
             # If Directory is in the config we assume full_path and its
             #  corresponding values (date, location) are also present
             config_directory = self.default_folder_path_definition

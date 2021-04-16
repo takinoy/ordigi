@@ -17,7 +17,7 @@ from traceback import format_exc
 
 from elodie.compatability import _bytes
 from elodie.config import load_config_for_plugin, load_plugin_config
-from elodie.constants import application_directory
+from elodie import constants as c
 from elodie import log
 
 
@@ -35,7 +35,7 @@ class PluginBase(object):
 
     def __init__(self):
         # Loads the config for the plugin from config.ini
-        self.config_for_plugin = load_config_for_plugin(self.__name__)
+        self.config_for_plugin = load_config_for_plugin(self.__name__, c.CONFIG_FILE)
         self.db = PluginDb(self.__name__)
 
     def after(self, file_path, destination_folder, final_file_path, metadata):
@@ -65,7 +65,7 @@ class PluginDb(object):
     """
     def __init__(self, plugin_name):
         self.db_file = '{}/plugins/{}.json'.format(
-            application_directory,
+            c.application_directory,
             plugin_name.lower()
         )
 
@@ -131,7 +131,7 @@ class Plugins(object):
         if self.loaded == True:
             return
 
-        plugin_list = load_plugin_config()
+        plugin_list = load_plugin_config(c.CONFIG_FILE)
         for plugin in plugin_list:
             plugin_lower = plugin.lower()
             try:

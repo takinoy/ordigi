@@ -108,15 +108,11 @@ def get_key():
         __KEY__ = constants.mapquest_key
         return __KEY__
 
-    config_file = '%s/config.ini' % constants.application_directory
-    if not path.exists(config_file):
+    config = load_config(constants.CONFIG_FILE)
+    if('Geolocation' not in config):
         return None
 
-    config = load_config()
-    if('MapQuest' not in config):
-        return None
-
-    __KEY__ = config['MapQuest']['key']
+    __KEY__ = config['Geolocation']['mapquest_key']
     return __KEY__
 
 def get_prefer_english_names():
@@ -124,18 +120,11 @@ def get_prefer_english_names():
     if __PREFER_ENGLISH_NAMES__ is not None:
         return __PREFER_ENGLISH_NAMES__
 
-    config_file = '%s/config.ini' % constants.application_directory
-    if not path.exists(config_file):
+    config = load_config(constants.CONFIG_FILE)
+    if('prefer_english_names' not in config['Geolocation']):
         return False
 
-    config = load_config()
-    if('MapQuest' not in config):
-        return False
-
-    if('prefer_english_names' not in config['MapQuest']):
-        return False
-
-    __PREFER_ENGLISH_NAMES__ = bool(config['MapQuest']['prefer_english_names'])
+    __PREFER_ENGLISH_NAMES__ = bool(config['Geolocation']['prefer_english_names'])
     return __PREFER_ENGLISH_NAMES__
 
 def place_name(lat, lon):

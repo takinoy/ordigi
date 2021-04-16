@@ -1,3 +1,4 @@
-[MapQuest]
-key=your-api-key-goes-here
+[Geolocation]
+geocoder=Nominatim
+mapquest_key=m5aGo8xGe4LLhxeKZYpHr2MPXGN2aDhe
 prefer_english_names=False

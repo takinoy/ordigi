@@ -33,6 +33,7 @@ if __name__ == "__main__":
 
     test_argv = sys.argv
     test_argv.append('--verbosity=2')
+    test_argv.append('-s')
     result = nose.run(argv=test_argv)
     if(result):
         sys.exit(0)
