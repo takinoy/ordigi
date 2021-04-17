@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import time
+from datetime import datetime
 
 from elodie import compatability
 from elodie import geolocation
@@ -18,7 +19,7 @@ from elodie.config import load_config
 from elodie import constants
 
 from elodie.localstorage import Db
-from elodie.media.base import Base, get_all_subclasses
+from elodie.media import base
 from elodie.plugins.plugins import Plugins
 
 class FileSystem(object):
@@ -95,7 +96,7 @@ class FileSystem(object):
         # If extensions is None then we get all supported extensions
         if not extensions:
             extensions = set()
-            subclasses = get_all_subclasses(Base)
+            subclasses = base.get_all_subclasses()
             for cls in subclasses:
                 extensions.update(cls.extensions)
 
@@ -155,7 +156,11 @@ class FileSystem(object):
             for this_part in parts:
                 part, mask = this_part
                 if part in ('date', 'day', 'month', 'year'):
-                    this_value = time.strftime(mask, metadata['date_taken'])
+                    date = self.get_date_taken(metadata)
+                    if date is not None:
+                        this_value = date.strftime(mask)
+                    else:
+                        this_value=''
                     break
                 elif part in ('location', 'city', 'state', 'country'):
                     place_name = geolocation.place_name(
@@ -371,6 +376,98 @@ class FileSystem(object):
                     break
         return os.path.join(*path)
 
+    def get_date_from_string(self, string, user_regex=None):
+        # If missing datetime from EXIF data check if filename is in datetime format.
+        # For this use a user provided regex if possible.
+        # Otherwise assume a filename such as IMG_20160915_123456.jpg as default.
+
+        if user_regex is not None:
+            matches = re.findall(user_regex, string)
+        else:
+            regex = {
+                # regex to match date format type %Y%m%d, %y%m%d, %d%m%Y,
+                # etc...
+                'a': re.compile(
+                    r'.*[_-]?(?P<year>\d{4})[_-]?(?P<month>\d{2})[_-]?(?P<day>\d{2})[_-]?(?P<hour>\d{2})[_-]?(?P<minute>\d{2})[_-]?(?P<second>\d{2})'),
+                'b': re.compile (
+                    '[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
+                # not very accurate
+                'c': re.compile (
+                    '[-_./](?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
+                'd': re.compile (
+                '[-_./](?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})[-_./]')
+                }
+
+            matches = []
+            for i, rx in regex.items():
+                match = re.findall(rx, string)
+                if match != []:
+                    if i == 'c':
+                        match = [('20'+match[0][0],match[0][1],match[0][2])]
+                    elif i == 'd':
+                        # reorder items
+                        match = [(match[0][2],match[0][1],match[0][0])]
+                    # matches = match + matches
+                    if len(match) != 1:
+                        # The time string is not uniq
+                        continue
+                    matches.append((match[0], rx))
+                    # We want only the first match for the moment
+                    break
+
+        # check if there is only one result
+        if len(set(matches)) == 1:
+            try:
+                # Convert str to int
+                date_object = tuple(map(int, matches[0][0]))
+
+                time = False
+                if len(date_object) > 3:
+                    time = True
+
+                date = datetime(*date_object)
+            except (KeyError, ValueError):
+                return None
+
+            return date
+
+        return None
+
+
+    def get_date_taken(self, metadata):
+        '''
+        Get the date taken from metadata or filename
+        :returns: datetime or None.
+        '''
+        if metadata is None:
+            return None
+
+        basename = metadata['base_name']
+        date_original = metadata['date_original']
+        if metadata['original_name'] is not  None:
+            date_filename = self.get_date_from_string(metadata['original_name'])
+        else:
+            date_filename = self.get_date_from_string(basename)
+
+        date_created = metadata['date_created']
+        if metadata['date_original'] is not None:
+            if (date_filename is not None and
+                    date_filename != date_original):
+                log.warn(f"{basename} time mark is different from {date_original}")
+                # TODO ask for keep date taken, filename time, or neither
+            return metadata['date_original']
+        elif True:
+            if date_filename is not  None:
+                if date_created is not None and date_filename > date_created:
+                    log.warn(f"{basename} time mark is more recent than {date_created}")
+                return date_filename
+        if True:
+            if date_created is not  None:
+                # TODO warm and ask for confirmation
+                return date_created
+            elif metadata['date_modified'] is not  None:
+                return metadata['date_modified']
+
     def get_dynamic_path(self, part, mask, metadata):
         """Parse a specific folder's name given a mask and metadata.
 
@@ -382,6 +479,16 @@ class FileSystem(object):
 
         # Each part has its own custom logic and we evaluate a single part and return
         #  the evaluated string.
+        if part in ('date'):
+            # If Directory is in the config we assume full_path and its
+            #  corresponding values (date, location) are also present
+            config_directory = self.default_folder_path_definition
+            if('Directory' in config):
+                config_directory = config['Directory']
+            # Get date mask from config
+            mask = ''
+            if 'date' in config_directory:
+                mask = config_directory['date']
         if part in ('custom'):
             custom_parts = re.findall('(%[a-z_]+)', mask)
             folder = mask
@@ -391,19 +498,12 @@ class FileSystem(object):
                     self.get_dynamic_path(i[1:], i, metadata)
                 )
             return folder
-        elif part in ('date'):
-            config = load_config(constants.CONFIG_FILE)
-            # If Directory is in the config we assume full_path and its
-            #  corresponding values (date, location) are also present
-            config_directory = self.default_folder_path_definition
-            if('Directory' in config):
-                config_directory = config['Directory']
-            date_mask = ''
-            if 'date' in config_directory:
-                date_mask = config_directory['date']
-            return time.strftime(date_mask, metadata['date_taken'])
-        elif part in ('day', 'month', 'year'):
-            return time.strftime(mask, metadata['date_taken'])
+        elif part in ('date', 'day', 'month', 'year'):
+            date = self.get_date_taken(metadata)
+            if date is not None:
+                return date.strftime(mask)
+            else:
+                return ''
         elif part in ('location', 'city', 'state', 'country'):
             place_name = geolocation.place_name(
                 metadata['latitude'],
@@ -576,7 +676,6 @@ class FileSystem(object):
             if(exif_original_file_exists is True):
                 # We can remove it as we don't need the initial file.
                 os.remove(exif_original_file)
-            os.utime(dest_path, (stat.st_atime, stat.st_mtime))
         else:
             if(exif_original_file_exists is True):
                 # Move the newly processed file with any updated tags to the
@@ -590,8 +689,8 @@ class FileSystem(object):
             # Set the utime based on what the original file contained 
             #  before we made any changes.
             # Then set the utime on the destination file based on metadata.
-            os.utime(_file, (stat_info_original.st_atime, stat_info_original.st_mtime))
-            self.set_utime_from_metadata(metadata, dest_path)
+            date_taken = self.get_date_taken(metadata)
+            self.set_utime_from_metadata(date_taken, dest_path)
 
         db = Db()
         db.add_hash(checksum, dest_path)
@@ -607,32 +706,15 @@ class FileSystem(object):
 
         return dest_path
 
-    def set_utime_from_metadata(self, metadata, file_path):
+    def set_utime_from_metadata(self, date_taken, file_path):
         """ Set the modification time on the file based on the file name.
         """
 
         # Initialize date taken to what's returned from the metadata function.
+        os.utime(file_path, (int(datetime.now().timestamp()), int(date_taken.timestamp())))
         # If the folder and file name follow a time format of
         #   YYYY-MM-DD_HH-MM-SS-IMG_0001.JPG then we override the date_taken
-        date_taken = metadata['date_taken']
-        base_name = metadata['base_name']
-        year_month_day_match = re.search(
-            '^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})',
-            base_name
-        )
-        if(year_month_day_match is not None):
-            (year, month, day, hour, minute, second) = year_month_day_match.groups()  # noqa
-            date_taken = time.strptime(
-                '{}-{}-{} {}:{}:{}'.format(year, month, day, hour, minute, second),  # noqa
-                '%Y-%m-%d %H:%M:%S'
-            )
 
-            os.utime(file_path, (time.time(), time.mktime(date_taken)))
-        else:
-            # We don't make any assumptions about time zones and
-            # assume local time zone.
-            date_taken_in_seconds = time.mktime(date_taken)
-            os.utime(file_path, (time.time(), (date_taken_in_seconds)))
 
     def should_exclude(self, path, regex_list=set(), needs_compiled=False):
         if(len(regex_list) == 0):

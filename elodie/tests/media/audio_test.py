@@ -72,11 +72,11 @@ def test_get_coordinate_longitude():
 
     assert helper.isclose(coordinate, -95.3677), coordinate
 
-def test_get_date_taken():
-    audio = Audio(helper.get_file('audio.m4a'))
-    date_taken = audio.get_date_taken()
+def test_get_date_original():
+    media = Media(helper.get_file('audio.m4a'))
+    date_original = media.get_date_attribute('date_original')
 
-    assert date_taken == (2016, 1, 4, 5, 28, 15, 0, 4, 0), date_taken
+    assert date_original == (2016, 1, 4, 5, 28, 15, 0, 4, 0), date_original
 
 def test_get_exiftool_attributes():
     audio = Video(helper.get_file('audio.m4a'))
@@ -95,25 +95,25 @@ def test_is_not_valid():
 
     assert not audio.is_valid()
 
-def test_set_date_taken():
+def test_set_date_original():
     temporary_folder, folder = helper.create_working_folder()
 
     origin = '%s/audio.m4a' % folder
     shutil.copyfile(helper.get_file('audio.m4a'), origin)
 
-    audio = Audio(origin)
-    status = audio.set_date_taken(datetime.datetime(2013, 9, 30, 7, 6, 5))
+    media = Media(origin)
+    status = media.set_date_original(datetime.datetime(2013, 9, 30, 7, 6, 5))
 
     assert status == True, status
 
     audio_new = Audio(origin)
     metadata = audio_new.get_metadata()
 
-    date_taken = metadata['date_taken']
+    date_original = metadata['date_original']
 
     shutil.rmtree(folder)
 
-    assert date_taken == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_taken']
+    assert date_original == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_original']
 
 def test_set_location():
     temporary_folder, folder = helper.create_working_folder()

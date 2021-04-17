@@ -14,6 +14,9 @@ import os
 import six
 
 # load modules
+from elodie import log
+from dateutil.parser import parse
+import re
 from elodie.external.pyexiftool import ExifTool
 from elodie.media.base import Base
 
@@ -33,13 +36,9 @@ class Media(Base):
 
     def __init__(self, source=None):
         super(Media, self).__init__(source)
-        self.exif_map = {
-            'date_taken': [
-                'EXIF:DateTimeOriginal',
-                'EXIF:CreateDate',
-                'EXIF:ModifyDate'
-            ]
-        }
+        self.date_original = ['EXIF:DateTimeOriginal']
+        self.date_created = ['EXIF:CreateDate']
+        self.date_modified = ['File:FileModifyDate']
         self.camera_make_keys = ['EXIF:Make', 'QuickTime:Make']
         self.camera_model_keys = ['EXIF:Model', 'QuickTime:Model']
         self.album_keys = ['XMP-xmpDM:Album', 'XMP:Album']
@@ -131,6 +130,42 @@ class Media(Base):
             return False
 
         return self.exif_metadata
+
+
+    def get_date_attribute(self, tag):
+        """Get a date attribute.
+        :returns: time object or None
+        """
+        exif = self.get_exiftool_attributes()
+        if not exif:
+            return None
+        # We need to parse a string from EXIF into a timestamp.
+        # EXIF DateTimeOriginal and EXIF DateTime are both stored
+        #   in %Y:%m:%d %H:%M:%S format
+        # we split on a space and then r':|-' -> convert to int -> .timetuple()
+        #   the conversion in the local timezone
+        # EXIF DateTime is already stored as a timestamp
+        # Sourced from https://github.com/photo/frontend/blob/master/src/libraries/models/Photo.php#L500  # noqa
+        for key in tag:
+            try:
+                if(key in exif):
+                    # correct nasty formated date
+                    regex = re.compile('(\d{4}):(\d{2}):(\d{2})')
+                    if(re.match(regex , exif[key]) is not None):  # noqa
+                        exif[key] = re.sub(regex ,'\g<1>-\g<2>-\g<3>',exif[key])
+                    return parse(exif[key])
+                    # if(re.match('\d{4}(-|:)\d{2}(-|:)\d{2}', exif[key]) is not None):  # noqa
+                    #     dt, tm = exif[key].split(' ')
+                    #     dt_list = compile(r'-|:').split(dt)
+                    #     dt_list = dt_list + compile(r'-|:').split(tm)
+                    #     dt_list = map(int, dt_list)
+                    #     return datetime(*dt_list)
+            except BaseException  or dateutil.parser._parser.ParserError as e:
+                log.error(e)
+                return None
+
+        return None
+
 
     def get_camera_make(self):
         """Get the camera make stored in EXIF.
@@ -228,7 +263,7 @@ class Media(Base):
 
         return status
 
-    def set_date_taken(self, time):
+    def set_date_original(self, time):
         """Set the date/time a photo was taken.
 
         :param datetime time: datetime object of when the photo was taken
@@ -239,7 +274,7 @@ class Media(Base):
 
         tags = {}
         formatted_time = time.strftime('%Y:%m:%d %H:%M:%S')
-        for key in self.exif_map['date_taken']:
+        for key in self.date_original:
             tags[key] = formatted_time
 
         status = self.__set_tags(tags)

@@ -90,7 +90,9 @@ class Base(object):
         source = self.source
 
         self.metadata = {
-            'date_taken': self.get_date_taken(),
+            'date_original': self.get_date_attribute(self.date_original),
+            'date_created': self.get_date_attribute(self.date_created),
+            'date_modified': self.get_date_attribute(self.date_modified),
             'camera_make': self.get_camera_make(),
             'camera_model': self.get_camera_model(),
             'latitude': self.get_coordinate('latitude'),

@@ -1324,3 +1324,14 @@ full_path=%year/%album|%month|%"foo"/%month
         del load_config.config
 
     assert path_definition == expected, path_definition
+
+def test_get_date_taken_without_exif():
+    filesystem = FileSystem()
+    source = helper.get_file('no-exif.jpg')
+    photo = Photo(source)
+    date_taken = filesystem.get_date_taken(photo.get_metadata())
+
+    date_modified = photo.get_metadata()['date_modified']
+
+    assert date_taken == date_modified, date_taken
+

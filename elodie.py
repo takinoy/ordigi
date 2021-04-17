@@ -232,7 +232,7 @@ def update_time(media, file_path, time_string):
         sys.exit(1)
 
     time = datetime.strptime(time_string, time_format)
-    media.set_date_taken(time)
+    media.set_date_original(time)
     return True
 
 

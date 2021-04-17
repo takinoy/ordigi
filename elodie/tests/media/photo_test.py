@@ -122,21 +122,12 @@ def test_get_coordinates_with_null_coordinate():
     assert latitude is None, latitude
     assert longitude is None, longitude
 
-def test_get_date_taken():
-    photo = Photo(helper.get_file('plain.jpg'))
-    date_taken = photo.get_date_taken()
+def test_get_date_original():
+    media = Media(helper.get_file('plain.jpg'))
+    date_original = media.get_date_attribute('date_original')
 
-    #assert date_taken == (2015, 12, 5, 0, 59, 26, 5, 339, 0), date_taken
-    assert date_taken == helper.time_convert((2015, 12, 5, 0, 59, 26, 5, 339, 0)), date_taken
-
-def test_get_date_taken_without_exif():
-    source = helper.get_file('no-exif.jpg')
-    photo = Photo(source)
-    date_taken = photo.get_date_taken()
-
-    date_taken_from_file = time.gmtime(min(os.path.getmtime(source), os.path.getctime(source)))
-
-    assert date_taken == date_taken_from_file, date_taken
+    #assert date_original == (2015, 12, 5, 0, 59, 26, 5, 339, 0), date_original
+    assert date_original == helper.time_convert((2015, 12, 5, 0, 59, 26, 5, 339, 0)), date_original
 
 def test_get_camera_make():
     photo = Photo(helper.get_file('with-location.jpg'))
@@ -205,7 +196,7 @@ def test_set_album():
 
     assert metadata_new['album'] == 'Test Album', metadata_new['album']
 
-def test_set_date_taken_with_missing_datetimeoriginal():
+def test_set_date_original_with_missing_datetimeoriginal():
     # When datetimeoriginal (or other key) is missing we have to add it gh-74
     # https://github.com/jmathai/elodie/issues/74
     temporary_folder, folder = helper.create_working_folder()
@@ -213,41 +204,42 @@ def test_set_date_taken_with_missing_datetimeoriginal():
     origin = '%s/photo.jpg' % folder
     shutil.copyfile(helper.get_file('no-exif.jpg'), origin)
 
-    photo = Photo(origin)
-    status = photo.set_date_taken(datetime(2013, 9, 30, 7, 6, 5))
+    media = Media(origin)
+    status = media.set_date_original(datetime.now())
 
     assert status == True, status
 
     photo_new = Photo(origin)
     metadata = photo_new.get_metadata()
 
-    date_taken = metadata['date_taken']
+    date_original = metadata['date_original']
 
     shutil.rmtree(folder)
 
-    #assert date_taken == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_taken']
-    assert date_taken == helper.time_convert((2013, 9, 30, 7, 6, 5, 0, 273, 0)), metadata['date_taken']
+    #assert date_original == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_original']
+    # assert date_original == helper.time_convert((2013, 9, 30, 7, 6, 5, 0, 273, 0)), metadata['date_original']
+    assert date_original == datetime.now(), metadata['date_original']
 
-def test_set_date_taken():
+def test_set_date_original():
     temporary_folder, folder = helper.create_working_folder()
 
     origin = '%s/photo.jpg' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin)
 
-    photo = Photo(origin)
-    status = photo.set_date_taken(datetime(2013, 9, 30, 7, 6, 5))
+    media = Media(origin)
+    status = media.set_date_original(datetime(2013, 9, 30, 7, 6, 5))
 
     assert status == True, status
 
     photo_new = Photo(origin)
     metadata = photo_new.get_metadata()
 
-    date_taken = metadata['date_taken']
+    date_original = metadata['date_original']
 
     shutil.rmtree(folder)
 
-    #assert date_taken == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_taken']
-    assert date_taken == helper.time_convert((2013, 9, 30, 7, 6, 5, 0, 273, 0)), metadata['date_taken']
+    #assert date_original == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_original']
+    assert date_original == helper.time_convert((2013, 9, 30, 7, 6, 5, 0, 273, 0)), metadata['date_original']
 
 def test_set_location():
     temporary_folder, folder = helper.create_working_folder()
@@ -389,7 +381,7 @@ def _test_photo_type_get(type, date):
 
     shutil.rmtree(folder)
 
-    assert metadata['date_taken'] == helper.time_convert(date), '{} date {}'.format(type, metadata['date_taken'])
+    assert metadata['date_original'] == helper.time_convert(date), '{} date {}'.format(type, metadata['date_original'])
 
 def _test_photo_type_set(type, date):
     temporary_folder, folder = helper.create_working_folder()
@@ -417,6 +409,6 @@ def _test_photo_type_set(type, date):
 
     shutil.rmtree(folder)
 
-    assert metadata['date_taken'] == helper.time_convert(date), '{} date {}'.format(type, metadata['date_taken'])
+    assert metadata['date_original'] == helper.time_convert(date), '{} date {}'.format(type, metadata['date_original'])
     assert helper.isclose(metadata['latitude'], 11.1111111111), '{} lat {}'.format(type, metadata['latitude'])
     assert helper.isclose(metadata['longitude'], 99.9999999999), '{} lon {}'.format(type, metadata['latitude'])
