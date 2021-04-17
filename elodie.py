@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 import os
 import re
 import sys
@@ -36,9 +35,6 @@ from elodie import constants
 FILESYSTEM = FileSystem()
 
 def import_file(_file, destination, album_from_folder, trash, allow_duplicates):
-    
-    _file = _decode(_file)
-    destination = _decode(destination)
 
     """Set file metadata and move it to destination.
     """

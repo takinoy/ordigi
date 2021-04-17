@@ -4,8 +4,6 @@ image objects (JPG, DNG, etc.).
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
-from __future__ import print_function
-from __future__ import absolute_import
 
 import imghdr
 import os

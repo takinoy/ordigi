@@ -3,7 +3,6 @@ General file system methods.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
-from __future__ import print_function
 from builtins import object
 
 import os
@@ -12,7 +11,6 @@ import shutil
 import time
 from datetime import datetime
 
-from elodie import compatability
 from elodie import geolocation
 from elodie import log
 from elodie.config import load_config

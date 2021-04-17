@@ -1,5 +1,3 @@
-from __future__ import division
-from __future__ import unicode_literals
 from builtins import range
 from past.utils import old_div
 import hashlib
@@ -14,7 +12,6 @@ import urllib
 from datetime import datetime
 from datetime import timedelta
 
-from elodie.compatability import _rename
 from elodie.external.pyexiftool import ExifTool
 from elodie.dependencies import get_exiftool
 from elodie import constants

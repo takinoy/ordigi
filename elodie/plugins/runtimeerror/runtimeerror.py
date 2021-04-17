@@ -3,7 +3,6 @@ RuntimeError plugin object used for tests.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
-from __future__ import print_function
 
 from elodie.plugins.plugins import PluginBase
 

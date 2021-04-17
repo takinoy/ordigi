@@ -2,7 +2,6 @@
 Helpers for checking for an interacting with external dependencies. These are
 things that Elodie requires, but aren't installed automatically for the user.
 """
-from __future__ import print_function
 
 import os
 import sys

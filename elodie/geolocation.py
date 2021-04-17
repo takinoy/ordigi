@@ -1,10 +1,6 @@
 """Look up geolocation information for media objects."""
-from __future__ import print_function
-from __future__ import division
-from future import standard_library
 from past.utils import old_div
 
-standard_library.install_aliases()  # noqa
 
 from os import path
 

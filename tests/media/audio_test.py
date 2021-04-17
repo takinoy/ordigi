@@ -1,6 +1,5 @@
 # -*- coding: utf-8
 # Project imports
-from __future__ import print_function
 import os
 import sys
 

@@ -55,8 +55,6 @@ Example usage::
                                          d["EXIF:DateTimeOriginal"]))
 """
 
-from __future__ import unicode_literals
-
 import sys
 import subprocess
 import os
@@ -65,7 +63,6 @@ import warnings
 import logging
 import codecs
 
-from future.utils import with_metaclass
 
 try:        # Py3k compatibility
     basestring
@@ -162,7 +159,7 @@ class Singleton(type):
             cls.instance = super(Singleton, cls).__call__(*args, **kwargs)
         return cls.instance
 
-class ExifTool(object, with_metaclass(Singleton)):
+class ExifTool(object, metaclass=Singleton):
     """Run the `exiftool` command-line tool and communicate to it.
 
     You can pass two arguments to the constructor:

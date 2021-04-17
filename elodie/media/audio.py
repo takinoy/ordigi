@@ -5,7 +5,6 @@ class.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
-from __future__ import absolute_import
 
 from .video import Video
 

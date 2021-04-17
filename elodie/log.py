@@ -3,7 +3,6 @@ General file system methods.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
-from __future__ import print_function
 
 import sys
 

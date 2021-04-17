@@ -3,7 +3,6 @@ Plugin object.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
-from __future__ import print_function
 from builtins import object
 
 import io

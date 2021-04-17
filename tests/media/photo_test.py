@@ -1,6 +1,5 @@
 # -*- coding: utf-8
 # Project imports
-from __future__ import unicode_literals
 import os
 import sys
 

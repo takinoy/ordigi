@@ -19,7 +19,6 @@ Upload code adapted from https://github.com/eshmu/gphotos-upload
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
-from __future__ import print_function
 
 import json
 
