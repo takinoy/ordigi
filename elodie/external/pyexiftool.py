@@ -396,7 +396,7 @@ class ExifTool(object, with_metaclass(Singleton)):
         """
         return self.get_tag_batch(tag, [filename])[0]
 
-    def set_tags_batch(self, tags, filenames):
+    def set_tags_batch(self, tags, filenames, overwrite=True):
         """Writes the values of the specified tags for the given files.
 
         The first argument is a dictionary of tags and values.  The tag names may
@@ -422,7 +422,8 @@ class ExifTool(object, with_metaclass(Singleton)):
         params_utf8 = []
         for tag, value in tags.items():
             params.append(u'-%s=%s' % (tag, value))
-            
+        if overwrite:
+            params.append('-overwrite_original')
         params.extend(filenames)
         params_utf8 = [x.encode('utf-8') for x in params]
         return self.execute(*params_utf8)

@@ -60,11 +60,8 @@ def import_file(_file, destination, album_from_folder, trash, allow_duplicates):
         log.all('{"source":"%s", "error_msg":"Not a supported file"}' % _file)
         return
 
-    if album_from_folder:
-        media.set_album_from_folder()
-
     dest_path = FILESYSTEM.process_file(_file, destination,
-        media, allowDuplicate=allow_duplicates, move=False)
+        media, album_from_folder, allowDuplicate=allow_duplicates, move=False)
     if dest_path:
         log.all('%s -> %s' % (_file, dest_path))
     if trash:

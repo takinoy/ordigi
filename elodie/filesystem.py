@@ -614,17 +614,20 @@ class FileSystem(object):
                 ))
         return checksum
 
-    def process_file(self, _file, destination, media, **kwargs):
+    def process_file(self, _file, destination, media, album_from_folder, **kwargs):
         move = False
         if('move' in kwargs):
-            move = kwargs['move']
+            if kwargs['move']:
+                action = 'move'
+            else:
+                action = 'copy'
 
         allow_duplicate = False
         if('allowDuplicate' in kwargs):
             allow_duplicate = kwargs['allowDuplicate']
 
         stat_info_original = os.stat(_file)
-        metadata = media.get_metadata()
+        metadata = media.get_metadata(album_from_folder)
 
         if(not media.is_valid()):
             print('%s is not a valid media file. Skipping...' % _file)
@@ -648,8 +651,6 @@ class FileSystem(object):
         file_name = self.get_file_name(metadata)
         dest_path = os.path.join(dest_directory, file_name)        
 
-        media.set_original_name()
-
         # If source and destination are identical then
         #  we should not write the file. gh-210
         if(_file == dest_path):
@@ -661,37 +662,27 @@ class FileSystem(object):
         # exiftool renames the original file by appending '_original' to the
         # file name. A new file is written with new tags with the initial file
         # name. See exiftool man page for more details.
-        exif_original_file = _file + '_original'
 
         # Check if the source file was processed by exiftool and an _original
         # file was created.
-        exif_original_file_exists = False
-        if(os.path.exists(exif_original_file)):
-            exif_original_file_exists = True
 
-        if(move is True):
+        if(action == 'move'):
             stat = os.stat(_file)
             # Move the processed file into the destination directory
             shutil.move(_file, dest_path)
 
-            if(exif_original_file_exists is True):
-                # We can remove it as we don't need the initial file.
-                os.remove(exif_original_file)
-        else:
-            if(exif_original_file_exists is True):
-                # Move the newly processed file with any updated tags to the
-                # destination directory
-                shutil.move(_file, dest_path)
-                # Move the exif _original back to the initial source file
-                shutil.move(exif_original_file, _file)
-            else:
-                compatability._copyfile(_file, dest_path)
+        elif action == 'copy':
+            shutil.copy2(_file, dest_path)
 
+        if action != 'dry-run':
             # Set the utime based on what the original file contained 
             #  before we made any changes.
             # Then set the utime on the destination file based on metadata.
             date_taken = self.get_date_taken(metadata)
             self.set_utime_from_metadata(date_taken, dest_path)
+            media.set_original_name(dest_path)
+            if album_from_folder:
+                media.set_album_from_folder(dest_path)
 
         db = Db()
         db.add_hash(checksum, dest_path)

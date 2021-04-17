@@ -91,6 +91,11 @@ class Base(object):
             return self.metadata
 
         source = self.source
+        folder = os.path.basename(os.path.dirname(source))
+        album = self.get_album()
+        album_from_folder = True
+        if album_from_folder and (album is None or album == ''):
+            album = folder
 
         self.metadata = {
             'date_original': self.get_date_attribute(self.date_original),
@@ -100,11 +105,11 @@ class Base(object):
             'camera_model': self.get_camera_model(),
             'latitude': self.get_coordinate('latitude'),
             'longitude': self.get_coordinate('longitude'),
-            'album': self.get_album(),
+            'album': album,
             'title': self.get_title(),
             'mime_type': self.get_mimetype(),
             'original_name': self.get_original_name(),
-            'base_name': os.path.splitext(os.path.basename(source))[0],
+            'base_name': folder,
             'extension': self.get_extension(),
             'directory_path': os.path.dirname(source)
         }
@@ -164,7 +169,7 @@ class Base(object):
         """
         return None
 
-    def set_album_from_folder(self):
+    def set_album_from_folder(self, path):
         """Set the album attribute based on the leaf folder name
 
         :returns: bool
@@ -180,7 +185,7 @@ class Base(object):
         if(len(folder) == 0):
             return False
 
-        status = self.set_album(folder)
+        self.set_album(folder)
         if status == False:
             return False
         return True

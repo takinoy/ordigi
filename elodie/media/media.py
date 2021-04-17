@@ -248,20 +248,18 @@ class Media(Base):
         self.exif_metadata = None
         super(Media, self).reset_cache()
 
-    def set_album(self, album):
-        """Set album for a photo
+    def set_album(self, name, path):
+        """Set album EXIF tag if not already set.
 
-        :param str name: Name of album
-        :returns: bool
+        :returns: True, False, None
         """
-        if(not self.is_valid()):
+        if self.get_album() is not None:
             return None
 
-        tags = {self.album_keys[0]: album}
-        status = self.__set_tags(tags)
+        tags = {self.album_keys[0]: name}
+        status = ExifTool().set_tags(tags, path)
         self.reset_cache()
-
-        return status
+        return status != ''
 
     def set_date_original(self, time):
         """Set the date/time a photo was taken.
@@ -314,27 +312,21 @@ class Media(Base):
 
         return status
 
-    def set_original_name(self, name=None):
+    def set_original_name(self, path):
         """Sets the original name EXIF tag if not already set.
 
         :returns: True, False, None
         """
-        if(not self.is_valid()):
-            return None
-
         # If EXIF original name tag is set then we return.
         if self.get_original_name() is not None:
             return None
 
-        source = self.source
-
-        if not name:
-            name = os.path.basename(source)
+        name = os.path.basename(path)
 
         tags = {self.original_name_key: name}
-        status = self.__set_tags(tags)
+        status = ExifTool().set_tags(tags, path)
         self.reset_cache()
-        return status
+        return status != ''
 
     def set_title(self, title):
         """Set title for a photo.
