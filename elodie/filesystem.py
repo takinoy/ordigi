@@ -518,6 +518,8 @@ class FileSystem(object):
                 place_name,
             )
             return parsed_folder_name
+        elif part in ('folder'):
+            return os.path.basename(metadata['directory_path'])
         elif part in ('album', 'camera_make', 'camera_model'):
             if metadata[part]:
                 return metadata[part]

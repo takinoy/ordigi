@@ -143,7 +143,6 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
     if has_errors:
         sys.exit(1)
 
-
 @click.command('generate-db')
 @click.option('--source', type=click.Path(file_okay=False),
               required=True, help='Source of your photo library.')
@@ -331,7 +330,7 @@ def _update(album, location, time, title, paths, debug):
                     original_base_name.replace('-%s' % original_title, ''))
 
             dest_path = FILESYSTEM.process_file(current_file, destination,
-                updated_media, move=True, allowDuplicate=True)
+                updated_media, False, move=True, allowDuplicate=True)
             log.info(u'%s -> %s' % (current_file, dest_path))
             log.all('{"source":"%s", "destination":"%s"}' % (current_file,
                                                                dest_path))
