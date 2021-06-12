@@ -163,7 +163,8 @@ class FileSystem(object):
                 elif part in ('location', 'city', 'state', 'country'):
                     place_name = geolocation.place_name(
                         metadata['latitude'],
-                        metadata['longitude']
+                        metadata['longitude'],
+                        db
                     )
 
                     location_parts = re.findall('(%[^%]+)', mask)
@@ -348,7 +349,7 @@ class FileSystem(object):
 
         return self.cached_folder_path_definition
 
-    def get_folder_path(self, metadata, path_parts=None):
+    def get_folder_path(self, metadata, db, path_parts=None):
         """Given a media's metadata this function returns the folder path as a string.
 
         :param dict metadata: Metadata dictionary.
@@ -366,7 +367,7 @@ class FileSystem(object):
             #  Unknown Location - when neither an album nor location exist
             for this_part in path_part:
                 part, mask = this_part
-                this_path = self.get_dynamic_path(part, mask, metadata)
+                this_path = self.get_dynamic_path(part, mask, metadata, db)
                 if this_path:
                     path.append(this_path.strip())
                     # We break as soon as we have a value to append
@@ -466,7 +467,7 @@ class FileSystem(object):
             elif metadata['date_modified'] is not  None:
                 return metadata['date_modified']
 
-    def get_dynamic_path(self, part, mask, metadata):
+    def get_dynamic_path(self, part, mask, metadata, db):
         """Parse a specific folder's name given a mask and metadata.
 
         :param part: Name of the part as defined in the path (i.e. date from %date)
@@ -494,7 +495,7 @@ class FileSystem(object):
             for i in custom_parts:
                 folder = folder.replace(
                     i,
-                    self.get_dynamic_path(i[1:], i, metadata)
+                    self.get_dynamic_path(i[1:], i, metadata, db)
                 )
             return folder
         elif part in ('date', 'day', 'month', 'year'):
@@ -506,7 +507,8 @@ class FileSystem(object):
         elif part in ('location', 'city', 'state', 'country'):
             place_name = geolocation.place_name(
                 metadata['latitude'],
-                metadata['longitude']
+                metadata['longitude'],
+                db
             )
 
             location_parts = re.findall('(%[^%]+)', mask)
@@ -587,8 +589,7 @@ class FileSystem(object):
 
         return folder_name
 
-    def process_checksum(self, _file, allow_duplicate):
-        db = Db()
+    def process_checksum(self, _file, db, allow_duplicate):
         checksum = db.checksum(_file)
         if(checksum is None):
             log.info('Could not get checksum for %s.' % _file)
@@ -614,7 +615,7 @@ class FileSystem(object):
                 ))
         return checksum
 
-    def process_file(self, _file, destination, media, album_from_folder, **kwargs):
+    def process_file(self, _file, destination, db, media, album_from_folder, **kwargs):
         move = False
         if('move' in kwargs):
             if kwargs['move']:
@@ -633,7 +634,7 @@ class FileSystem(object):
             print('%s is not a valid media file. Skipping...' % _file)
             return
 
-        checksum = self.process_checksum(_file, allow_duplicate)
+        checksum = self.process_checksum(_file, db, allow_duplicate)
         if(checksum is None):
             log.info('Original checksum returned None for %s. Skipping...' %
                      _file)
@@ -646,7 +647,7 @@ class FileSystem(object):
             log.warn('At least one plugin pre-run failed for %s' % _file)
             return
 
-        directory_name = self.get_folder_path(metadata)
+        directory_name = self.get_folder_path(metadata, db)
         dest_directory = os.path.join(destination, directory_name)
         file_name = self.get_file_name(metadata)
         dest_path = os.path.join(dest_directory, file_name)        
@@ -684,7 +685,6 @@ class FileSystem(object):
             if album_from_folder:
                 media.set_album_from_folder(dest_path)
 
-        db = Db()
         db.add_hash(checksum, dest_path)
         db.update_hash_db()
 

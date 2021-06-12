@@ -20,43 +20,58 @@ class Db(object):
 
     """A class for interacting with the JSON files created by Elodie."""
 
-    def __init__(self):
+    def __init__(self, target_dir):
         # verify that the application directory (~/.elodie) exists,
         #   else create it
-        if not os.path.exists(constants.application_directory):
-            os.makedirs(constants.application_directory)
+        # if not os.path.exists(constants.application_directory):
+        #     os.makedirs(constants.application_directory)
 
-        # If the hash db doesn't exist we create it.
-        # Otherwise we only open for reading
-        if not os.path.isfile(constants.hash_db):
-            with open(constants.hash_db, 'a'):
-                os.utime(constants.hash_db, None)
+        # Create dir for target database
+        dirname = os.path.join(target_dir, '.elodie')
+        # Legacy dir
+        # dirname = constants.application_directory
+
+        if not os.path.exists(dirname):
+            try:
+                os.makedirs(dirname)
+            except OSError:
+                pass
+
+        # self.hash_db = constants.hash_db
+        self.hash_db_file = os.path.join(dirname, constants.hash_db)
+        self.check_db(self.hash_db_file)
 
         self.hash_db = {}
 
         # We know from above that this file exists so we open it
         #   for reading only.
-        with open(constants.hash_db, 'r') as f:
+        with open(self.hash_db_file, 'r') as f:
             try:
                 self.hash_db = json.load(f)
             except ValueError:
                 pass
 
-        # If the location db doesn't exist we create it.
-        # Otherwise we only open for reading
-        if not os.path.isfile(constants.location_db):
-            with open(constants.location_db, 'a'):
-                os.utime(constants.location_db, None)
+        # self.location_db_file = constants.location_db
+        self.location_db_file = os.path.join(dirname, constants.location_db)
+        self.check_db(self.location_db_file)
 
         self.location_db = []
 
         # We know from above that this file exists so we open it
         #   for reading only.
-        with open(constants.location_db, 'r') as f:
+        with open(self.location_db_file, 'r') as f:
             try:
                 self.location_db = json.load(f)
             except ValueError:
                 pass
+
+    def check_db(self, db_file):
+        '''Load db from file'''
+        # If the hash db doesn't exist we create it.
+        # Otherwise we only open for reading
+        if not os.path.isfile(db_file):
+            with open(db_file, 'a'):
+                os.utime(db_file, None)
 
     def add_hash(self, key, value, write=False):
         """Add a hash to the hash db.
@@ -95,10 +110,11 @@ class Db(object):
 
     def backup_hash_db(self):
         """Backs up the hash db."""
-        if os.path.isfile(constants.hash_db):
+        # TODO 
+        if os.path.isfile(self.hash_db_file):
             mask = strftime('%Y-%m-%d_%H-%M-%S')
-            backup_file_name = '%s-%s' % (constants.hash_db, mask)
-            copyfile(constants.hash_db, backup_file_name)
+            backup_file_name = '%s-%s' % (self.hash_db_file, mask)
+            copyfile(self.hash_db_file, backup_file_name)
             return backup_file_name
 
     def check_hash(self, key):
@@ -196,10 +212,10 @@ class Db(object):
 
     def update_hash_db(self):
         """Write the hash db to disk."""
-        with open(constants.hash_db, 'w') as f:
+        with open(self.hash_db_file, 'w') as f:
             json.dump(self.hash_db, f)
 
     def update_location_db(self):
         """Write the location db to disk."""
-        with open(constants.location_db, 'w') as f:
+        with open(self.location_db_file, 'w') as f:
             json.dump(self.location_db, f)

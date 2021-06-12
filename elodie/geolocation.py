@@ -14,16 +14,14 @@ from geopy.geocoders import Nominatim
 from elodie.config import load_config
 from elodie import constants
 from elodie import log
-from elodie.localstorage import Db
 
 __KEY__ = None
 __DEFAULT_LOCATION__ = 'Unknown Location'
 __PREFER_ENGLISH_NAMES__ = None
 
 
-def coordinates_by_name(name):
+def coordinates_by_name(name, db):
     # Try to get cached location first
-    db = Db()
     cached_coordinates = db.get_location_coordinates(name)
     if(cached_coordinates is not None):
         return {
@@ -149,7 +147,7 @@ def get_prefer_english_names():
     __PREFER_ENGLISH_NAMES__ = bool(config['Geolocation']['prefer_english_names'])
     return __PREFER_ENGLISH_NAMES__
 
-def place_name(lat, lon):
+def place_name(lat, lon, db):
     lookup_place_name_default = {'default': __DEFAULT_LOCATION__}
     if(lat is None or lon is None):
         return lookup_place_name_default
@@ -161,7 +159,6 @@ def place_name(lat, lon):
         lon = float(lon)
 
     # Try to get cached location first
-    db = Db()
     # 3km distace radious for a match
     cached_place_name = db.get_location_name(lat, lon, 3000)
     # We check that it's a dict to coerce an upgrade of the location

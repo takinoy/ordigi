@@ -21,7 +21,7 @@ from elodie.compatability import _decode
 from elodie.config import load_config
 from elodie.filesystem import FileSystem
 from elodie.localstorage import Db
-from elodie.media.base import Base, get_all_subclasses
+from elodie.media.media import Media, get_all_subclasses
 from elodie.media.media import Media
 from elodie.media.audio import Audio
 from elodie.media.photo import Photo
@@ -34,7 +34,7 @@ from elodie import constants
 
 FILESYSTEM = FileSystem()
 
-def import_file(_file, destination, album_from_folder, trash, allow_duplicates):
+def import_file(_file, destination, db, album_from_folder, trash, allow_duplicates):
 
     """Set file metadata and move it to destination.
     """
@@ -56,7 +56,7 @@ def import_file(_file, destination, album_from_folder, trash, allow_duplicates):
         log.all('{"source":"%s", "error_msg":"Not a supported file"}' % _file)
         return
 
-    dest_path = FILESYSTEM.process_file(_file, destination,
+    dest_path = FILESYSTEM.process_file(_file, destination, db,
         media, album_from_folder, allowDuplicate=allow_duplicates, move=False)
     if dest_path:
         log.all('%s -> %s' % (_file, dest_path))
@@ -74,7 +74,7 @@ def _batch(debug):
     constants.debug = debug
     plugins = Plugins()
     plugins.run_batch()
-       
+
 
 @click.command('import')
 @click.option('--destination', type=click.Path(file_okay=False),
@@ -128,11 +128,18 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
             if not FILESYSTEM.should_exclude(path, exclude_regex_list, True):
                 files.add(path)
 
-    for current_file in files:
-        dest_path = import_file(current_file, destination, album_from_folder,
-                    trash, allow_duplicates)
-        result.append((current_file, dest_path))
-        has_errors = has_errors is True or not dest_path
+    # Initialize Db
+    if os.path.exists(destination):
+        db = Db(destination)
+
+        for current_file in files:
+            dest_path = import_file(current_file, destination, db,
+                    album_from_folder, trash, allow_duplicates)
+            result.append((current_file, dest_path))
+            has_errors = has_errors is True or not dest_path
+    else:
+        result.append((destination, False))
+        has_errors = True
 
     result.write()
 
@@ -144,7 +151,7 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
               required=True, help='Source of your photo library.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
-def _generate_db(source, debug):
+def _generate_db(path, debug):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files. The hash.json file is located at ~/.elodie/.
     """
     constants.debug = debug
@@ -154,8 +161,8 @@ def _generate_db(source, debug):
     if not os.path.isdir(source):
         log.error('Source is not a valid directory %s' % source)
         sys.exit(1)
-        
-    db = Db()
+
+    db = Db(path)
     db.backup_hash_db()
     db.reset_hash_db()
 
@@ -174,7 +181,7 @@ def _generate_db(source, debug):
 def _verify(debug):
     constants.debug = debug
     result = Result()
-    db = Db()
+    db = Db(path)
     for checksum, file_path in db.all():
         if not os.path.isfile(file_path):
             result.append((file_path, False))
@@ -193,10 +200,10 @@ def _verify(debug):
     result.write()
 
 
-def update_location(media, file_path, location_name):
+def update_location(media, file_path, location_name, db):
     """Update location exif metadata of media.
     """
-    location_coords = geolocation.coordinates_by_name(location_name)
+    location_coords = geolocation.coordinates_by_name(location_name, db)
 
     if location_coords and 'latitude' in location_coords and \
             'longitude' in location_coords:
@@ -223,7 +230,7 @@ def update_time(media, file_path, time_string):
         sys.exit(1)
 
     time = datetime.strptime(time_string, time_format)
-    media.set_date_original(time)
+    media.set_date_original(time, file_path)
     return True
 
 
@@ -277,13 +284,16 @@ def _update(album, location, time, title, paths, debug):
                           ).split(os.sep)[:destination_depth]
                       )
 
+        # Initialize Db
+        db = Db(destination)
+
         media = Media.get_class_by_file(current_file, get_all_subclasses())
         if not media:
             continue
 
         updated = False
         if location:
-            update_location(media, current_file, location)
+            update_location(media, current_file, location, db)
             updated = True
         if time:
             update_time(media, current_file, time)
@@ -325,7 +335,7 @@ def _update(album, location, time, title, paths, debug):
                 updated_media.set_metadata_basename(
                     original_base_name.replace('-%s' % original_title, ''))
 
-            dest_path = FILESYSTEM.process_file(current_file, destination,
+            dest_path = FILESYSTEM.process_file(current_file, destination, db,
                 updated_media, False, move=True, allowDuplicate=True)
             log.info(u'%s -> %s' % (current_file, dest_path))
             log.all('{"source":"%s", "destination":"%s"}' % (current_file,

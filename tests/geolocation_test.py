@@ -131,7 +131,8 @@ def test_place_name_deprecated_string_cached():
 [{"lat": 37.3667027222222, "long": -122.033383611111, "name": "OLDVALUE"}]
 """
     )
-    place_name = geolocation.place_name(37.3667027222222, -122.033383611111)
+    place_name = geolocation.place_name(37.3667027222222, -122.033383611111,
+            db)
     helper.restore_dbs()
 
     assert place_name['city'] == 'Sunnyvale', place_name
@@ -144,7 +145,8 @@ def test_place_name_cached():
 [{"lat": 37.3667027222222, "long": -122.033383611111, "name": {"city": "UNITTEST"}}]
 """
     )
-    place_name = geolocation.place_name(37.3667027222222, -122.033383611111)
+    place_name = geolocation.place_name(37.3667027222222, -122.033383611111,
+            db)
     helper.restore_dbs()
 
     assert place_name['city'] == 'UNITTEST', place_name
@@ -152,7 +154,7 @@ def test_place_name_cached():
 def test_place_name_no_default():
     # See gh-160 for backwards compatability needed when a string is stored instead of a dict
     helper.reset_dbs()
-    place_name = geolocation.place_name(123456.000, 123456.000)
+    place_name = geolocation.place_name(123456.000, 123456.000, db)
     helper.restore_dbs()
 
     assert place_name['default'] == 'Unknown Location', place_name
