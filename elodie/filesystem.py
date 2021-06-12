@@ -615,14 +615,8 @@ class FileSystem(object):
                 ))
         return checksum
 
-    def process_file(self, _file, destination, db, media, album_from_folder, **kwargs):
-        move = False
-        if('move' in kwargs):
-            if kwargs['move']:
-                action = 'move'
-            else:
-                action = 'copy'
-
+    def process_file(self, _file, destination, db, media, album_from_folder,
+            action, **kwargs):
         allow_duplicate = False
         if('allowDuplicate' in kwargs):
             allow_duplicate = kwargs['allowDuplicate']
@@ -675,7 +669,7 @@ class FileSystem(object):
         elif action == 'copy':
             shutil.copy2(_file, dest_path)
 
-        if action != 'dry-run':
+        if action != 'dry_run':
             # Set the utime based on what the original file contained 
             #  before we made any changes.
             # Then set the utime on the destination file based on metadata.

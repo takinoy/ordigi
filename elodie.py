@@ -34,7 +34,7 @@ from elodie import constants
 
 FILESYSTEM = FileSystem()
 
-def import_file(_file, destination, db, album_from_folder, trash, allow_duplicates):
+def import_file(_file, destination, db, album_from_folder, action, trash, allow_duplicates):
 
     """Set file metadata and move it to destination.
     """
@@ -57,7 +57,7 @@ def import_file(_file, destination, db, album_from_folder, trash, allow_duplicat
         return
 
     dest_path = FILESYSTEM.process_file(_file, destination, db,
-        media, album_from_folder, allowDuplicate=allow_duplicates, move=False)
+        media, album_from_folder, action, allowDuplicate=allow_duplicates)
     if dest_path:
         log.all('%s -> %s' % (_file, dest_path))
     if trash:
@@ -91,12 +91,20 @@ def _batch(debug):
               help='Import the file even if it\'s already been imported.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Dry run only, no change made to the filesystem.')
 @click.option('--exclude-regex', default=set(), multiple=True,
               help='Regular expression for directories or files to exclude.')
 @click.argument('paths', nargs=-1, type=click.Path())
-def _import(destination, source, file, album_from_folder, trash, allow_duplicates, debug, exclude_regex, paths):
+def _import(destination, source, file, album_from_folder, trash,
+        allow_duplicates, debug, dry_run, exclude_regex, paths):
     """Import files or directories by reading their EXIF and organizing them accordingly.
     """
+    if dry_run:
+        action = 'dry_run'
+    else:
+        action = 'copy'
+
     constants.debug = debug
     has_errors = False
     result = Result()
@@ -134,7 +142,7 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
 
         for current_file in files:
             dest_path = import_file(current_file, destination, db,
-                    album_from_folder, trash, allow_duplicates)
+                    album_from_folder, action, trash, allow_duplicates)
             result.append((current_file, dest_path))
             has_errors = has_errors is True or not dest_path
     else:
@@ -336,7 +344,7 @@ def _update(album, location, time, title, paths, debug):
                     original_base_name.replace('-%s' % original_title, ''))
 
             dest_path = FILESYSTEM.process_file(current_file, destination, db,
-                updated_media, False, move=True, allowDuplicate=True)
+                updated_media, False, action='move', allowDuplicate=True)
             log.info(u'%s -> %s' % (current_file, dest_path))
             log.all('{"source":"%s", "destination":"%s"}' % (current_file,
                                                                dest_path))
