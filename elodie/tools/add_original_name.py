@@ -12,7 +12,6 @@ from elodie.filesystem import FileSystem
 from elodie.localstorage import Db
 from elodie.media.base import Base, get_all_subclasses
 from elodie.media.media import Media
-from elodie.media.text import Text
 from elodie.media.audio import Audio
 from elodie.media.photo import Photo
 from elodie.media.video import Video

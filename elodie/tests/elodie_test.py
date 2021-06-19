@@ -21,7 +21,6 @@ from elodie.config import load_config
 from elodie.localstorage import Db
 from elodie.media.audio import Audio
 from elodie.media.photo import Photo
-from elodie.media.text import Text
 from elodie.media.video import Video
 from elodie.plugins.plugins import Plugins
 from elodie.plugins.googlephotos.googlephotos import GooglePhotos
@@ -460,31 +459,6 @@ def test_update_location_on_photo():
     assert helper.isclose(metadata_processed['latitude'], 37.36883), metadata_processed['latitude']
     assert helper.isclose(metadata_processed['longitude'], -122.03635), metadata_processed['longitude']
 
-def test_update_location_on_text():
-    temporary_folder, folder = helper.create_working_folder()
-    temporary_folder_destination, folder_destination = helper.create_working_folder()
-
-    origin = '%s/text.txt' % folder
-    shutil.copyfile(helper.get_file('text.txt'), origin)
-
-    text = Text(origin)
-    metadata = text.get_metadata()
-
-    helper.reset_dbs()
-    status = elodie.update_location(text, origin, 'Sunnyvale, CA')
-    helper.restore_dbs()
-
-    text_processed = Text(origin)
-    metadata_processed = text_processed.get_metadata()
-
-    shutil.rmtree(folder)
-    shutil.rmtree(folder_destination)
-
-    assert status == True, status
-    assert metadata['latitude'] != metadata_processed['latitude']
-    assert helper.isclose(metadata_processed['latitude'], 37.36883), metadata_processed['latitude']
-    assert helper.isclose(metadata_processed['longitude'], -122.03635), metadata_processed['longitude']
-
 def test_update_location_on_video():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
@@ -550,30 +524,6 @@ def test_update_time_on_photo():
 
     photo_processed = Photo(origin)
     metadata_processed = photo_processed.get_metadata()
-
-    shutil.rmtree(folder)
-    shutil.rmtree(folder_destination)
-
-    assert status == True, status
-    assert metadata['date_taken'] != metadata_processed['date_taken']
-    assert metadata_processed['date_taken'] == helper.time_convert((2000, 1, 1, 12, 0, 0, 5, 1, 0)), metadata_processed['date_taken']
-
-def test_update_time_on_text():
-    temporary_folder, folder = helper.create_working_folder()
-    temporary_folder_destination, folder_destination = helper.create_working_folder()
-
-    origin = '%s/text.txt' % folder
-    shutil.copyfile(helper.get_file('text.txt'), origin)
-
-    text = Text(origin)
-    metadata = text.get_metadata()
-
-    helper.reset_dbs()
-    status = elodie.update_time(text, origin, '2000-01-01 12:00:00')
-    helper.restore_dbs()
-
-    text_processed = Text(origin)
-    metadata_processed = text_processed.get_metadata()
 
     shutil.rmtree(folder)
     shutil.rmtree(folder_destination)

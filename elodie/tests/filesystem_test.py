@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirna
 from . import helper
 from elodie.config import load_config
 from elodie.filesystem import FileSystem
-from elodie.media.text import Text
 from elodie.media.media import Media
 from elodie.media.photo import Photo
 from elodie.media.video import Video

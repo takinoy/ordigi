@@ -17,7 +17,6 @@ import helper
 from elodie.media.base import Base, get_all_subclasses
 from elodie.media.media import Media
 from elodie.media.audio import Audio
-from elodie.media.text import Text
 from elodie.media.photo import Photo
 from elodie.media.video import Video
 
@@ -28,13 +27,13 @@ teardown_module = helper.teardown_module
 
 def test_get_all_subclasses():
     subclasses = get_all_subclasses(Base)
-    expected = {Media, Base, Text, Photo, Video, Audio}
+    expected = {Media, Base, Photo, Video, Audio}
     assert subclasses == expected, subclasses
 
 def test_get_class_by_file_without_extension():
     base_file = helper.get_file('withoutextension')
 
-    cls = Base.get_class_by_file(base_file, [Audio, Text, Photo, Video])
+    cls = Base.get_class_by_file(base_file, [Audio, Photo, Video])
     
     assert cls is None, cls
 

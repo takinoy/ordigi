@@ -3,8 +3,7 @@ The base module provides a base :class:`Base` class for all objects that
 are tracked by Elodie. The Base class provides some base functionality used
 by all the media types, but isn't itself used to represent anything. Its
 sub-classes (:class:`~elodie.media.audio.Audio`,
-:class:`~elodie.media.photo.Photo`, :class:`~elodie.media.video.Video`, and
-:class:`~elodie.media.text.Text`)
+:class:`~elodie.media.photo.Photo`, :class:`~elodie.media.video.Video`)
 are used to represent the actual files.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
