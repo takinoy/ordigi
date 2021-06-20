@@ -25,7 +25,7 @@ class Photo(Media):
     extensions = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
 
     def __init__(self, source=None):
-        super(Photo, self).__init__(source)
+        super().__init__(source)
 
         # We only want to parse EXIF once so we store it here
         self.exif = None
@@ -79,5 +79,5 @@ class Photo(Media):
 
                     if(im.format is None):
                         return False
-        
+
         return extension in self.extensions

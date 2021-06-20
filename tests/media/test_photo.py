@@ -10,7 +10,6 @@ import time
 
 from nose.plugins.skip import SkipTest
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))))
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
 import helper
@@ -122,8 +121,8 @@ def test_get_coordinates_with_null_coordinate():
     assert longitude is None, longitude
 
 def test_get_date_original():
-    media = Media(helper.get_file('plain.jpg'))
-    date_original = media.get_date_attribute(['EXIF:DateTimeOriginal'])
+    photo = Photo(helper.get_file('plain.jpg'))
+    date_original = photo.get_date_attribute(['EXIF:DateTimeOriginal'])
 
     #assert date_original == (2015, 12, 5, 0, 59, 26, 5, 339, 0), date_original
     assert date_original == datetime(2015, 12, 5, 0, 59, 26), date_original
@@ -174,12 +173,12 @@ def test_set_album():
 
     assert metadata['album'] is None, metadata['album']
 
-    status = photo.set_album('Test Album')
+    status = photo.set_album('Test Album', origin)
 
     assert status == True, status
 
     photo_new = Photo(origin)
-    metadata_new = photo_new.get_metadata()
+    metadata_new = photo_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
@@ -193,14 +192,14 @@ def test_set_date_original_with_missing_datetimeoriginal():
     origin = '%s/photo.jpg' % folder
     shutil.copyfile(helper.get_file('no-exif.jpg'), origin)
 
-    media = Media(origin)
+    photo = Photo(origin)
     time = datetime(2013, 9, 30, 7, 6, 5)
-    status = media.set_date_original(time)
+    status = photo.set_date_original(time)
 
     assert status == True, status
 
     photo_new = Photo(origin)
-    metadata = photo_new.get_metadata()
+    metadata = photo_new.get_metadata(update_cache=True)
 
     date_original = metadata['date_original']
 
@@ -216,13 +215,13 @@ def test_set_date_original():
     origin = '%s/photo.jpg' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin)
 
-    media = Media(origin)
-    status = media.set_date_original(datetime(2013, 9, 30, 7, 6, 5))
+    photo = Photo(origin)
+    status = photo.set_date_original(datetime(2013, 9, 30, 7, 6, 5))
 
     assert status == True, status
 
-    media_new = Media(origin)
-    metadata = media_new.get_metadata()
+    photo_new = Photo(origin)
+    metadata = photo_new.get_metadata(update_cache=True)
 
     date_original = metadata['date_original']
 
@@ -250,7 +249,7 @@ def test_set_location():
     assert status == True, status
 
     photo_new = Photo(origin)
-    metadata = photo_new.get_metadata()
+    metadata = photo_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
@@ -276,7 +275,7 @@ def test_set_location_minus():
     assert status == True, status
 
     photo_new = Photo(origin)
-    metadata = photo_new.get_metadata()
+    metadata = photo_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
@@ -297,7 +296,7 @@ def test_set_title():
     assert status == True, status
 
     photo_new = Photo(origin)
-    metadata = photo_new.get_metadata()
+    metadata = photo_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
@@ -318,7 +317,7 @@ def test_set_title_non_ascii():
     assert status == True, status
 
     photo_new = Photo(origin)
-    metadata = photo_new.get_metadata()
+    metadata = photo_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
@@ -395,7 +394,7 @@ def _test_photo_type_set(type, date):
     assert status == True, status
 
     photo_new = Photo(origin)
-    metadata = photo_new.get_metadata()
+    metadata = photo_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 

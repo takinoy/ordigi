@@ -1,14 +1,14 @@
 """
 The media module provides a base :class:`Media` class for media objects that
 are tracked by Elodie. The Media class provides some base functionality used
-by all the media types, but isn't itself used to represent anything. Its
-sub-classes (:class:`~elodie.media.audio.Audio`,
-:class:`~elodie.media.photo.Photo`, and :class:`~elodie.media.video.Video`)
+by all the media types. Its sub-classes (:class:`~elodie.media.Audio`,
+:class:`~elodie.media.Photo`, and :class:`~elodie.media.Video`)
 are used to represent the actual files.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
 
+import mimetypes
 import os
 import six
 
@@ -17,11 +17,17 @@ from elodie import log
 from dateutil.parser import parse
 import re
 from elodie.external.pyexiftool import ExifTool
-from elodie.media.base import Base
 
-class Media(Base):
+# TODO remove
+# try:        # Py3k compatibility
+#     basestring
+# except NameError:
+#     basestring = (bytes, str)
 
-    """The base class for all media objects.
+
+class Media():
+
+    """The media class for all media objects.
 
     :param str source: The fully qualified path to the video file.
     """
@@ -33,22 +39,220 @@ class Media(Base):
         'longitude': 'longitude_ref'
     }
 
-    def __init__(self, source=None):
-        super(Media, self).__init__(source)
-        self.date_original = ['EXIF:DateTimeOriginal']
-        self.date_created = ['EXIF:CreateDate', 'QuickTime:CreateDate']
+    PHOTO = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
+    AUDIO = ('m4a',)
+    VIDEO = ('avi', 'm4v', 'mov', 'mp4', 'mpg', 'mpeg', '3gp', 'mts')
+
+    extensions = PHOTO + AUDIO + VIDEO
+
+
+    def __init__(self, sources=None):
+        self.source = sources
+        self.reset_cache()
+        self.date_original = [
+            'EXIF:DateTimeOriginal',
+            'H264:DateTimeOriginal',
+            'QuickTime:ContentCreateDate'
+        ]
+        self.date_created = [
+            'EXIF:CreateDate',
+            'QuickTime:CreationDate',
+            'QuickTime:CreateDate',
+            'QuickTime:CreationDate-und-US',
+            'QuickTime:MediaCreateDate'
+        ]
         self.date_modified = ['File:FileModifyDate', 'QuickTime:ModifyDate']
         self.camera_make_keys = ['EXIF:Make', 'QuickTime:Make']
         self.camera_model_keys = ['EXIF:Model', 'QuickTime:Model']
         self.album_keys = ['XMP-xmpDM:Album', 'XMP:Album']
-        self.title_key = 'XMP:Title'
-        self.latitude_keys = ['EXIF:GPSLatitude']
-        self.longitude_keys = ['EXIF:GPSLongitude']
+        self.title_keys = ['XMP:Title', 'XMP:DisplayName']
+        self.latitude_keys = [
+            'EXIF:GPSLatitude',
+            'XMP:GPSLatitude',
+            # 'QuickTime:GPSLatitude',
+            'Composite:GPSLatitude'
+        ]
+        self.longitude_keys = [
+            'EXIF:GPSLongitude',
+            'XMP:GPSLongitude',
+            # 'QuickTime:GPSLongitude',
+            'Composite:GPSLongitude'
+        ]
         self.latitude_ref_key = 'EXIF:GPSLatitudeRef'
         self.longitude_ref_key = 'EXIF:GPSLongitudeRef'
         self.original_name_key = 'XMP:OriginalFileName'
         self.set_gps_ref = True
+        self.metadata = None
         self.exif_metadata = None
+
+
+    def format_metadata(self, **kwargs):
+        """Method to consistently return a populated metadata dictionary.
+
+        :returns: dict
+        """
+
+    def get_file_path(self):
+        """Get the full path to the video.
+
+        :returns: string
+        """
+        return self.source
+
+
+    def get_extension(self):
+        """Get the file extension as a lowercased string.
+
+        :returns: string or None for a non-video
+        """
+        if(not self.is_valid()):
+            return None
+
+        source = self.source
+        return os.path.splitext(source)[1][1:].lower()
+
+
+    def get_metadata(self, update_cache=False, album_from_folder=False):
+        """Get a dictionary of metadata for any file.
+
+        All keys will be present and have a value of None if not obtained.
+
+        :returns: dict or None for non-text files
+        """
+        if(not self.is_valid()):
+            return None
+
+        if(isinstance(self.metadata, dict) and update_cache is False):
+            return self.metadata
+
+        source = self.source
+        folder = os.path.basename(os.path.dirname(source))
+        album = self.get_album()
+        if album_from_folder and (album is None or album == ''):
+            album = folder
+
+        self.metadata = {
+            'date_original': self.get_date_attribute(self.date_original),
+            'date_created': self.get_date_attribute(self.date_created),
+            'date_modified': self.get_date_attribute(self.date_modified),
+            'camera_make': self.get_camera_make(),
+            'camera_model': self.get_camera_model(),
+            'latitude': self.get_coordinate('latitude'),
+            'longitude': self.get_coordinate('longitude'),
+            'album': album,
+            'title': self.get_title(),
+            'mime_type': self.get_mimetype(),
+            'original_name': self.get_original_name(),
+            'base_name': os.path.basename(os.path.splitext(source)[0]),
+            'extension': self.get_extension(),
+            'directory_path': os.path.dirname(source)
+        }
+
+        return self.metadata
+
+
+    def get_mimetype(self):
+        """Get the mimetype of the file.
+
+        :returns: str or None for unsupported files.
+        """
+        if(not self.is_valid()):
+            return None
+
+        source = self.source
+        mimetype = mimetypes.guess_type(source)
+        if(mimetype is None):
+            return None
+
+        return mimetype[0]
+
+
+    def is_valid(self):
+        """Check the file extension against valid file extensions.
+
+        The list of valid file extensions come from self.extensions.
+
+        :returns: bool
+        """
+        source = self.source
+        return os.path.splitext(source)[1][1:].lower() in self.extensions
+
+
+    def set_album_from_folder(self, path):
+        """Set the album attribute based on the leaf folder name
+
+        :returns: bool
+        """
+        metadata = self.get_metadata()
+
+        # If this file has an album already set we do not overwrite EXIF
+        if(not isinstance(metadata, dict) or metadata['album'] is not None):
+            return False
+
+        folder = os.path.basename(metadata['directory_path'])
+        # If folder is empty we skip
+        if(len(folder) == 0):
+            return False
+
+        status = self.set_album(folder, path)
+        if status == False:
+            return False
+        return True
+
+
+    def set_metadata_basename(self, new_basename):
+        """Update the basename attribute in the metadata dict for this instance.
+
+        This is used for when we update the EXIF title of a media file. Since
+        that determines the name of a file if we update the title of a file
+        more than once it appends to the file name.
+
+        i.e. 2015-12-31_00-00-00-my-first-title-my-second-title.jpg
+
+        :param str new_basename: New basename of file (with the old title
+            removed).
+        """
+        self.get_metadata()
+        self.metadata['base_name'] = new_basename
+
+
+    def set_metadata(self, **kwargs):
+        """Method to manually update attributes in metadata.
+
+        :params dict kwargs: Named parameters to update.
+        """
+        metadata = self.get_metadata()
+        for key in kwargs:
+            if(key in metadata):
+                self.metadata[key] = kwargs[key]
+
+
+    @classmethod
+    def get_class_by_file(cls, _file, classes):
+        """Static method to get a media object by file.
+        """
+        basestring = (bytes, str)
+        if not isinstance(_file, basestring) or not os.path.isfile(_file):
+            return None
+
+        extension = os.path.splitext(_file)[1][1:].lower()
+
+        if len(extension) > 0:
+            for i in classes:
+                if(extension in i.extensions):
+                    return i(_file)
+
+        return None
+
+
+    @classmethod
+    def get_valid_extensions(cls):
+        """Static method to access static extensions variable.
+
+        :returns: tuple(str)
+        """
+        return cls.extensions
+
 
     def get_album(self):
         """Get album from EXIF
@@ -67,6 +271,7 @@ class Media(Base):
                 return exiftool_attributes[album_key]
 
         return None
+
 
     def get_coordinate(self, type='latitude'):
         """Get latitude or longitude of media from EXIF
@@ -113,6 +318,7 @@ class Media(Base):
                 return this_coordinate * direction_multiplier
 
         return None
+
 
     def get_exiftool_attributes(self):
         """Get attributes for the media object from exiftool.
@@ -185,6 +391,7 @@ class Media(Base):
 
         return None
 
+
     def get_camera_model(self):
         """Get the camera make stored in EXIF.
 
@@ -204,6 +411,7 @@ class Media(Base):
 
         return None
 
+
     def get_original_name(self):
         """Get the original name stored in EXIF.
 
@@ -222,6 +430,7 @@ class Media(Base):
 
         return exiftool_attributes[self.original_name_key]
 
+
     def get_title(self):
         """Get the title for a photo of video
 
@@ -235,17 +444,19 @@ class Media(Base):
         if exiftool_attributes is None:
             return None
 
-        if(self.title_key not in exiftool_attributes):
-            return None
+        for title_key in self.title_keys:
+            if title_key in exiftool_attributes:
+                return exiftool_attributes[title_key]
 
-        return exiftool_attributes[self.title_key]
+        return None
+
 
     def reset_cache(self):
         """Resets any internal cache
         """
         self.exiftool_attributes = None
         self.exif_metadata = None
-        super(Media, self).reset_cache()
+
 
     def set_album(self, name, path):
         """Set album EXIF tag if not already set.
@@ -255,12 +466,16 @@ class Media(Base):
         if self.get_album() is not None:
             return None
 
-        tags = {self.album_keys[0]: name}
-        status = ExifTool().set_tags(tags, path)
+        tags = {}
+        for key in self.album_keys:
+            tags[key] = name
+        status = self.__set_tags(tags, path)
         self.reset_cache()
-        return status != ''
 
-    def set_date_original(self, time):
+        return status
+
+
+    def set_date_original(self, time, path):
         """Set the date/time a photo was taken.
 
         :param datetime time: datetime object of when the photo was taken
@@ -274,31 +489,39 @@ class Media(Base):
         for key in self.date_original:
             tags[key] = formatted_time
 
-        status = self.__set_tags(tags)
+        status = self.__set_tags(tags, path)
         if status == False:
             # exif attribute date_original d'ont exist
             for key in self.date_created:
                 tags[key] = formatted_time
 
-            status = self.__set_tags(tags)
+            status = self.__set_tags(tags, path)
         self.reset_cache()
         return status
 
-    def set_location(self, latitude, longitude):
+
+    def set_location(self, latitude, longitude, path):
         if(not self.is_valid()):
             return None
 
         # The lat/lon _keys array has an order of precedence.
         # The first key is writable and we will give the writable
         #   key precence when reading.
-        tags = {
-            self.latitude_keys[0]: latitude,
-            self.longitude_keys[0]: longitude,
-        }
+        # TODO check
+        # tags = {
+        #     self.latitude_keys[0]: latitude,
+        #     self.longitude_keys[0]: longitude,
+        # }
+        tags = {}
+        for key in self.latitude_keys:
+            tags[key] = latitude
+        for key in self.longitude_keys:
+            tags[key] = longitude
 
         # If self.set_gps_ref == True then it means we are writing an EXIF
         #   GPS tag which requires us to set the reference key.
         # That's because the lat/lon are absolute values.
+        # TODO set_gps_ref = False for Video ?
         if self.set_gps_ref:
             if latitude < 0:
                 tags[self.latitude_ref_key] = 'S'
@@ -306,12 +529,13 @@ class Media(Base):
             if longitude < 0:
                 tags[self.longitude_ref_key] = 'W'
 
-        status = self.__set_tags(tags)
+        status = self.__set_tags(tags, path)
         self.reset_cache()
 
         return status
 
-    def set_original_name(self, path):
+
+    def set_original_name(self, path, name=None):
         """Sets the original name EXIF tag if not already set.
 
         :returns: True, False, None
@@ -320,14 +544,17 @@ class Media(Base):
         if self.get_original_name() is not None:
             return None
 
-        name = os.path.basename(path)
+        if name == None:
+            name = os.path.basename(self.source)
 
         tags = {self.original_name_key: name}
-        status = ExifTool().set_tags(tags, path)
+        status = self.__set_tags(tags, path)
         self.reset_cache()
-        return status != ''
 
-    def set_title(self, title):
+        return status
+
+
+    def set_title(self, title, path):
         """Set title for a photo.
 
         :param str title: Title of the photo.
@@ -339,23 +566,43 @@ class Media(Base):
         if(title is None):
             return None
 
-        tags = {self.title_key: title}
-        status = self.__set_tags(tags)
+        tags = {}
+        for key in self.title_keys:
+            tags[key] = title
+        status = self.__set_tags(tags, path)
         self.reset_cache()
 
         return status
 
-    def __set_tags(self, tags):
+
+    def __set_tags(self, tags, path):
         if(not self.is_valid()):
             return None
 
-        source = self.source
-
         status = ''
-        status = ExifTool().set_tags(tags,source)
+        status = ExifTool().set_tags(tags, path)
         if status.decode().find('unchanged') != -1 or status == '':
             return False
         if status.decode().find('error') != -1:
             return False
 
         return True
+
+
+def get_all_subclasses(cls=None):
+    """Module method to get all subclasses of Media.
+    """
+    subclasses = set()
+
+    this_class = Media
+    if cls is not None:
+        this_class = cls
+
+    subclasses.add(this_class)
+
+    this_class_subclasses = this_class.__subclasses__()
+    for child_class in this_class_subclasses:
+        subclasses.update(get_all_subclasses(child_class))
+
+    return subclasses
+

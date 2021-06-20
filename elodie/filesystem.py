@@ -17,7 +17,7 @@ from elodie.config import load_config
 from elodie import constants
 
 from elodie.localstorage import Db
-from elodie.media import base
+from elodie.media import media
 from elodie.plugins.plugins import Plugins
 
 class FileSystem(object):
@@ -94,7 +94,7 @@ class FileSystem(object):
         # If extensions is None then we get all supported extensions
         if not extensions:
             extensions = set()
-            subclasses = base.get_all_subclasses()
+            subclasses = media.get_all_subclasses()
             for cls in subclasses:
                 extensions.update(cls.extensions)
 
@@ -679,7 +679,9 @@ class FileSystem(object):
             if album_from_folder:
                 media.set_album_from_folder(dest_path)
 
-        db.add_hash(checksum, dest_path)
+        # get checksum of dest file
+        dest_checksum = db.checksum(dest_path)
+        db.add_hash(dest_checksum, dest_path)
         db.update_hash_db()
 
         # Run `after()` for every loaded plugin and if any of them raise an exception

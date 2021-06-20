@@ -155,8 +155,8 @@ def _import(destination, source, file, album_from_folder, trash,
         sys.exit(1)
 
 @click.command('generate-db')
-@click.option('--source', type=click.Path(file_okay=False),
-              required=True, help='Source of your photo library.')
+@click.option('--path', type=click.Path(file_okay=False),
+              required=True, help='Path of your photo library.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
 def _generate_db(path, debug):
@@ -164,29 +164,31 @@ def _generate_db(path, debug):
     """
     constants.debug = debug
     result = Result()
-    source = os.path.abspath(os.path.expanduser(source))
+    path = os.path.abspath(os.path.expanduser(path))
 
-    if not os.path.isdir(source):
-        log.error('Source is not a valid directory %s' % source)
+    if not os.path.isdir(path):
+        log.error('path is not a valid directory %s' % path)
         sys.exit(1)
 
     db = Db(path)
     db.backup_hash_db()
     db.reset_hash_db()
 
-    for current_file in FILESYSTEM.get_all_files(source):
+    for current_file in FILESYSTEM.get_all_files(path):
         result.append((current_file, True))
         db.add_hash(db.checksum(current_file), current_file)
         log.progress()
-    
+
     db.update_hash_db()
     log.progress('', True)
     result.write()
 
 @click.command('verify')
+@click.option('--path', type=click.Path(file_okay=False),
+              required=True, help='Path of your photo library.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
-def _verify(debug):
+def _verify(path, debug):
     constants.debug = debug
     result = Result()
     db = Db(path)
@@ -216,7 +218,7 @@ def update_location(media, file_path, location_name, db):
     if location_coords and 'latitude' in location_coords and \
             'longitude' in location_coords:
         location_status = media.set_location(location_coords[
-            'latitude'], location_coords['longitude'])
+            'latitude'], location_coords['longitude'], file_path)
         if not location_status:
             log.error('Failed to update location')
             log.all(('{"source":"%s",' % file_path,
@@ -307,7 +309,7 @@ def _update(album, location, time, title, paths, debug):
             update_time(media, current_file, time)
             updated = True
         if album:
-            media.set_album(album)
+            media.set_album(album, current_file)
             updated = True
 
         import ipdb; ipdb.set_trace()

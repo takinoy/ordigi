@@ -9,7 +9,6 @@ import time
 from datetime import datetime
 from dateutil.parser import parse
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))))
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
 import helper
@@ -102,7 +101,7 @@ def test_set_album():
 
     assert metadata['album'] is None, metadata['album']
 
-    status = video.set_album('Test Album')
+    status = video.set_album('Test Album', origin)
 
     assert status == True, status
 

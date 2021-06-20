@@ -1,15 +1,15 @@
 """
 The audio module contains classes specifically for dealing with audio files.
-The :class:`Audio` class inherits from the :class:`~elodie.media.video.Video`
+The :class:`Audio` class inherits from the :class:`~elodie.media.Media`
 class.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
 
-from .video import Video
+from .media import Media
 
 
-class Audio(Video):
+class Audio(Media):
 
     """An audio object.
 
@@ -22,4 +22,7 @@ class Audio(Video):
     extensions = ('m4a',)
 
     def __init__(self, source=None):
-        super(Audio, self).__init__(source)
+        super().__init__(source)
+
+    def is_valid(self):
+        return super().is_valid()

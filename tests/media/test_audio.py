@@ -8,7 +8,6 @@ import tempfile
 import time
 from datetime import datetime
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))))
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
 import helper
@@ -100,16 +99,16 @@ def test_set_date_original():
     origin = '%s/audio.m4a' % folder
     shutil.copyfile(helper.get_file('audio.m4a'), origin)
 
-    media = Media(origin)
+    audio = Audio(origin)
     date = datetime(2013, 9, 30, 7, 6, 5)
-    status = media.set_date_original(date)
+    status = audio.set_date_original(date)
 
     assert status == True, status
 
     audio_new = Audio(origin)
-    metadata = audio_new.get_metadata()
+    metadata = audio_new.get_metadata(update_cache=True)
 
-    date_original = metadata['date_created']
+    date_original = metadata['date_original']
 
     shutil.rmtree(folder)
 
@@ -134,7 +133,7 @@ def test_set_location():
     assert status == True, status
 
     audio_new = Audio(origin)
-    metadata = audio_new.get_metadata()
+    metadata = audio_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
@@ -160,7 +159,7 @@ def test_set_location_minus():
     assert status == True, status
 
     audio_new = Audio(origin)
-    metadata = audio_new.get_metadata()
+    metadata = audio_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
@@ -202,7 +201,7 @@ def test_set_title_non_ascii():
     assert status == True, status
 
     audio_new = Audio(origin)
-    metadata = audio_new.get_metadata()
+    metadata = audio_new.get_metadata(update_cache=True)
 
     shutil.rmtree(folder)
 
