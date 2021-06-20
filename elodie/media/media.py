@@ -37,8 +37,8 @@ class Media(Base):
     def __init__(self, source=None):
         super(Media, self).__init__(source)
         self.date_original = ['EXIF:DateTimeOriginal']
-        self.date_created = ['EXIF:CreateDate']
-        self.date_modified = ['File:FileModifyDate']
+        self.date_created = ['EXIF:CreateDate', 'QuickTime:CreateDate']
+        self.date_modified = ['File:FileModifyDate', 'QuickTime:ModifyDate']
         self.camera_make_keys = ['EXIF:Make', 'QuickTime:Make']
         self.camera_model_keys = ['EXIF:Model', 'QuickTime:Model']
         self.album_keys = ['XMP-xmpDM:Album', 'XMP:Album']
@@ -278,6 +278,12 @@ class Media(Base):
             tags[key] = formatted_time
 
         status = self.__set_tags(tags)
+        if status == False:
+            # exif attribute date_original d'ont exist
+            for key in self.date_created:
+                tags[key] = formatted_time
+
+            status = self.__set_tags(tags)
         self.reset_cache()
         return status
 
@@ -356,5 +362,9 @@ class Media(Base):
 
         status = ''
         status = ExifTool().set_tags(tags,source)
+        if status.decode().find('unchanged') != -1 or status == '':
+            return False
+        if status.decode().find('error') != -1:
+            return False
 
-        return status != ''
+        return True

@@ -300,6 +300,7 @@ def _update(album, location, time, title, paths, debug):
             media.set_album(album)
             updated = True
 
+        import ipdb; ipdb.set_trace()
         # Updating a title can be problematic when doing it 2+ times on a file.
         # You would end up with img_001.jpg -> img_001-first-title.jpg ->
         # img_001-first-title-second-title.jpg.

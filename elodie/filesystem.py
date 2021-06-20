@@ -483,6 +483,7 @@ class FileSystem(object):
             # If Directory is in the config we assume full_path and its
             #  corresponding values (date, location) are also present
             config_directory = self.default_folder_path_definition
+            config = load_config(constants.CONFIG_FILE)
             if('Directory' in config):
                 config_directory = config['Directory']
             # Get date mask from config

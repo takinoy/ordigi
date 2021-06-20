@@ -34,7 +34,8 @@ class Video(Media):
         super(Video, self).__init__(source)
         self.date_original = [
             'EXIF:DateTimeOriginal',
-            'H264:DateTimeOriginal'
+            'H264:DateTimeOriginal',
+            'QuickTime:ContentCreateDate'
         ]
         self.date_created = [
             'EXIF:CreateDate',

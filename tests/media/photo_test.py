@@ -58,7 +58,7 @@ def test_is_valid():
     assert photo.is_valid()
 
 def test_is_not_valid():
-    photo = Photo(helper.get_file('text.txt'))
+    photo = Photo(helper.get_file('video.mov'))
 
     assert not photo.is_valid()
 
@@ -124,10 +124,10 @@ def test_get_coordinates_with_null_coordinate():
 
 def test_get_date_original():
     media = Media(helper.get_file('plain.jpg'))
-    date_original = media.get_date_attribute('date_original')
+    date_original = media.get_date_attribute(['EXIF:DateTimeOriginal'])
 
     #assert date_original == (2015, 12, 5, 0, 59, 26, 5, 339, 0), date_original
-    assert date_original == helper.time_convert((2015, 12, 5, 0, 59, 26, 5, 339, 0)), date_original
+    assert date_original == datetime(2015, 12, 5, 0, 59, 26), date_original
 
 def test_get_camera_make():
     photo = Photo(helper.get_file('with-location.jpg'))
@@ -152,16 +152,6 @@ def test_get_camera_model_not_set():
     model = photo.get_camera_model()
 
     assert model is None, model
-
-def test_is_valid():
-    photo = Photo(helper.get_file('with-location.jpg'))
-
-    assert photo.is_valid()
-
-def test_is_not_valid():
-    photo = Photo(helper.get_file('text.txt'))
-
-    assert not photo.is_valid()
 
 def test_is_valid_fallback_using_pillow():
     photo = Photo(helper.get_file('imghdr-error.jpg'))
@@ -205,7 +195,8 @@ def test_set_date_original_with_missing_datetimeoriginal():
     shutil.copyfile(helper.get_file('no-exif.jpg'), origin)
 
     media = Media(origin)
-    status = media.set_date_original(datetime.now())
+    time = datetime(2013, 9, 30, 7, 6, 5)
+    status = media.set_date_original(time)
 
     assert status == True, status
 
@@ -218,7 +209,7 @@ def test_set_date_original_with_missing_datetimeoriginal():
 
     #assert date_original == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_original']
     # assert date_original == helper.time_convert((2013, 9, 30, 7, 6, 5, 0, 273, 0)), metadata['date_original']
-    assert date_original == datetime.now(), metadata['date_original']
+    assert date_original == time, metadata['date_original']
 
 def test_set_date_original():
     temporary_folder, folder = helper.create_working_folder()
@@ -231,15 +222,15 @@ def test_set_date_original():
 
     assert status == True, status
 
-    photo_new = Photo(origin)
-    metadata = photo_new.get_metadata()
+    media_new = Media(origin)
+    metadata = media_new.get_metadata()
 
     date_original = metadata['date_original']
 
     shutil.rmtree(folder)
 
     #assert date_original == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_original']
-    assert date_original == helper.time_convert((2013, 9, 30, 7, 6, 5, 0, 273, 0)), metadata['date_original']
+    assert date_original == datetime(2013, 9, 30, 7, 6, 5), metadata['date_original']
 
 def test_set_location():
     temporary_folder, folder = helper.create_working_folder()
@@ -343,13 +334,13 @@ def test_various_types():
     types = Photo.extensions
     #extensions = ('arw', 'cr2', 'dng', 'gif', 'jpeg', 'jpg', 'nef', 'rw2')
     dates = {
-        'arw': (2007, 4, 8, 17, 41, 18, 6, 98, 0),
-        'cr2': (2005, 10, 29, 16, 14, 44, 5, 302, 0),
-        'dng': (2009, 10, 20, 9, 10, 46, 1, 293, 0),
-        'heic': (2019, 5, 26, 10, 33, 20, 6, 146, 0),
-        'nef': (2008, 10, 24, 9, 12, 56, 4, 298, 0),
-        'png': (2015, 1, 18, 12, 1, 1, 6, 18, 0),
-        'rw2': (2014, 11, 19, 23, 7, 44, 2, 323, 0)
+        'arw': datetime(2007, 4, 8, 17, 41, 18),
+        'cr2': datetime(2005, 10, 29, 16, 14, 44),
+        'dng': datetime(2009, 10, 20, 9, 10, 46),
+        'heic': datetime(2019, 5, 26, 10, 33, 20),
+        'nef': datetime(2008, 10, 24, 9, 12, 56),
+        'png': datetime(2015, 1, 18, 12, 1, 1),
+        'rw2': datetime(2014, 11, 19, 23, 7, 44)
     }
 
     for type in types:
@@ -367,7 +358,7 @@ def _test_photo_type_get(type, date):
     if not photo_file:
         photo_file = helper.download_file(photo_name, folder)
         if not photo_file or not os.path.isfile(photo_file):
-            raise SkipTest('{} file not downlaoded'.format(type))
+            raise SkipTest('{} file not downloaded'.format(type))
 
         # downloading for each test is costly so we save it in the working directory
         file_path_save_as = helper.get_file_path(photo_name)
@@ -381,7 +372,7 @@ def _test_photo_type_get(type, date):
 
     shutil.rmtree(folder)
 
-    assert metadata['date_original'] == helper.time_convert(date), '{} date {}'.format(type, metadata['date_original'])
+    assert metadata['date_original'] == date, metadata['date_original']
 
 def _test_photo_type_set(type, date):
     temporary_folder, folder = helper.create_working_folder()
@@ -393,7 +384,7 @@ def _test_photo_type_set(type, date):
     if not photo_file:
         photo_file = helper.download_file(photo_name, folder)
         if not photo_file or not os.path.isfile(photo_file):
-            raise SkipTest('{} file not downlaoded'.format(type))
+            raise SkipTest('{} file not downloaded'.format(type))
 
     shutil.copyfile(photo_file, origin)
 
@@ -409,6 +400,6 @@ def _test_photo_type_set(type, date):
 
     shutil.rmtree(folder)
 
-    assert metadata['date_original'] == helper.time_convert(date), '{} date {}'.format(type, metadata['date_original'])
+    assert metadata['date_original'] == date, metadata['date_original']
     assert helper.isclose(metadata['latitude'], 11.1111111111), '{} lat {}'.format(type, metadata['latitude'])
     assert helper.isclose(metadata['longitude'], 99.9999999999), '{} lon {}'.format(type, metadata['latitude'])

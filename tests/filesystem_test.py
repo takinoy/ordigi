@@ -1091,12 +1091,14 @@ def test_set_utime_with_exif_date():
 
     initial_stat = os.stat(origin)
     initial_time = int(min(initial_stat.st_mtime, initial_stat.st_ctime))
+    initial_time = datetime.fromtimestamp(initial_time)
     initial_checksum = helper.checksum(origin)
 
-    assert initial_time != time.mktime(metadata_initial['date_taken'])
+    assert initial_time != metadata_initial['date_original']
 
-    filesystem.set_utime_from_metadata(media_initial.get_metadata(), media_initial.get_file_path())
+    filesystem.set_utime_from_metadata(metadata_initial['date_original'], media_initial.get_file_path())
     final_stat = os.stat(origin)
+    final_time = datetime.fromtimestamp(final_stat.st_mtime)
     final_checksum = helper.checksum(origin)
 
     media_final = Photo(origin)
@@ -1105,7 +1107,7 @@ def test_set_utime_with_exif_date():
     shutil.rmtree(folder)
 
     assert initial_stat.st_mtime != final_stat.st_mtime
-    assert final_stat.st_mtime == time.mktime(metadata_final['date_taken'])
+    assert final_time == metadata_final['date_original']
     assert initial_checksum == final_checksum
 
 def test_set_utime_without_exif_date():
@@ -1120,12 +1122,14 @@ def test_set_utime_without_exif_date():
 
     initial_stat = os.stat(origin)
     initial_time = int(min(initial_stat.st_mtime, initial_stat.st_ctime))
+    initial_time = datetime.fromtimestamp(initial_time)
     initial_checksum = helper.checksum(origin)
 
-    assert initial_time == time.mktime(metadata_initial['date_taken'])
+    assert initial_time == metadata_initial['date_original']
 
-    filesystem.set_utime_from_metadata(media_initial.get_metadata(), media_initial.get_file_path())
+    filesystem.set_utime_from_metadata(metadata_initial['date_original'], media_initial.get_file_path())
     final_stat = os.stat(origin)
+    final_time = datetime.fromtimestamp(final_stat.st_mtime)
     final_checksum = helper.checksum(origin)
 
     media_final = Photo(origin)
@@ -1134,7 +1138,7 @@ def test_set_utime_without_exif_date():
     shutil.rmtree(folder)
 
     assert initial_time == final_stat.st_mtime
-    assert final_stat.st_mtime == time.mktime(metadata_final['date_taken']), (final_stat.st_mtime, time.mktime(metadata_final['date_taken']))
+    assert final_time == metadata_final['date_original'], (final_time, metadata_final['date_original'])
     assert initial_checksum == final_checksum
 
 def test_should_exclude_with_no_exclude_arg():

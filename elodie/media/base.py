@@ -27,7 +27,11 @@ class Base(object):
 
     __name__ = 'Base'
 
-    extensions = ()
+    PHOTO = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
+    AUDIO = ('m4a',)
+    VIDEO = ('avi', 'm4v', 'mov', 'mp4', 'mpg', 'mpeg', '3gp', 'mts')
+
+    extensions = PHOTO + AUDIO + VIDEO
 
     def __init__(self, source=None):
         self.source = source
@@ -176,7 +180,9 @@ class Base(object):
         if(len(folder) == 0):
             return False
 
-        self.set_album(folder)
+        status = self.set_album(folder)
+        if status == False:
+            return False
         return True
 
     def set_metadata_basename(self, new_basename):

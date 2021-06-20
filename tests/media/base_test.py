@@ -71,9 +71,8 @@ def test_set_album_from_folder_invalid_file():
 
     shutil.copyfile(base_file, origin)
 
-    base = Base(origin)
-
-    status = base.set_album_from_folder()
+    media = Media(origin)
+    status = media.set_album_from_folder()
 
     assert status == False, status
 

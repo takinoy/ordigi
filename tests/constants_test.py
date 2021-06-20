@@ -67,11 +67,11 @@ def test_location_db():
     assert constants.location_db == '{}/location.json'.format(constants.application_directory), constants.location_db
 
 def test_script_directory():
-    path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    path = os.path.dirname(os.path.dirname(__file__))
     assert path == constants.script_directory, constants.script_directory
 
 def test_exiftool_config():
-    path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    path = constants.script_directory
     assert '{}/configs/ExifTool_config'.format(path) == constants.exiftool_config, constants.exiftool_config
 
 def test_mapquest_base_url_default():

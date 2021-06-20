@@ -11,11 +11,10 @@ from nose.tools import assert_raises
 from six import text_type, unichr as six_unichr
 from tempfile import gettempdir
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))))
+# sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
 
 import helper
-elodie = load_source('elodie', os.path.abspath('{}/../../elodie.py'.format(os.path.dirname(os.path.realpath(__file__)))))
+elodie = load_source('elodie', os.path.abspath('{}/../elodie.py'.format(os.path.dirname(os.path.realpath(__file__)))))
 
 from elodie.config import load_config
 from elodie.localstorage import Db
@@ -26,22 +25,6 @@ from elodie.plugins.plugins import Plugins
 from elodie.plugins.googlephotos.googlephotos import GooglePhotos
 
 os.environ['TZ'] = 'GMT'
-
-def test_import_file_text():
-    temporary_folder, folder = helper.create_working_folder()
-    temporary_folder_destination, folder_destination = helper.create_working_folder()
-
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
-
-    helper.reset_dbs()
-    dest_path = elodie.import_file(origin, folder_destination, False, False, False)
-    helper.restore_dbs()
-
-    shutil.rmtree(folder)
-    shutil.rmtree(folder_destination)
-
-    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London','2016-04-07_11-15-26-valid-sample-title.txt')) in dest_path, dest_path
 
 def test_import_file_audio():
     temporary_folder, folder = helper.create_working_folder()
@@ -95,11 +78,11 @@ def test_import_file_path_utf8_encoded_ascii_checkmark():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = text_type(folder)+u'/unicode\u2713filename.txt'
+    origin = text_type(folder)+u'/unicode\u2713filename.png'
     # encode the unicode string to ascii
     origin = origin.encode('utf-8')
 
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path = elodie.import_file(origin, folder_destination, False, False, False)
@@ -108,15 +91,15 @@ def test_import_file_path_utf8_encoded_ascii_checkmark():
     shutil.rmtree(folder)
     shutil.rmtree(folder_destination)
 
-    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\u2713filename-sample-title.txt')) in dest_path, dest_path
+    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\u2713filename-sample-title.png')) in dest_path, dest_path
 
 def test_import_file_path_unicode_checkmark():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = text_type(folder)+u'/unicode\u2713filename.txt'
+    origin = text_type(folder)+u'/unicode\u2713filename.png'
 
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path = elodie.import_file(origin, folder_destination, False, False, False)
@@ -125,17 +108,17 @@ def test_import_file_path_unicode_checkmark():
     shutil.rmtree(folder)
     shutil.rmtree(folder_destination)
 
-    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\u2713filename-sample-title.txt')) in dest_path, dest_path
+    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\u2713filename-sample-title.png')) in dest_path, dest_path
 
 def test_import_file_path_utf8_encoded_ascii_latin_nbsp():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = text_type(folder)+u'/unicode'+six_unichr(160)+u'filename.txt'
+    origin = text_type(folder)+u'/unicode'+six_unichr(160)+u'filename.png'
     # encode the unicode string to ascii
     origin = origin.encode('utf-8')
 
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path = elodie.import_file(origin, folder_destination, False, False, False)
@@ -144,15 +127,15 @@ def test_import_file_path_utf8_encoded_ascii_latin_nbsp():
     shutil.rmtree(folder)
     shutil.rmtree(folder_destination)
 
-    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\xa0filename-sample-title.txt')) in dest_path, dest_path
+    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\xa0filename-sample-title.png')) in dest_path, dest_path
 
 def test_import_file_path_unicode_latin_nbsp():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = text_type(folder)+u'/unicode'+six_unichr(160)+u'filename.txt'
+    origin = text_type(folder)+u'/unicode'+six_unichr(160)+u'filename.png'
 
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path = elodie.import_file(origin, folder_destination, False, False, False)
@@ -161,14 +144,14 @@ def test_import_file_path_unicode_latin_nbsp():
     shutil.rmtree(folder)
     shutil.rmtree(folder_destination)
 
-    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\xa0filename-sample-title.txt')) in dest_path, dest_path
+    assert helper.path_tz_fix(os.path.join('2016-04-Apr','London',u'2016-04-07_11-15-26-unicode\xa0filename-sample-title.png')) in dest_path, dest_path
     
 def test_import_file_allow_duplicate_false():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path1 = elodie.import_file(origin, folder_destination, False, False, False)
@@ -185,8 +168,8 @@ def test_import_file_allow_duplicate_true():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path1 = elodie.import_file(origin, folder_destination, False, False, True)
@@ -204,8 +187,8 @@ def test_import_file_send_to_trash_false():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path1 = elodie.import_file(origin, folder_destination, False, False, False)
@@ -223,8 +206,8 @@ def test_import_file_send_to_trash_true():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     dest_path1 = elodie.import_file(origin, folder_destination, False, True, False)
@@ -276,7 +259,7 @@ def test_import_invalid_file_exit_code():
     origin_invalid = '%s/invalid.jpg' % folder
     shutil.copyfile(helper.get_file('invalid.jpg'), origin_invalid)
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     helper.reset_dbs()
@@ -293,7 +276,7 @@ def test_import_file_with_single_exclude():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     runner = CliRunner()
@@ -306,7 +289,7 @@ def test_import_file_with_multiple_exclude():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     runner = CliRunner()
@@ -319,7 +302,7 @@ def test_import_file_with_non_matching_exclude():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     runner = CliRunner()
@@ -332,7 +315,7 @@ def test_import_directory_with_matching_exclude():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     runner = CliRunner()
@@ -345,7 +328,7 @@ def test_import_directory_with_non_matching_exclude():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     runner = CliRunner()
@@ -369,7 +352,7 @@ def test_import_file_with_single_config_exclude():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     runner = CliRunner()
@@ -397,7 +380,7 @@ def test_import_file_with_multiple_config_exclude():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     runner = CliRunner()
@@ -505,8 +488,8 @@ def test_update_time_on_audio():
     shutil.rmtree(folder_destination)
 
     assert status == True, status
-    assert metadata['date_taken'] != metadata_processed['date_taken']
-    assert metadata_processed['date_taken'] == helper.time_convert((2000, 1, 1, 12, 0, 0, 5, 1, 0)), metadata_processed['date_taken']
+    assert metadata['date_original'] != metadata_processed['date_original']
+    assert metadata_processed['date_original'] == helper.time_convert((2000, 1, 1, 12, 0, 0, 5, 1, 0)), metadata_processed['date_original']
 
 def test_update_time_on_photo():
     temporary_folder, folder = helper.create_working_folder()
@@ -529,8 +512,8 @@ def test_update_time_on_photo():
     shutil.rmtree(folder_destination)
 
     assert status == True, status
-    assert metadata['date_taken'] != metadata_processed['date_taken']
-    assert metadata_processed['date_taken'] == helper.time_convert((2000, 1, 1, 12, 0, 0, 5, 1, 0)), metadata_processed['date_taken']
+    assert metadata['date_original'] != metadata_processed['date_original']
+    assert metadata_processed['date_original'] == helper.time_convert((2000, 1, 1, 12, 0, 0, 5, 1, 0)), metadata_processed['date_original']
 
 def test_update_time_on_video():
     temporary_folder, folder = helper.create_working_folder()
@@ -553,15 +536,15 @@ def test_update_time_on_video():
     shutil.rmtree(folder_destination)
 
     assert status == True, status
-    assert metadata['date_taken'] != metadata_processed['date_taken']
-    assert metadata_processed['date_taken'] == helper.time_convert((2000, 1, 1, 12, 0, 0, 5, 1, 0)), metadata_processed['date_taken']
+    assert metadata['date_original'] != metadata_processed['date_original']
+    assert metadata_processed['date_original'] == helper.time_convert((2000, 1, 1, 12, 0, 0, 5, 1, 0)), metadata_processed['date_original']
 
 def test_update_with_directory_passed_in():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     runner = CliRunner()
@@ -570,7 +553,7 @@ def test_update_with_directory_passed_in():
     result = runner2.invoke(elodie._update, ['--album', 'test', folder_destination])
     helper.restore_dbs()
 
-    updated_file_path = "{}/2016-04-Apr/test/2016-04-07_11-15-26-valid-sample-title.txt".format(folder_destination)
+    updated_file_path = "{}/2016-04-Apr/test/2016-04-07_11-15-26-valid-sample-title.png".format(folder_destination)
     updated_file_exists = os.path.isfile(updated_file_path)
 
     shutil.rmtree(folder)
@@ -586,7 +569,7 @@ def test_update_invalid_file_exit_code():
     origin_invalid = '%s/invalid.jpg' % folder
     shutil.copyfile(helper.get_file('invalid.jpg'), origin_invalid)
 
-    origin_valid = '%s/valid.jpg' % folder
+    origin_valid = '%s/photo.png' % folder
     shutil.copyfile(helper.get_file('plain.jpg'), origin_valid)
 
     helper.reset_dbs()
@@ -594,7 +577,8 @@ def test_update_invalid_file_exit_code():
     result = runner.invoke(elodie._update, ['--album', 'test', origin_invalid, origin_valid])
     helper.restore_dbs()
 
-    shutil.rmtree(folder)
+    # bugfix deleted by elodie._update....
+    # shutil.rmtree(folder)
     shutil.rmtree(folder_destination)
 
     assert result.exit_code == 1, result.exit_code
@@ -607,8 +591,8 @@ def test_regenerate_db_invalid_source():
 def test_regenerate_valid_source():
     temporary_folder, folder = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     runner = CliRunner()
@@ -624,8 +608,8 @@ def test_regenerate_valid_source():
 def test_regenerate_valid_source_with_invalid_files():
     temporary_folder, folder = helper.create_working_folder()
 
-    origin_valid = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin_valid)
+    origin_valid = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin_valid)
     origin_invalid = '%s/invalid.invalid' % folder
     shutil.copyfile(helper.get_file('invalid.invalid'), origin_invalid)
 
@@ -644,8 +628,8 @@ def test_regenerate_valid_source_with_invalid_files():
 def test_verify_ok():
     temporary_folder, folder = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     runner = CliRunner()
@@ -661,8 +645,8 @@ def test_verify_ok():
 def test_verify_error():
     temporary_folder, folder = helper.create_working_folder()
 
-    origin = '%s/valid.txt' % folder
-    shutil.copyfile(helper.get_file('valid.txt'), origin)
+    origin = '%s/photo.png' % folder
+    shutil.copyfile(helper.get_file('photo.png'), origin)
 
     helper.reset_dbs()
     runner = CliRunner()

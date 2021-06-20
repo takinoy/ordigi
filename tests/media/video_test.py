@@ -6,7 +6,8 @@ import sys
 import shutil
 import tempfile
 import time
-import datetime
+from datetime import datetime
+from dateutil.parser import parse
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))))
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
@@ -66,11 +67,12 @@ def test_get_coordinate_longitude():
 
     assert coordinate == -119.9558, coordinate
 
-def test_get_date_taken():
-    video = Video(helper.get_file('video.mov'))
-    date_taken = video.get_date_taken()
+def test_get_date_original():
+    media = Media(helper.get_file('video.mov'))
+    date_original = media.get_date_attribute(['QuickTime:ContentCreateDate'])
+    date = parse('2015-01-19 12:45:11-08:00')
 
-    assert date_taken == (2015, 1, 19, 12, 45, 11, 0, 19, 0), date_taken
+    assert date_original == date, date_original
 
 def test_get_exiftool_attributes():
     video = Video(helper.get_file('video.mov'))
@@ -85,7 +87,7 @@ def test_is_valid():
     assert video.is_valid()
 
 def test_is_not_valid():
-    video = Video(helper.get_file('text.txt'))
+    video = Video(helper.get_file('photo.png'))
 
     assert not video.is_valid()
 
@@ -111,25 +113,25 @@ def test_set_album():
 
     assert metadata_new['album'] == 'Test Album', metadata_new['album']
 
-def test_set_date_taken():
+def test_set_date_original():
     temporary_folder, folder = helper.create_working_folder()
 
     origin = '%s/video.mov' % folder
     shutil.copyfile(helper.get_file('video.mov'), origin)
 
-    video = Video(origin)
-    status = video.set_date_taken(datetime.datetime(2013, 9, 30, 7, 6, 5))
+    media = Media(origin)
+    status = media.set_date_original(datetime(2013, 9, 30, 7, 6, 5))
 
     assert status == True, status
 
-    video_new = Video(origin)
-    metadata = video_new.get_metadata()
+    media_new = Media(origin)
+    metadata = media_new.get_metadata()
 
-    date_taken = metadata['date_taken']
+    date_original = metadata['date_original']
 
     shutil.rmtree(folder)
 
-    assert date_taken == (2013, 9, 30, 7, 6, 5, 0, 273, 0), metadata['date_taken']
+    assert date_original == datetime(2013, 9, 30, 7, 6, 5), metadata['date_original']
 
 def test_set_location():
     temporary_folder, folder = helper.create_working_folder()
