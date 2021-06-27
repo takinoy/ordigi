@@ -10,3 +10,4 @@ build/**
 **/*.nef
 **/*.rw2
 env/**
+/tags

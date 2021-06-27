@@ -651,6 +651,7 @@ class FileSystem(object):
 
         # If source and destination are identical then
         #  we should not write the file. gh-210
+        # TODO Allow this for update?
         if(_file == dest_path):
             print('Final source and destination path should not be identical')
             return
