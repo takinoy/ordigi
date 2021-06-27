@@ -101,7 +101,7 @@ def test_set_date_original():
 
     audio = Audio(origin)
     date = datetime(2013, 9, 30, 7, 6, 5)
-    status = audio.set_date_original(date)
+    status = audio.set_date_original(date, origin)
 
     assert status == True, status
 
@@ -128,7 +128,7 @@ def test_set_location():
     assert not helper.isclose(origin_metadata['latitude'], 11.1111111111), origin_metadata['latitude']
     assert not helper.isclose(origin_metadata['longitude'], 99.9999999999), origin_metadata['longitude']
 
-    status = audio.set_location(11.1111111111, 99.9999999999)
+    status = audio.set_location(11.1111111111, 99.9999999999, origin)
 
     assert status == True, status
 
@@ -154,7 +154,7 @@ def test_set_location_minus():
     assert not helper.isclose(origin_metadata['latitude'], 11.111111), origin_metadata['latitude']
     assert not helper.isclose(origin_metadata['longitude'], 99.999999), origin_metadata['longitude']
 
-    status = audio.set_location(-11.111111, -99.999999)
+    status = audio.set_location(-11.111111, -99.999999, origin)
 
     assert status == True, status
 
@@ -175,7 +175,7 @@ def test_set_title():
     audio = Audio(origin)
     origin_metadata = audio.get_metadata()
 
-    status = audio.set_title('my audio title')
+    status = audio.set_title('my audio title', origin)
 
     assert status == True, status
 
@@ -196,7 +196,7 @@ def test_set_title_non_ascii():
     origin_metadata = audio.get_metadata()
 
     unicode_title = u'形声字 / 形聲字'
-    status = audio.set_title(unicode_title)
+    status = audio.set_title(unicode_title, origin)
 
     assert status == True, status
 

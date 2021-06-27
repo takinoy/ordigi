@@ -16,16 +16,7 @@ from elodie.external.pyexiftool import ExifTool
 from elodie.dependencies import get_exiftool
 from elodie import constants
 
-def checksum(file_path, blocksize=65536):
-    hasher = hashlib.sha256()
-    with open(file_path, 'rb') as f:
-        buf = f.read(blocksize)
-
-        while len(buf) > 0:
-            hasher.update(buf)
-            buf = f.read(blocksize)
-        return hasher.hexdigest()
-    return None
+ELODIE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 def create_working_folder(format=None):
     temporary_folder = tempfile.gettempdir()
@@ -50,7 +41,7 @@ def download_file(name, destination):
         return final_name
     except Exception as e:
         return False
-    
+
 def get_file(name):
     file_path = get_file_path(name)
     if not os.path.isfile(file_path):
@@ -148,18 +139,11 @@ def isclose(a, b, rel_tol = 1e-8):
     return (diff <= abs(rel_tol * a) and
             diff <= abs(rel_tol * b))
 
-def reset_dbs():
-    """ Back up hash_db and location_db """
-    # This is no longer needed. See gh-322
-    # https://github.com/jmathai/elodie/issues/322
-    pass
+def get_hash_db(photo_path):
+    return os.path.join(photo_path, '.elodie',constants.hash_db)
 
-def restore_dbs():
-    """ Restore back ups of hash_db and location_db """
-    # This is no longer needed. See gh-322
-    # https://github.com/jmathai/elodie/issues/322
-    pass
-
+def get_location_db(photo_path):
+    return os.path.join(photo_path, '.elodie', constants.location_db)
 
 def setup_module():
     exiftool_addedargs = [

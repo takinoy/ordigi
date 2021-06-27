@@ -119,7 +119,7 @@ def test_set_date_original():
     shutil.copyfile(helper.get_file('video.mov'), origin)
 
     media = Media(origin)
-    status = media.set_date_original(datetime(2013, 9, 30, 7, 6, 5))
+    status = media.set_date_original(datetime(2013, 9, 30, 7, 6, 5), origin)
 
     assert status == True, status
 
@@ -132,7 +132,7 @@ def test_set_date_original():
 
     assert date_original == datetime(2013, 9, 30, 7, 6, 5), metadata['date_original']
 
-def test_set_location():
+
     temporary_folder, folder = helper.create_working_folder()
 
     origin = '%s/video.mov' % folder
@@ -146,7 +146,7 @@ def test_set_location():
     assert not helper.isclose(origin_metadata['latitude'], 11.1111111111), origin_metadata['latitude']
     assert not helper.isclose(origin_metadata['longitude'], 99.9999999999), origin_metadata['longitude']
 
-    status = video.set_location(11.1111111111, 99.9999999999)
+    status = video.set_location(11.1111111111, 99.9999999999, origin)
 
     assert status == True, status
 
@@ -167,7 +167,7 @@ def test_set_title():
     video = Video(origin)
     origin_metadata = video.get_metadata()
 
-    status = video.set_title('my video title')
+    status = video.set_title('my video title', origin)
 
     assert status == True, status
 
@@ -188,7 +188,7 @@ def test_set_title_non_ascii():
     origin_metadata = video.get_metadata()
 
     unicode_title = u'形声字 / 形聲字' 
-    status = video.set_title(unicode_title)
+    status = video.set_title(unicode_title, origin)
 
     assert status == True, status
 

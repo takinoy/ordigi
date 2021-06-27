@@ -194,7 +194,7 @@ def test_set_date_original_with_missing_datetimeoriginal():
 
     photo = Photo(origin)
     time = datetime(2013, 9, 30, 7, 6, 5)
-    status = photo.set_date_original(time)
+    status = photo.set_date_original(time, origin)
 
     assert status == True, status
 
@@ -216,7 +216,7 @@ def test_set_date_original():
     shutil.copyfile(helper.get_file('plain.jpg'), origin)
 
     photo = Photo(origin)
-    status = photo.set_date_original(datetime(2013, 9, 30, 7, 6, 5))
+    status = photo.set_date_original(datetime(2013, 9, 30, 7, 6, 5), origin)
 
     assert status == True, status
 
@@ -244,7 +244,7 @@ def test_set_location():
     assert not helper.isclose(origin_metadata['latitude'], 11.1111111111), origin_metadata['latitude']
     assert not helper.isclose(origin_metadata['longitude'], 99.9999999999), origin_metadata['longitude']
 
-    status = photo.set_location(11.1111111111, 99.9999999999)
+    status = photo.set_location(11.1111111111, 99.9999999999, origin)
 
     assert status == True, status
 
@@ -270,7 +270,7 @@ def test_set_location_minus():
     assert not helper.isclose(origin_metadata['latitude'], 11.1111111111), origin_metadata['latitude']
     assert not helper.isclose(origin_metadata['longitude'], 99.9999999999), origin_metadata['longitude']
 
-    status = photo.set_location(-11.1111111111, -99.9999999999)
+    status = photo.set_location(-11.1111111111, -99.9999999999, origin)
 
     assert status == True, status
 
@@ -291,7 +291,7 @@ def test_set_title():
     photo = Photo(origin)
     origin_metadata = photo.get_metadata()
 
-    status = photo.set_title('my photo title')
+    status = photo.set_title('my photo title', origin)
 
     assert status == True, status
 
@@ -313,7 +313,7 @@ def test_set_title_non_ascii():
 
     unicode_title = u'形声字 / 形聲字'
 
-    status = photo.set_title(unicode_title)
+    status = photo.set_title(unicode_title, origin)
     assert status == True, status
 
     photo_new = Photo(origin)
@@ -389,7 +389,7 @@ def _test_photo_type_set(type, date):
     photo = Photo(origin)
     origin_metadata = photo.get_metadata()
 
-    status = photo.set_location(11.1111111111, 99.9999999999)
+    status = photo.set_location(11.1111111111, 99.9999999999, origin)
 
     assert status == True, status
 

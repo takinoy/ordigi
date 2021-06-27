@@ -2,7 +2,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
+# sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
 
 from . import helper
 from elodie.localstorage import Db
@@ -10,14 +10,16 @@ from elodie import constants
 
 os.environ['TZ'] = 'GMT'
 
-def test_init_writes_files():
-    db = Db()
+PHOTO_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files')
 
-    assert os.path.isfile(constants.hash_db) == True
-    assert os.path.isfile(constants.location_db) == True
+def test_init_writes_files():
+    db = Db(PHOTO_PATH)
+
+    assert os.path.isfile(helper.get_hash_db(PHOTO_PATH)) == True
+    assert os.path.isfile(helper.get_location_db(PHOTO_PATH)) == True
 
 def test_add_hash_default_do_not_write():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
     random_value = helper.random_string(12)
@@ -28,11 +30,11 @@ def test_add_hash_default_do_not_write():
     assert db.check_hash(random_key) == True, 'Lookup for hash did not return True'
 
     # Instnatiate new db class to confirm random_key does not exist
-    db2 = Db()
+    db2 = Db(PHOTO_PATH)
     assert db2.check_hash(random_key) == False
-    
+
 def test_add_hash_explicit_do_not_write():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
     random_value = helper.random_string(12)
@@ -43,11 +45,11 @@ def test_add_hash_explicit_do_not_write():
     assert db.check_hash(random_key) == True, 'Lookup for hash did not return True'
 
     # Instnatiate new db class to confirm random_key does not exist
-    db2 = Db()
+    db2 = Db(PHOTO_PATH)
     assert db2.check_hash(random_key) == False
-    
+
 def test_add_hash_explicit_write():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
     random_value = helper.random_string(12)
@@ -58,19 +60,19 @@ def test_add_hash_explicit_write():
     assert db.check_hash(random_key) == True, 'Lookup for hash did not return True'
 
     # Instnatiate new db class to confirm random_key exists
-    db2 = Db()
+    db2 = Db(PHOTO_PATH)
     assert db2.check_hash(random_key) == True
 
 def test_backup_hash_db():
-    db = Db()
+    db = Db(PHOTO_PATH)
     backup_file_name = db.backup_hash_db()
     file_exists = os.path.isfile(backup_file_name)
     os.remove(backup_file_name)
-    
+
     assert file_exists, backup_file_name
-    
+
 def test_check_hash_exists():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
     random_value = helper.random_string(12)
@@ -79,16 +81,16 @@ def test_check_hash_exists():
     db.add_hash(random_key, random_value, False)
 
     assert db.check_hash(random_key) == True, 'Lookup for hash did not return True'
-    
+
 def test_check_hash_does_not_exist():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
 
     assert db.check_hash(random_key) == False, 'Lookup for hash that should not exist returned True'
 
 def test_get_hash_exists():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
     random_value = helper.random_string(12)
@@ -97,16 +99,16 @@ def test_get_hash_exists():
     db.add_hash(random_key, random_value, False)
 
     assert db.get_hash(random_key) == random_value, 'Lookup for hash that exists did not return value'
-    
+
 def test_get_hash_does_not_exist():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
 
     assert db.get_hash(random_key) is None, 'Lookup for hash that should not exist did not return None'
 
 def test_get_all():
-    db = Db()
+    db = Db(PHOTO_PATH)
     db.reset_hash_db()
 
     random_keys = []
@@ -125,7 +127,7 @@ def test_get_all():
     assert counter == 10, counter
 
 def test_get_all_empty():
-    db = Db()
+    db = Db(PHOTO_PATH)
     db.reset_hash_db()
 
     counter = 0
@@ -136,21 +138,21 @@ def test_get_all_empty():
     assert counter == 0, counter
 
 def test_reset_hash_db():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
     random_value = helper.random_string(12)
 
     # Test with explicit False value as 3rd param
     db.add_hash(random_key, random_value, False)
-    
+
     assert random_key in db.hash_db, random_key
     db.reset_hash_db()
     assert random_key not in db.hash_db, random_key
 
 
 def test_update_hash_db():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     random_key = helper.random_string(10)
     random_value = helper.random_string(12)
@@ -161,17 +163,17 @@ def test_update_hash_db():
     assert db.check_hash(random_key) == True, 'Lookup for hash did not return True'
 
     # Instnatiate new db class to confirm random_key does not exist
-    db2 = Db()
+    db2 = Db(PHOTO_PATH)
     assert db2.check_hash(random_key) == False
 
     db.update_hash_db()
 
     # Instnatiate new db class to confirm random_key exists
-    db3 = Db()
+    db3 = Db(PHOTO_PATH)
     assert db3.check_hash(random_key) == True
 
 def test_checksum():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     src = helper.get_file('plain.jpg')
     checksum = db.checksum(src)
@@ -179,7 +181,7 @@ def test_checksum():
     assert checksum == 'd5eb755569ddbc8a664712d2d7d6e0fa1ddfcdb378475e4a6758dc38d5ea9a16', 'Checksum for plain.jpg did not match'
 
 def test_add_location():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     latitude, longitude, name = helper.get_test_location()
 
@@ -189,19 +191,19 @@ def test_add_location():
     assert name == retrieved_name
 
 def test_get_location_name():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     latitude, longitude, name = helper.get_test_location()
     db.add_location(latitude, longitude, name)
 
-    
+
     # 1 meter
     retrieved_name = db.get_location_name(latitude, longitude, 1)
 
     assert name == retrieved_name
 
 def test_get_location_name_within_threshold():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     latitude, longitude, name = helper.get_test_location()
     db.add_location(latitude, longitude, name)
@@ -217,7 +219,7 @@ def test_get_location_name_within_threshold():
     assert name == retrieved_name, 'Name (%r) did not match retrieved name (%r)' % (name, retrieved_name)
 
 def test_get_location_name_outside_threshold():
-    db = Db()
+    db = Db(PHOTO_PATH)
 
     latitude, longitude, name = helper.get_test_location()
     db.add_location(latitude, longitude, name)
@@ -231,8 +233,8 @@ def test_get_location_name_outside_threshold():
     assert retrieved_name is None
 
 def test_get_location_coordinates_exists():
-    db = Db()
-    
+    db = Db(PHOTO_PATH)
+
     latitude, longitude, name = helper.get_test_location()
 
     name = '%s-%s' % (name, helper.random_string(10))
@@ -248,8 +250,8 @@ def test_get_location_coordinates_exists():
     assert location[1] == longitude
 
 def test_get_location_coordinates_does_not_exists():
-    db = Db()
-    
+    db = Db(PHOTO_PATH)
+
     latitude, longitude, name = helper.get_test_location()
 
     name = '%s-%s' % (name, helper.random_string(10))

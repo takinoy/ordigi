@@ -218,7 +218,7 @@ def test_set_original_name_with_arg():
 
     media = Media.get_class_by_file(origin, [Photo])
     metadata_before = media.get_metadata()
-    result = media.set_original_name(new_name)
+    result = media.set_original_name(origin, name=new_name)
     metadata_after = media.get_metadata(update_cache=True)
 
     assert metadata_before['original_name'] is None, metadata_before

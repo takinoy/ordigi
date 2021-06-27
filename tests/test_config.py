@@ -8,8 +8,6 @@ import unittest
 from mock import patch
 from tempfile import gettempdir
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
-
 from elodie import constants
 from elodie.config import load_config, load_plugin_config
 
@@ -18,22 +16,22 @@ def test_load_config_singleton_success():
     with open('%s/config.ini-singleton-success' % gettempdir(), 'w') as f:
         f.write("""
 [Geolocation]
-key=your-api-key-goes-here
+mapquest_key=your-api-key-goes-here
 prefer_english_names=False
         """)
     if hasattr(load_config, 'config'):
         del load_config.config
 
     config = load_config(constants.CONFIG_FILE)
-    assert config['Geolocation']['key'] == 'your-api-key-goes-here', config.get('MapQuest', 'key')
-    config.set('MapQuest', 'key', 'new-value')
+    assert config['Geolocation']['mapquest_key'] == 'your-api-key-goes-here', config.get('Geolocation', 'mapquest_key')
+    config.set('Geolocation', 'mapquest_key', 'new-value')
 
     config = load_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    assert config['MapQuest']['key'] == 'new-value', config.get('MapQuest', 'key')
+    assert config['Geolocation']['mapquest_key'] == 'new-value', config.get('Geolocation', 'mapquest_key')
 
 @patch('elodie.constants.CONFIG_FILE', '%s/config.ini-does-not-exist' % gettempdir())
 def test_load_config_singleton_no_file():
@@ -55,7 +53,7 @@ def test_load_plugin_config_unset_backwards_compat():
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    plugins = load_plugin_config()
+    plugins = load_plugin_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config
@@ -71,7 +69,7 @@ def test_load_plugin_config_exists_not_set():
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    plugins = load_plugin_config()
+    plugins = load_plugin_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config
@@ -88,7 +86,7 @@ plugins=Dummy
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    plugins = load_plugin_config()
+    plugins = load_plugin_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config
@@ -105,7 +103,7 @@ plugins=DNE
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    plugins = load_plugin_config()
+    plugins = load_plugin_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config
@@ -122,7 +120,7 @@ plugins=GooglePhotos,Dummy
     if hasattr(load_config, 'config'):
         del load_config.config
 
-    plugins = load_plugin_config()
+    plugins = load_plugin_config(constants.CONFIG_FILE)
 
     if hasattr(load_config, 'config'):
         del load_config.config

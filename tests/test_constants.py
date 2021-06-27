@@ -1,24 +1,21 @@
-# # Project imports
+# Project imports
 
-# import os
-# import sys
-# import unittest 
+import os
+import sys
+import unittest 
 
-# try:
-#     reload  # Python 2.7
-# except NameError:
-#     try:
+try:
+    reload  # Python 2.7
+except NameError:
+    try:
         from importlib import reload  # Python 3.4+
     except ImportError:
         from imp import reload  # Python 3.0 - 3.3
 
 from mock import patch
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))))
-
 from elodie import constants
 
-BASE_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 def test_debug():
     # This seems pointless but on Travis we explicitly modify the file to be True
@@ -49,7 +46,7 @@ def test_application_directory_override_valid():
     os.environ['ELODIE_APPLICATION_DIRECTORY'] = cwd
     reload(constants)
     directory_to_check = constants.application_directory
-    hash_db_to_check = constants.hash_db
+    hash_db_to_check = os.path.join(cwd, constants.hash_db)
 
     # reset
     if('ELODIE_APPLICATION_DIRECTORY' in os.environ):
@@ -57,13 +54,13 @@ def test_application_directory_override_valid():
     reload(constants)
 
     assert directory_to_check == cwd, constants.application_directory
-    assert cwd in hash_db_to_check, constants.hash_db
+    assert cwd in hash_db_to_check, hash_db_to_check
 
 def test_hash_db():
-    assert constants.hash_db == '{}/hash.json'.format(constants.application_directory), constants.hash_db
+    assert constants.hash_db == os.path.split(constants.hash_db)[1]
 
 def test_location_db():
-    assert constants.location_db == '{}/location.json'.format(constants.application_directory), constants.location_db
+    assert constants.location_db == os.path.split(constants.location_db)[1]
 
 def test_script_directory():
     path = os.path.dirname(os.path.dirname(__file__))
