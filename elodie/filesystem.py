@@ -84,31 +84,34 @@ class FileSystem(object):
 
         return False
 
-    def get_all_files(self, path, extensions=None, exclude_regex_list=set()):
+    def get_all_files(self, path, extensions=False, exclude_regex_list=set()):
         """Recursively get all files which match a path and extension.
 
         :param str path string: Path to start recursive file listing
         :param tuple(str) extensions: File extensions to include (whitelist)
         :returns: generator
         """
-        # If extensions is None then we get all supported extensions
-        if not extensions:
-            extensions = set()
-            subclasses = media.get_all_subclasses()
-            for cls in subclasses:
-                extensions.update(cls.extensions)
+        # If extensions is None then we get all files
+        # if not extensions:
+        #     extensions = set()
+        #     subclasses = media.get_all_subclasses()
+        #     for cls in subclasses:
+        #         extensions.update(cls.extensions)
 
         # Create a list of compiled regular expressions to match against the file path
         compiled_regex_list = [re.compile(regex) for regex in exclude_regex_list]
         for dirname, dirnames, filenames in os.walk(path):
+            if dirname == os.path.join(path, '.elodie'):
+                continue
             for filename in filenames:
                 # If file extension is in `extensions` 
                 # And if file path is not in exclude regexes
                 # Then append to the list
                 filename_path = os.path.join(dirname, filename)
                 if (
-                        os.path.splitext(filename)[1][1:].lower() in extensions and
-                        not self.should_exclude(filename_path, compiled_regex_list, False)
+                        extensions == False
+                        or os.path.splitext(filename)[1][1:].lower() in extensions
+                        and not self.should_exclude(filename_path, compiled_regex_list, False)
                     ):
                     yield filename_path
 

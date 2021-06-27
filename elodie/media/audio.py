@@ -6,6 +6,7 @@ class.
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
 
+import os
 from .media import Media
 
 
@@ -25,4 +26,11 @@ class Audio(Media):
         super().__init__(source)
 
     def is_valid(self):
-        return super().is_valid()
+        """Check the file extension against valid file extensions.
+
+        The list of valid file extensions come from self.extensions.
+
+        :returns: bool
+        """
+        source = self.source
+        return os.path.splitext(source)[1][1:].lower() in self.extensions

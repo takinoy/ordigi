@@ -25,7 +25,7 @@ def main(argv):
     for path in paths:
         path = os.path.expanduser(path)
         if os.path.isdir(path):
-            for source in filesystem.get_all_files(path, None):
+            for source in filesystem.get_all_files(path, False):
                 status = add_original_name(source, subclasses)
                 result.append((_decode(source), status))
         else:

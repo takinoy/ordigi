@@ -131,7 +131,7 @@ def _import(destination, source, file, album_from_folder, trash,
     for path in paths:
         path = os.path.expanduser(path)
         if os.path.isdir(path):
-            files.update(FILESYSTEM.get_all_files(path, None, exclude_regex_list))
+            files.update(FILESYSTEM.get_all_files(path, False, exclude_regex_list))
         else:
             if not FILESYSTEM.should_exclude(path, exclude_regex_list, True):
                 files.add(path)
@@ -267,7 +267,7 @@ def _update(album, location, time, title, paths, debug):
     for path in paths:
         path = os.path.expanduser(path)
         if os.path.isdir(path):
-            files.update(FILESYSTEM.get_all_files(path, None))
+            files.update(FILESYSTEM.get_all_files(path, False))
         else:
             files.add(path)
 
