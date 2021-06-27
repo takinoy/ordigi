@@ -50,8 +50,7 @@ def get_file(name):
     return file_path
 
 def get_file_path(name):
-    current_folder = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(current_folder, 'files', name)
+    return os.path.join(ELODIE_PATH, 'samples', name)
 
 def get_test_location():
     return (61.013710, 99.196656, 'Siberia')
