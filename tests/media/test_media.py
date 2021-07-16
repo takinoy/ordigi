@@ -29,12 +29,16 @@ def test_get_all_subclasses():
     expected = {Media, Photo, Video, Audio}
     assert subclasses == expected, subclasses
 
+
+# def test_get_media_class(_file):
+#     pass
+
 def test_get_class_by_file_without_extension():
     base_file = helper.get_file('withoutextension')
 
     cls = Media.get_class_by_file(base_file, [Audio, Photo, Video])
 
-    assert cls is None, cls
+    assert cls is not None, cls
 
 def test_get_original_name():
     temporary_folder, folder = helper.create_working_folder()
@@ -156,12 +160,12 @@ def test_get_class_by_file_video():
 def test_get_class_by_file_unsupported():
     media = Media.get_class_by_file(helper.get_file('text.txt'), [Photo, Video])
 
-    assert media is None
+    assert media is not None, media
 
 def test_get_class_by_file_ds_store():
     media = Media.get_class_by_file(helper.get_file('.DS_Store'),
                                     [Photo, Video, Audio])
-    assert media is None
+    assert media is None, media
 
 def test_get_class_by_file_invalid_type():
     media = Media.get_class_by_file(None,

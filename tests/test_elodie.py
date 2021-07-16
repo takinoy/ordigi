@@ -364,6 +364,11 @@ def test_import_file_with_multiple_config_exclude():
     assert 'Success         0' in result.output, result.output
     assert 'Error           0' in result.output, result.output
 
+
+def test_get_all_files_in_paths():
+    pass
+
+
 def test_update_location_on_audio():
     temporary_folder, folder = helper.create_working_folder()
     temporary_folder_destination, folder_destination = helper.create_working_folder()
@@ -656,7 +661,6 @@ def test_cli_batch_plugin_googlephotos():
 
 @unittest.skip('to fix')
 def test_cli_debug_import():
-    import ipdb; ipdb.set_trace()
     runner = CliRunner()
     # import
     result = runner.invoke(elodie._import, ['--destination', '/does/not/exist', '/does/not/exist'])

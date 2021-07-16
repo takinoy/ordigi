@@ -11,6 +11,7 @@ are used to represent the actual files.
 import mimetypes
 import os
 import six
+import logging
 
 # load modules
 from elodie import log
@@ -236,7 +237,11 @@ class Media():
                 if(extension in i.extensions):
                     return i(_file)
 
-        return None
+        exclude_list = ['.DS_Store', '.directory']
+        if os.path.basename(_file) == '.DS_Store':
+            return None
+        else:
+            return Media(_file)
 
 
     @classmethod
@@ -599,4 +604,19 @@ def get_all_subclasses(cls=None):
         subclasses.update(get_all_subclasses(child_class))
 
     return subclasses
+
+
+def get_media_class(_file):
+    if not os.path.exists(_file):
+        logging.warning(f'Could not find {_file}')
+        logging.error(f'Could not find {_file}')
+        return False
+
+    media = Media.get_class_by_file(_file, get_all_subclasses())
+    if not media:
+        logging.warning(f'File{_file} is not supported')
+        logging.error(f'File {_file} can\'t be imported')
+        return False
+
+    return media
 

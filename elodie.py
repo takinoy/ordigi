@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import logging
 from datetime import datetime
 
 import click
@@ -22,19 +23,24 @@ from elodie.config import load_config
 from elodie.filesystem import FileSystem
 from elodie.localstorage import Db
 from elodie.media.media import Media, get_all_subclasses
-from elodie.media.media import Media
 from elodie.media.audio import Audio
 from elodie.media.photo import Photo
 from elodie.media.video import Video
 from elodie.plugins.plugins import Plugins
 from elodie.result import Result
+from elodie.summary import Summary
 from elodie.external.pyexiftool import ExifTool
 from elodie.dependencies import get_exiftool
 from elodie import constants
 
 FILESYSTEM = FileSystem()
 
-def import_file(_file, destination, db, album_from_folder, action, trash, allow_duplicates):
+
+def print_help(command):
+    click.echo(command.get_help(click.Context(sort)))
+
+
+def import_file(_file, destination, db, album_from_folder, mode, trash, allow_duplicates):
 
     """Set file metadata and move it to destination.
     """
@@ -57,13 +63,14 @@ def import_file(_file, destination, db, album_from_folder, action, trash, allow_
         return
 
     dest_path = FILESYSTEM.process_file(_file, destination, db,
-        media, album_from_folder, action, allowDuplicate=allow_duplicates)
+        media, album_from_folder, mode, allowDuplicate=allow_duplicates)
     if dest_path:
         log.all('%s -> %s' % (_file, dest_path))
     if trash:
         send2trash(_file)
 
     return dest_path or None
+
 
 @click.command('batch')
 @click.option('--debug', default=False, is_flag=True,
@@ -101,9 +108,9 @@ def _import(destination, source, file, album_from_folder, trash,
     """Import files or directories by reading their EXIF and organizing them accordingly.
     """
     if dry_run:
-        action = 'dry_run'
+        mode = 'dry_run'
     else:
-        action = 'copy'
+        mode = 'copy'
 
     constants.debug = debug
     has_errors = False
@@ -142,7 +149,7 @@ def _import(destination, source, file, album_from_folder, trash,
 
         for current_file in files:
             dest_path = import_file(current_file, destination, db,
-                    album_from_folder, action, trash, allow_duplicates)
+                    album_from_folder, mode, trash, allow_duplicates)
             result.append((current_file, dest_path))
             has_errors = has_errors is True or not dest_path
     else:
@@ -153,6 +160,97 @@ def _import(destination, source, file, album_from_folder, trash,
 
     if has_errors:
         sys.exit(1)
+
+
+# TODO
+# recursive : bool
+# True if you want src_dir to be searched recursively for files (False to search only in top-level of src_dir)
+
+
+@click.command('sort')
+@click.option('--debug', default=False, is_flag=True,
+              help='Override the value in constants.py with True.')
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Dry run only, no change made to the filesystem.')
+@click.option('--destination', '-d', type=click.Path(file_okay=False),
+              default=None, help='Sort files into this directory.')
+@click.option('--copy', '-c', default=False, is_flag=True,
+              help='True if you want files to be copied over from src_dir to\
+              dest_dir rather than moved')
+@click.option('--day-begins', '-b', default=0,
+              help='What hour of the day you want the day to begin (only for\
+              classification purposes).  Defaults at 0 as midnight. Can be\
+              used to group early morning photos with the previous day. Must\
+              be a number between 0-23')
+@click.option('--exclude-regex', '-e', default=set(), multiple=True,
+              help='Regular expression for directories or files to exclude.')
+@click.option('--filter-by-ext', '-f', default=False, help='''Use filename
+        extension to filter files for sorting. If used without argument, use
+        common media file extension for filtering. Ignored files remain in
+        the same directory structure''' )
+@click.option('--ignore-tags', '-i', default=set(), multiple=True,
+              help='Specific tags or group that will be ignored when\
+              searching for file data. Example \'File:FileModifyDate\' or \'Filename\'' )
+@click.option('--remove-duplicates', '-r', default=False, is_flag=True,
+              help='True to remove files that are exactly the same in name\
+                      and a file hash')
+@click.option('--verbose', '-v', default=False, is_flag=True,
+              help='True if you want to see details of file processing')
+@click.argument('paths', required=True, nargs=-1, type=click.Path())
+def _sort(debug, dry_run, destination, copy, day_begins, exclude_regex, filter_by_ext, ignore_tags,
+        remove_duplicates, verbose, paths):
+    """Sort files or directories by reading their EXIF and organizing them
+    according to config.ini preferences.
+    """
+
+    if copy:
+        mode = 'copy'
+    else:
+        mode = 'move'
+
+    if debug:
+        constants.debug = logging.DEBUG
+    elif verbose:
+        constants.debug = logging.INFO
+    else:
+        constants.debug = logging.ERROR
+
+    logger = logging.getLogger('elodie')
+    logger.setLevel(constants.debug)
+
+    if not destination and paths:
+        destination = paths[-1]
+        paths = paths[0:-1]
+    else:
+        sys.exit(1)
+
+    paths = set(paths)
+    destination = _decode(destination)
+    destination = os.path.abspath(os.path.expanduser(destination))
+
+    if not os.path.exists(destination):
+        logger.error(f'Directory {destination} does not exist')
+
+    # if no exclude list was passed in we check if there's a config
+    if len(exclude_regex) == 0:
+        config = load_config(constants.CONFIG_FILE)
+        if 'Exclusions' in config:
+            exclude_regex = [value for key, value in config.items('Exclusions')]
+
+    exclude_regex_list = set(exclude_regex)
+
+    # Initialize Db
+    db = Db(destination)
+    filesystem = FileSystem(mode, dry_run, exclude_regex_list, logger)
+
+    summary, has_errors = filesystem.sort_files(paths, destination, db, remove_duplicates)
+
+    if verbose or debug:
+        summary.write()
+
+    if has_errors:
+        sys.exit(1)
+
 
 @click.command('generate-db')
 @click.option('--path', type=click.Path(file_okay=False),
@@ -182,6 +280,7 @@ def _generate_db(path, debug):
     db.update_hash_db()
     log.progress('', True)
     result.write()
+
 
 @click.command('verify')
 @click.option('--path', type=click.Path(file_okay=False),
@@ -298,7 +397,7 @@ def _update(album, location, time, title, paths, debug):
         db = Db(destination)
 
         media = Media.get_class_by_file(current_file, get_all_subclasses())
-        if not media:
+        if media is None:
             continue
 
         updated = False
@@ -345,7 +444,7 @@ def _update(album, location, time, title, paths, debug):
                     original_base_name.replace('-%s' % original_title, ''))
 
             dest_path = FILESYSTEM.process_file(current_file, destination, db,
-                updated_media, False, action='move', allowDuplicate=True)
+                updated_media, False, mode='move', allowDuplicate=True)
             log.info(u'%s -> %s' % (current_file, dest_path))
             log.all('{"source":"%s", "destination":"%s"}' % (current_file,
                                                                dest_path))
@@ -373,6 +472,7 @@ def main():
 
 
 main.add_command(_import)
+main.add_command(_sort)
 main.add_command(_update)
 main.add_command(_generate_db)
 main.add_command(_verify)

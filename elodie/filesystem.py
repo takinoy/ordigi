@@ -5,6 +5,9 @@ General file system methods.
 """
 from builtins import object
 
+import filecmp
+import hashlib
+import logging
 import os
 import re
 import shutil
@@ -17,13 +20,16 @@ from elodie.config import load_config
 from elodie import constants
 
 from elodie.localstorage import Db
-from elodie.media import media
+from elodie.media.media import get_media_class
 from elodie.plugins.plugins import Plugins
+from elodie.summary import Summary
+
 
 class FileSystem(object):
     """A class for interacting with the file system."""
 
-    def __init__(self):
+    def __init__(self, mode='copy', dry_run=False, exclude_regex_list=set(),
+            logger=logging.getLogger()):
         # The default folder path is along the lines of 2017-06-17_01-04-14-dsc_1234-some-title.jpg
         self.default_file_name_definition = {
             'date': '%Y-%m-%d_%H-%M-%S',
@@ -45,8 +51,15 @@ class FileSystem(object):
         #  https://travis-ci.org/jmathai/elodie/builds/483012902
         self.whitespace_regex = '[ \t\n\r\f\v]+'
 
+        self.dry_run = dry_run
+        self.exclude_regex_list = exclude_regex_list
+        self.mode = mode
+        self.logger = logger
+        self.summary = Summary()
+
         # Instantiate a plugins object
         self.plugins = Plugins()
+
 
     def create_directory(self, directory_path):
         """Create a directory if it does not already exist.
@@ -59,7 +72,9 @@ class FileSystem(object):
             if os.path.exists(directory_path):
                 return True
             else:
-                os.makedirs(directory_path)
+                if not self.dry_run:
+                    os.makedirs(directory_path)
+                self.logger.info(f'Create {directory_path}')
                 return True
         except OSError:
             # OSError is thrown for cases like no permission
@@ -592,6 +607,7 @@ class FileSystem(object):
 
         return folder_name
 
+
     def process_checksum(self, _file, db, allow_duplicate):
         checksum = db.checksum(_file)
         if(checksum is None):
@@ -618,8 +634,184 @@ class FileSystem(object):
                 ))
         return checksum
 
+
+    def checksum(self, file_path, blocksize=65536):
+        """Create a hash value for the given file.
+
+        See http://stackoverflow.com/a/3431835/1318758.
+
+        :param str file_path: Path to the file to create a hash for.
+        :param int blocksize: Read blocks of this size from the file when
+            creating the hash.
+        :returns: str or None
+        """
+        hasher = hashlib.sha256()
+        with open(file_path, 'rb') as f:
+            buf = f.read(blocksize)
+
+            while len(buf) > 0:
+                hasher.update(buf)
+                buf = f.read(blocksize)
+            return hasher.hexdigest()
+        return None
+
+
+    def checkcomp(self, src_path, dest_path):
+        """Check file.
+        """
+        src_checksum = self.checksum(src_path)
+
+        if self.dry_run:
+            return src_checksum
+
+        dest_checksum = self.checksum(dest_path)
+
+        if dest_checksum != src_checksum:
+            self.logger.info(f'Source checksum and destination checksum are not the same')
+            return False
+
+        return src_checksum
+
+
+    def sort_file(self, src_path, dest_path, remove_duplicates=True):
+        '''Copy or move file to dest_path.'''
+
+        mode = self.mode
+        dry_run = self.dry_run
+
+        # check for collisions
+        if(src_path == dest_path):
+            self.logger.info(f'File {dest_path} already sorted')
+            return True
+        if os.path.isfile(dest_path):
+            self.logger.info(f'File {dest_path} already exist')
+            if remove_duplicates:
+                if filecmp.cmp(src_path, dest_path):
+                    self.logger.info(f'File in source and destination are identical. Duplicate will be ignored.')
+                    if(mode == 'move'):
+                        if not dry_run:
+                            shutil.remove(src_path)
+                        self.logger.info(f'remove: {src_path}')
+                    return True
+                else:  # name is same, but file is different
+                    self.logger.info(f'File in source and destination are different.')
+                    return False
+            else:
+                return False
+        else:
+            if(mode == 'move'):
+                if not dry_run:
+                    # Move the processed file into the destination directory
+                    shutil.move(src_path, dest_path)
+                self.logger.info(f'move: {src_path} -> {dest_path}')
+            elif mode == 'copy':
+                if not dry_run:
+                    shutil.copy2(src_path, dest_path)
+                self.logger.info(f'copy: {src_path} -> {dest_path}')
+            return True
+
+        return False
+
+
+    def check_file(self, src_path, dest_path, db):
+
+        # Check if file remain the same
+        checksum = self.checkcomp(src_path, dest_path)
+        has_errors = False
+        if checksum:
+            if not self.dry_run:
+                db.add_hash(checksum, dest_path)
+                db.update_hash_db()
+
+            if dest_path:
+                self.logger.info(f'{src_path} -> {dest_path}')
+
+            self.summary.append((src_path, dest_path))
+
+        else:
+            self.logger.error(f'Files {src_path} and {dest_path} are not identical')
+            # sys.exit(1)
+            self.summary.append((src_path, False))
+            has_errors = True
+
+        return self.summary, has_errors
+
+
+    def get_all_files_in_path(self, path, exclude_regex_list=set()):
+        files = set()
+        # some error checking
+        if not os.path.exists(path):
+            self.logger.error(f'Directory {path} does not exist')
+
+        path = os.path.expanduser(path)
+        if os.path.isdir(path):
+            files.update(self.get_all_files(path, False, exclude_regex_list))
+        else:
+            if not self.should_exclude(path, self.exclude_regex_list, True):
+                files.add(path)
+        return files
+
+
+    def sort_files(self, paths, destination, db, remove_duplicates=False):
+
+        has_errors = False
+        for path in paths:
+            files = self.get_all_files_in_path(path, self.exclude_regex_list)
+            num_files = len(files)
+
+            conflict_file_list = set()
+            for src_path in files:
+                # Process files
+                media = get_media_class(src_path)
+                if media:
+                    metadata = media.get_metadata()
+                    # Get the destination path according to metadata
+                    directory_name = self.get_folder_path(metadata, db)
+                    file_name = self.get_file_name(metadata)
+                else:
+                    # Keep same directory structure
+                    directory_name = os.path.dirname(os.path.relpath(src_path,
+                        path))
+                    file_name = os.path.basename(src_path)
+
+                dest_directory = os.path.join(destination, directory_name)
+                dest_path = os.path.join(dest_directory, file_name)
+                self.create_directory(dest_directory)
+                result = self.sort_file(src_path, dest_path, remove_duplicates)
+                if result:
+                    self.summary, has_errors = self.check_file(src_path, dest_path, db)
+                else:
+                    # There is conflict files
+                    conflict_file_list.add((src_path, dest_path))
+
+            for src_path, dest_path in conflict_file_list:
+                # Try to sort the file
+                result = self.sort_file(src_path, dest_path, remove_duplicates)
+                if result:
+                    conflict_file_list.remove((src_path, dest_path))
+                else:
+                    n = 1
+                    while not result:
+                        # Add appendix to the name
+                        pre, ext = os.path.splitext(dest_path)
+                        dest_path = pre + '_' + str(n) + ext
+                        result = self.sort_file(src_path, dest_path, remove_duplicates)
+                        if n > 100:
+                            self.logger.error(f'{self.mode}: to many append for {dest_path}...')
+                            break
+                    self.logger.info(f'Same name already exists...renaming to: {dest_path}')
+
+                if result:
+                    self.summary, has_errors = self.check_file(src_path, dest_path, db)
+                else:
+                    self.summary.append((src_path, False))
+                    has_errors = True
+
+            return self.summary, has_errors
+
+
     def process_file(self, _file, destination, db, media, album_from_folder,
-            action, **kwargs):
+            mode, **kwargs):
         allow_duplicate = False
         if('allowDuplicate' in kwargs):
             allow_duplicate = kwargs['allowDuplicate']
@@ -658,22 +850,15 @@ class FileSystem(object):
 
         self.create_directory(dest_directory)
 
-        # exiftool renames the original file by appending '_original' to the
-        # file name. A new file is written with new tags with the initial file
-        # name. See exiftool man page for more details.
-
-        # Check if the source file was processed by exiftool and an _original
-        # file was created.
-
-        if(action == 'move'):
+        if(mode == 'move'):
             stat = os.stat(_file)
             # Move the processed file into the destination directory
             shutil.move(_file, dest_path)
 
-        elif action == 'copy':
+        elif mode == 'copy':
             shutil.copy2(_file, dest_path)
 
-        if action != 'dry_run':
+        if mode != 'dry_run':
             # Set the utime based on what the original file contained 
             #  before we made any changes.
             # Then set the utime on the destination file based on metadata.

@@ -713,6 +713,62 @@ def test_parse_folder_name_multiple_keys_not_found():
 
     assert path == 'United States of America', path
 
+def test_checkcomp():
+    filesystem = FileSystem()
+    temporary_folder, folder = helper.create_working_folder()
+    orig = helper.get_file('photo.png')
+    src_path1 = os.path.join(folder,'photo.png')
+    src_path2 = os.path.join(folder,'plain.jpg')
+    shutil.copyfile(helper.get_file('photo.png'), src_path1)
+    shutil.copyfile(helper.get_file('plain.jpg'), src_path2)
+    dest_path = os.path.join(folder,'photo_copy.jpg')
+    shutil.copyfile(src_path1, dest_path)
+    checksum1 = filesystem.checksum(src_path1)
+    checksum2 = filesystem.checksum(src_path2)
+    valid_checksum = filesystem.checkcomp(dest_path, checksum1)
+    invalid_checksum = filesystem.checkcomp(dest_path, checksum2)
+    assert valid_checksum
+    assert not invalid_checksum
+
+def test_sort_file():
+    filesystem = FileSystem()
+    temporary_folder, folder = helper.create_working_folder()
+    src_path = os.path.join(folder,'photo.png')
+    shutil.copyfile(helper.get_file('photo.png'), src_path)
+    dest_path1 = os.path.join(folder,'photo_copy.jpg')
+    checksum1 = filesystem.checksum(src_path)
+    result_copy = filesystem.sort_file(src_path, dest_path1)
+    assert result_copy
+    assert filesystem.checkcomp(dest_path1, checksum1)
+
+    dest_path2 = os.path.join(folder,'photo_move.jpg')
+    checksum2 = filesystem.checksum(src_path)
+    result_move = filesystem.sort_file(src_path, dest_path2)
+    assert result_move
+    assert filesystem.checkcomp(dest_path2, checksum2)
+
+
+def test_sort_files():
+    temporary_folder, folder = helper.create_working_folder()
+    temporary_folder_destination, folder_destination = helper.create_working_folder()
+
+    db = Db(folder)
+    filesystem = FileSystem()
+
+    filenames = ['photo.png', 'plain.jpg', 'text.txt', 'withoutextension']
+    for src_file in filenames:
+        origin = os.path.join(folder, src_file)
+        shutil.copyfile(helper.get_file(src_file), origin)
+
+    summary, has_errors = filesystem.sort_files([folder], folder_destination, db)
+
+    shutil.rmtree(folder)
+    shutil.rmtree(folder_destination)
+
+    assert summary, summary
+    assert not has_errors, has_errors
+
+
 def test_process_file_invalid():
     filesystem = FileSystem()
     temporary_folder, folder = helper.create_working_folder()
