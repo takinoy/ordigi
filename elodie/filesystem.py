@@ -20,7 +20,7 @@ from elodie.config import load_config
 from elodie import constants
 
 from elodie.localstorage import Db
-from elodie.media.media import get_media_class
+from elodie.media.media import get_media_class, get_all_subclasses
 from elodie.plugins.plugins import Plugins
 from elodie.summary import Summary
 
@@ -29,7 +29,7 @@ class FileSystem(object):
     """A class for interacting with the file system."""
 
     def __init__(self, mode='copy', dry_run=False, exclude_regex_list=set(),
-            logger=logging.getLogger(), day_begins=0):
+            logger=logging.getLogger(), day_begins=0, filter_by_ext=()):
         # The default folder path is along the lines of 2017-06-17_01-04-14-dsc_1234-some-title.jpg
         self.default_file_name_definition = {
             'date': '%Y-%m-%d_%H-%M-%S',
@@ -57,6 +57,7 @@ class FileSystem(object):
         self.logger = logger
         self.summary = Summary()
         self.day_begins = day_begins
+        self.filter_by_ext = filter_by_ext
 
         # Instantiate a plugins object
         self.plugins = Plugins()
@@ -107,12 +108,15 @@ class FileSystem(object):
         :param tuple(str) extensions: File extensions to include (whitelist)
         :returns: generator
         """
-        # If extensions is None then we get all files
-        # if not extensions:
-        #     extensions = set()
-        #     subclasses = media.get_all_subclasses()
-        #     for cls in subclasses:
-        #         extensions.update(cls.extensions)
+        if self.filter_by_ext != () and not extensions:
+            # Filtering  files by extensions.
+            if '%media' in self.filter_by_ext:
+                extensions = set()
+                subclasses = get_all_subclasses()
+                for cls in subclasses:
+                    extensions.update(cls.extensions)
+            else:
+                extensions = self.filter_by_ext
 
         # Create a list of compiled regular expressions to match against the file path
         compiled_regex_list = [re.compile(regex) for regex in exclude_regex_list]

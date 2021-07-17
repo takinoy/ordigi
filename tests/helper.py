@@ -56,8 +56,7 @@ def get_test_location():
     return (61.013710, 99.196656, 'Siberia')
 
 def populate_folder(number_of_files, include_invalid=False):
-    folder = '%s/%s' % (tempfile.gettempdir(), random_string(10))
-    os.makedirs(folder)
+    temporary_folder, folder = create_working_folder()
 
     for x in range(0, number_of_files):
         ext = 'jpg' if x % 2 == 0 else 'txt'

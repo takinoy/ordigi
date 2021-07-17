@@ -179,8 +179,8 @@ def _import(destination, source, file, album_from_folder, trash,
               dest_dir rather than moved')
 @click.option('--exclude-regex', '-e', default=set(), multiple=True,
               help='Regular expression for directories or files to exclude.')
-@click.option('--filter-by-ext', '-f', default=False, help='''Use filename
-        extension to filter files for sorting. If used without argument, use
+@click.option('--filter-by-ext', '-f', default=set(), multiple=True, help='''Use filename
+        extension to filter files for sorting. If value is '*', use
         common media file extension for filtering. Ignored files remain in
         the same directory structure''' )
 @click.option('--ignore-tags', '-i', default=set(), multiple=True,
@@ -243,7 +243,7 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     else:
         day_begins = 0
     filesystem = FileSystem(mode, dry_run, exclude_regex_list, logger,
-            day_begins)
+            day_begins, filter_by_ext)
 
     summary, has_errors = filesystem.sort_files(paths, destination, db,
             remove_duplicates)

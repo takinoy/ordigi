@@ -134,6 +134,12 @@ def test_get_all_files_by_extension():
     assert length == 5, length
 
     files = set()
+    filesystem = FileSystem(filter_by_ext=('%media',))
+    files.update(filesystem.get_all_files(folder))
+    length = len(files)
+    assert length == 3, length
+
+    files = set()
     files.update(filesystem.get_all_files(folder, 'jpg'))
     length = len(files)
     assert length == 3, length
