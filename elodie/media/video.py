@@ -27,8 +27,8 @@ class Video(Media):
     #: Valid extensions for video files.
     extensions = ('avi', 'm4v', 'mov', 'mp4', 'mpg', 'mpeg', '3gp', 'mts')
 
-    def __init__(self, source=None):
-        super().__init__(source)
+    def __init__(self, source=None, ignore_tags=set()):
+        super().__init__(source, ignore_tags=set())
         # self.set_gps_ref = False
 
 

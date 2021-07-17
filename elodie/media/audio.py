@@ -22,8 +22,8 @@ class Audio(Media):
     #: Valid extensions for audio files.
     extensions = ('m4a',)
 
-    def __init__(self, source=None):
-        super().__init__(source)
+    def __init__(self, source=None, ignore_tags=set()):
+        super().__init__(source, ignore_tags=set())
 
     def is_valid(self):
         """Check the file extension against valid file extensions.

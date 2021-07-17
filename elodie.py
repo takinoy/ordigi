@@ -246,7 +246,7 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
             day_begins, filter_by_ext)
 
     summary, has_errors = filesystem.sort_files(paths, destination, db,
-            remove_duplicates)
+            remove_duplicates, ignore_tags)
 
     if verbose or debug:
         summary.write()

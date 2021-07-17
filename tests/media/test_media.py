@@ -40,6 +40,16 @@ def test_get_class_by_file_without_extension():
 
     assert cls is not None, cls
 
+
+def test_get_exiftool_attribute():
+    file_path = helper.get_file('invalid.jpg')
+    ignore_tags = ('File:FileModifyDate', 'File:FileAccessDate')
+    media = Media.get_class_by_file(file_path, [Photo], ignore_tags)
+    exif = media.get_exiftool_attributes()
+    for tag in ignore_tags:
+        assert tag not in exif
+
+
 def test_get_original_name():
     temporary_folder, folder = helper.create_working_folder()
 

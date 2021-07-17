@@ -774,7 +774,8 @@ class FileSystem(object):
         return files
 
 
-    def sort_files(self, paths, destination, db, remove_duplicates=False):
+    def sort_files(self, paths, destination, db, remove_duplicates=False,
+            ignore_tags=set()):
 
         has_errors = False
         for path in paths:
@@ -784,7 +785,7 @@ class FileSystem(object):
             conflict_file_list = set()
             for src_path in files:
                 # Process files
-                media = get_media_class(src_path)
+                media = get_media_class(src_path, ignore_tags)
                 if media:
                     metadata = media.get_metadata()
                     # Get the destination path according to metadata

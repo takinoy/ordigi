@@ -24,8 +24,8 @@ class Photo(Media):
     #: Valid extensions for photo files.
     extensions = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
 
-    def __init__(self, source=None):
-        super().__init__(source)
+    def __init__(self, source=None, ignore_tags=set()):
+        super().__init__(source, ignore_tags)
 
         # We only want to parse EXIF once so we store it here
         self.exif = None

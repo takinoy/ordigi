@@ -47,7 +47,7 @@ class Media():
     extensions = PHOTO + AUDIO + VIDEO
 
 
-    def __init__(self, sources=None):
+    def __init__(self, sources=None, ignore_tags=set()):
         self.source = sources
         self.reset_cache()
         self.date_original = [
@@ -85,6 +85,7 @@ class Media():
         self.set_gps_ref = True
         self.metadata = None
         self.exif_metadata = None
+        self.ignore_tags = ignore_tags
 
 
     def format_metadata(self, **kwargs):
@@ -223,7 +224,7 @@ class Media():
 
 
     @classmethod
-    def get_class_by_file(cls, _file, classes):
+    def get_class_by_file(cls, _file, classes, ignore_tags=set()):
         """Static method to get a media object by file.
         """
         basestring = (bytes, str)
@@ -235,13 +236,13 @@ class Media():
         if len(extension) > 0:
             for i in classes:
                 if(extension in i.extensions):
-                    return i(_file)
+                    return i(_file, ignore_tags=ignore_tags)
 
         exclude_list = ['.DS_Store', '.directory']
         if os.path.basename(_file) == '.DS_Store':
             return None
         else:
-            return Media(_file)
+            return Media(_file, ignore_tags=ignore_tags)
 
 
     @classmethod
@@ -329,6 +330,14 @@ class Media():
         #Cache exif metadata results and use if already exists for media
         if(self.exif_metadata is None):
             self.exif_metadata = ExifTool().get_metadata(source)
+            for tag_regex in self.ignore_tags:
+                ignored_tags = set()
+                for tag in self.exif_metadata:
+                    if re.search(tag_regex, tag) is not None:
+                        ignored_tags.add(tag)
+                for ignored_tag in ignored_tags:
+                    del self.exif_metadata[ignored_tag]
+
 
         if not self.exif_metadata:
             return False
@@ -606,13 +615,13 @@ def get_all_subclasses(cls=None):
     return subclasses
 
 
-def get_media_class(_file):
+def get_media_class(_file, ignore_tags=set()):
     if not os.path.exists(_file):
         logging.warning(f'Could not find {_file}')
         logging.error(f'Could not find {_file}')
         return False
 
-    media = Media.get_class_by_file(_file, get_all_subclasses())
+    media = Media.get_class_by_file(_file, get_all_subclasses(), ignore_tags=set())
     if not media:
         logging.warning(f'File{_file} is not supported')
         logging.error(f'File {_file} can\'t be imported')
