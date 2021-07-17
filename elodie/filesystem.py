@@ -12,7 +12,7 @@ import os
 import re
 import shutil
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from elodie import geolocation
 from elodie import log
@@ -29,7 +29,7 @@ class FileSystem(object):
     """A class for interacting with the file system."""
 
     def __init__(self, mode='copy', dry_run=False, exclude_regex_list=set(),
-            logger=logging.getLogger()):
+            logger=logging.getLogger(), day_begins=0):
         # The default folder path is along the lines of 2017-06-17_01-04-14-dsc_1234-some-title.jpg
         self.default_file_name_definition = {
             'date': '%Y-%m-%d_%H-%M-%S',
@@ -56,6 +56,7 @@ class FileSystem(object):
         self.mode = mode
         self.logger = logger
         self.summary = Summary()
+        self.day_begins = day_begins
 
         # Instantiate a plugins object
         self.plugins = Plugins()
@@ -136,6 +137,18 @@ class FileSystem(object):
         :returns: str
         """
         return os.getcwd()
+
+
+    def check_for_early_morning_photos(self, date):
+        """check for early hour photos to be grouped with previous day"""
+
+        if date.hour < self.day_begins:
+            self.logger.info('moving this photo to the previous day for\
+                    classification purposes (day_begins=' + str(self.day_begins) + ')')
+            date = date - timedelta(hours=date.hour+1)  # push it to the day before for classificiation purposes
+
+        return date
+
 
     def get_file_name(self, metadata):
         """Generate file name for a photo or video using its metadata.
@@ -336,8 +349,9 @@ class FileSystem(object):
         # If Directory is in the config we assume full_path and its
         #  corresponding values (date, location) are also present
         config_directory = self.default_folder_path_definition
-        if('Directory' in config):
-            config_directory = config['Directory']
+        if 'Directory' in config:
+            if 'full_path' in config['Directory']:
+                config_directory = config['Directory']
 
         # Find all subpatterns of full_path that map to directories.
         #  I.e. %foo/%bar => ['foo', 'bar']
@@ -502,7 +516,8 @@ class FileSystem(object):
             config_directory = self.default_folder_path_definition
             config = load_config(constants.CONFIG_FILE)
             if('Directory' in config):
-                config_directory = config['Directory']
+                if 'full_path' in config['Directory']:
+                    config_directory = config['Directory']
             # Get date mask from config
             mask = ''
             if 'date' in config_directory:
@@ -518,6 +533,8 @@ class FileSystem(object):
             return folder
         elif part in ('date', 'day', 'month', 'year'):
             date = self.get_date_taken(metadata)
+            # early morning photos can be grouped with previous day
+            date = self.check_for_early_morning_photos(date)
             if date is not None:
                 return date.strftime(mask)
             else:
@@ -620,6 +637,7 @@ class FileSystem(object):
         # If we find a checksum match but the file doesn't exist where we
         #  believe it to be then we write a debug log and proceed to import.
         checksum_file = db.get_hash(checksum)
+        # BUG: inconsistency if file removed manually without update db
         if(allow_duplicate is False and checksum_file is not None):
             if(os.path.isfile(checksum_file)):
                 log.info('%s already at %s.' % (

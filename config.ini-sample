@@ -1,5 +1,19 @@
+[Directory]
+# day_begins: what hour of the day you want the day to begin (only for
+# classification purposes).  Defaults at 0 as midnight. Can be
+# used to group early morning photos with the previous day. Must
+# be a number between 0-23')
+day_begins=4
+
+location=%city, %state
+year=%Y
+month=%B
+# date=%Y
+# custom=%date %album
+full_path=%year/%month/%location
+
 [Geolocation]
-; geocoder: Nominatim or MapQuest
+# geocoder: Nominatim or MapQuest
 geocoder=Nominatim
 mapquest_key=None
 prefer_english_names=False

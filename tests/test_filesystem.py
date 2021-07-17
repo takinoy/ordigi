@@ -730,6 +730,14 @@ def test_checkcomp():
     assert valid_checksum
     assert not invalid_checksum
 
+
+def test_check_for_early_morning_photos():
+    date_origin = datetime(1985, 1, 1, 3, 5)
+    filesystem = FileSystem(day_begins=4)
+    date = filesystem.check_for_early_morning_photos(date_origin)
+    assert date.date() == datetime(1984, 12, 31).date()
+
+
 def test_sort_file():
     filesystem = FileSystem()
     temporary_folder, folder = helper.create_working_folder()

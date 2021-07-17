@@ -177,11 +177,6 @@ def _import(destination, source, file, album_from_folder, trash,
 @click.option('--copy', '-c', default=False, is_flag=True,
               help='True if you want files to be copied over from src_dir to\
               dest_dir rather than moved')
-@click.option('--day-begins', '-b', default=0,
-              help='What hour of the day you want the day to begin (only for\
-              classification purposes).  Defaults at 0 as midnight. Can be\
-              used to group early morning photos with the previous day. Must\
-              be a number between 0-23')
 @click.option('--exclude-regex', '-e', default=set(), multiple=True,
               help='Regular expression for directories or files to exclude.')
 @click.option('--filter-by-ext', '-f', default=False, help='''Use filename
@@ -197,7 +192,7 @@ def _import(destination, source, file, album_from_folder, trash,
 @click.option('--verbose', '-v', default=False, is_flag=True,
               help='True if you want to see details of file processing')
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
-def _sort(debug, dry_run, destination, copy, day_begins, exclude_regex, filter_by_ext, ignore_tags,
+def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignore_tags,
         remove_duplicates, verbose, paths):
     """Sort files or directories by reading their EXIF and organizing them
     according to config.ini preferences.
@@ -241,9 +236,17 @@ def _sort(debug, dry_run, destination, copy, day_begins, exclude_regex, filter_b
 
     # Initialize Db
     db = Db(destination)
-    filesystem = FileSystem(mode, dry_run, exclude_regex_list, logger)
 
-    summary, has_errors = filesystem.sort_files(paths, destination, db, remove_duplicates)
+    if 'Directory' in config and 'day_begins' in config['Directory']:
+        config_directory = config['Directory']
+        day_begins = config_directory['day_begins']
+    else:
+        day_begins = 0
+    filesystem = FileSystem(mode, dry_run, exclude_regex_list, logger,
+            day_begins)
+
+    summary, has_errors = filesystem.sort_files(paths, destination, db,
+            remove_duplicates)
 
     if verbose or debug:
         summary.write()
