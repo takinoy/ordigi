@@ -162,11 +162,6 @@ def _import(destination, source, file, album_from_folder, trash,
         sys.exit(1)
 
 
-# TODO
-# recursive : bool
-# True if you want src_dir to be searched recursively for files (False to search only in top-level of src_dir)
-
-
 @click.command('sort')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
@@ -188,6 +183,8 @@ def _import(destination, source, file, album_from_folder, trash,
               searching for file data. Example \'File:FileModifyDate\' or \'Filename\'' )
 @click.option('--keep-folders', '-k', default=None,
               help='Folder from given level are keep back')
+@click.option('--max-deep', '-m', default=None,
+              help='Maximum level to proceed. Number from 0 to desired level.')
 @click.option('--remove-duplicates', '-r', default=False, is_flag=True,
               help='True to remove files that are exactly the same in name\
                       and a file hash')
@@ -195,7 +192,7 @@ def _import(destination, source, file, album_from_folder, trash,
               help='True if you want to see details of file processing')
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
 def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignore_tags,
-        keep_folders, remove_duplicates, verbose, paths):
+        keep_folders, max_deep, remove_duplicates, verbose, paths):
     """Sort files or directories by reading their EXIF and organizing them
     according to config.ini preferences.
     """
@@ -214,6 +211,9 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
 
     if keep_folders is not None:
         keep_folders = int(keep_folders)
+
+    if max_deep is not None:
+        max_deep = int(max_deep)
 
     logger = logging.getLogger('elodie')
     logger.setLevel(constants.debug)
@@ -248,7 +248,7 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     else:
         day_begins = 0
     filesystem = FileSystem(mode, dry_run, exclude_regex_list, logger,
-            day_begins, filter_by_ext, keep_folders)
+            day_begins, filter_by_ext, keep_folders, max_deep)
 
     summary, has_errors = filesystem.sort_files(paths, destination, db,
             remove_duplicates, ignore_tags)

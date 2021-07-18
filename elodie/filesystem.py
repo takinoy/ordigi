@@ -29,7 +29,8 @@ class FileSystem(object):
     """A class for interacting with the file system."""
 
     def __init__(self, mode='copy', dry_run=False, exclude_regex_list=set(),
-            logger=logging.getLogger(), day_begins=0, filter_by_ext=(), keep_folders=None):
+            logger=logging.getLogger(), day_begins=0, filter_by_ext=(),
+            keep_folders=None, max_deep=None):
         # The default folder path is along the lines of 2017-06-17_01-04-14-dsc_1234-some-title.jpg
         self.default_file_name_definition = {
             'date': '%Y-%m-%d_%H-%M-%S',
@@ -59,6 +60,7 @@ class FileSystem(object):
         self.day_begins = day_begins
         self.filter_by_ext = filter_by_ext
         self.keep_folders = keep_folders
+        self.max_deep = max_deep
 
         # Instantiate a plugins object
         self.plugins = Plugins()
@@ -109,7 +111,9 @@ class FileSystem(object):
         source: https://stackoverflow.com/questions/229186/os-walk-without-digging-into-directories-below
         """
         src_path = src_path.rstrip(os.path.sep)
-        assert os.path.isdir(src_path)
+        if not os.path.isdir(src_path):
+            return None
+
         num_sep = src_path.count(os.path.sep)
         for root, dirs, files in os.walk(src_path):
             level = root.count(os.path.sep) - num_sep
@@ -802,7 +806,8 @@ class FileSystem(object):
         compiled_regex_list = [re.compile(regex) for regex in self.exclude_regex_list]
 
         subdirs = ''
-        for dirname, dirnames, filenames, level in self.walklevel(path):
+        for dirname, dirnames, filenames, level in self.walklevel(path,
+                self.max_deep):
             if dirname == os.path.join(path, '.elodie'):
                 continue
             if self.keep_folders is not None:
