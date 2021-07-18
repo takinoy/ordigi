@@ -113,6 +113,17 @@ def test_delete_directory_if_empty_when_not_empty():
 
     shutil.rmtree(parent_folder)
 
+
+def test_walklevel():
+    filesystem = FileSystem()
+    maxlevel=2
+    for root, dirs, files, level in filesystem.walklevel(helper.get_file_path('dir'), maxlevel):
+        for paths in root, dirs, files:
+            for path in paths:
+                assert isinstance(path, str), path
+        assert level <= maxlevel, level
+
+
 def test_get_all_files_success():
     filesystem = FileSystem()
     folder = helper.populate_folder(5)

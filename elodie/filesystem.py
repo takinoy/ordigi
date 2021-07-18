@@ -29,7 +29,7 @@ class FileSystem(object):
     """A class for interacting with the file system."""
 
     def __init__(self, mode='copy', dry_run=False, exclude_regex_list=set(),
-            logger=logging.getLogger(), day_begins=0, filter_by_ext=()):
+            logger=logging.getLogger(), day_begins=0, filter_by_ext=(), keep_folders=None):
         # The default folder path is along the lines of 2017-06-17_01-04-14-dsc_1234-some-title.jpg
         self.default_file_name_definition = {
             'date': '%Y-%m-%d_%H-%M-%S',
@@ -58,6 +58,7 @@ class FileSystem(object):
         self.summary = Summary()
         self.day_begins = day_begins
         self.filter_by_ext = filter_by_ext
+        self.keep_folders = keep_folders
 
         # Instantiate a plugins object
         self.plugins = Plugins()
@@ -100,6 +101,22 @@ class FileSystem(object):
             pass
 
         return False
+
+
+    def walklevel(self, src_path, maxlevel=None):
+        """
+        Walk into input directory recursively until desired maxlevel
+        source: https://stackoverflow.com/questions/229186/os-walk-without-digging-into-directories-below
+        """
+        src_path = src_path.rstrip(os.path.sep)
+        assert os.path.isdir(src_path)
+        num_sep = src_path.count(os.path.sep)
+        for root, dirs, files in os.walk(src_path):
+            level = root.count(os.path.sep) - num_sep
+            yield root, dirs, files, level
+            if maxlevel is not None and level >= maxlevel:
+                del dirs[:]
+
 
     def get_all_files(self, path, extensions=False, exclude_regex_list=set()):
         """Recursively get all files which match a path and extension.
@@ -759,19 +776,54 @@ class FileSystem(object):
         return self.summary, has_errors
 
 
-    def get_all_files_in_path(self, path, exclude_regex_list=set()):
-        files = set()
-        # some error checking
-        if not os.path.exists(path):
-            self.logger.error(f'Directory {path} does not exist')
+    def get_files_in_path(self, path, extensions=False):
+        """Recursively get files which match a path and extension.
 
-        path = os.path.expanduser(path)
-        if os.path.isdir(path):
-            files.update(self.get_all_files(path, False, exclude_regex_list))
-        else:
+        :param str path string: Path to start recursive file listing
+        :param tuple(str) extensions: File extensions to include (whitelist)
+        :returns: file_path, subdirs
+        """
+        if self.filter_by_ext != () and not extensions:
+            # Filtering  files by extensions.
+            if '%media' in self.filter_by_ext:
+                extensions = set()
+                subclasses = get_all_subclasses()
+                for cls in subclasses:
+                    extensions.update(cls.extensions)
+            else:
+                extensions = self.filter_by_ext
+
+        file_list = set()
+        if os.path.isfile(path):
             if not self.should_exclude(path, self.exclude_regex_list, True):
-                files.add(path)
-        return files
+                file_list.add((path, ''))
+
+        # Create a list of compiled regular expressions to match against the file path
+        compiled_regex_list = [re.compile(regex) for regex in self.exclude_regex_list]
+
+        subdirs = ''
+        for dirname, dirnames, filenames, level in self.walklevel(path):
+            if dirname == os.path.join(path, '.elodie'):
+                continue
+            if self.keep_folders is not None:
+                if level < self.keep_folders:
+                    subdirs = ''
+                else:
+                    subdirs = os.path.join(subdirs, os.path.basename(dirname))
+
+            for filename in filenames:
+                # If file extension is in `extensions` 
+                # And if file path is not in exclude regexes
+                # Then append to the list
+                filename_path = os.path.join(dirname, filename)
+                if (
+                        extensions == False
+                        or os.path.splitext(filename)[1][1:].lower() in extensions
+                        and not self.should_exclude(filename_path, compiled_regex_list, False)
+                    ):
+                    file_list.add((filename_path, subdirs))
+
+        return file_list
 
 
     def sort_files(self, paths, destination, db, remove_duplicates=False,
@@ -779,11 +831,14 @@ class FileSystem(object):
 
         has_errors = False
         for path in paths:
-            files = self.get_all_files_in_path(path, self.exclude_regex_list)
-            num_files = len(files)
+            # some error checking
+            if not os.path.exists(path):
+                self.logger.error(f'Directory {path} does not exist')
+
+            path = os.path.expanduser(path)
 
             conflict_file_list = set()
-            for src_path in files:
+            for src_path, subdirs in self.get_files_in_path(path):
                 # Process files
                 media = get_media_class(src_path, ignore_tags)
                 if media:
@@ -798,7 +853,7 @@ class FileSystem(object):
                     file_name = os.path.basename(src_path)
 
                 dest_directory = os.path.join(destination, directory_name)
-                dest_path = os.path.join(dest_directory, file_name)
+                dest_path = os.path.join(dest_directory, subdirs, file_name)
                 self.create_directory(dest_directory)
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
                 if result:

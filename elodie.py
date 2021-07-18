@@ -186,6 +186,8 @@ def _import(destination, source, file, album_from_folder, trash,
 @click.option('--ignore-tags', '-i', default=set(), multiple=True,
               help='Specific tags or group that will be ignored when\
               searching for file data. Example \'File:FileModifyDate\' or \'Filename\'' )
+@click.option('--keep-folders', '-k', default=None,
+              help='Folder from given level are keep back')
 @click.option('--remove-duplicates', '-r', default=False, is_flag=True,
               help='True to remove files that are exactly the same in name\
                       and a file hash')
@@ -193,7 +195,7 @@ def _import(destination, source, file, album_from_folder, trash,
               help='True if you want to see details of file processing')
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
 def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignore_tags,
-        remove_duplicates, verbose, paths):
+        keep_folders, remove_duplicates, verbose, paths):
     """Sort files or directories by reading their EXIF and organizing them
     according to config.ini preferences.
     """
@@ -209,6 +211,9 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
         constants.debug = logging.INFO
     else:
         constants.debug = logging.ERROR
+
+    if keep_folders is not None:
+        keep_folders = int(keep_folders)
 
     logger = logging.getLogger('elodie')
     logger.setLevel(constants.debug)
@@ -243,7 +248,7 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     else:
         day_begins = 0
     filesystem = FileSystem(mode, dry_run, exclude_regex_list, logger,
-            day_begins, filter_by_ext)
+            day_begins, filter_by_ext, keep_folders)
 
     summary, has_errors = filesystem.sort_files(paths, destination, db,
             remove_duplicates, ignore_tags)
