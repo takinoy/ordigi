@@ -21,6 +21,7 @@ from elodie import log
 from elodie.compatability import _decode
 from elodie.config import load_config
 from elodie.filesystem import FileSystem
+from elodie.gui import CompareImageApp
 from elodie.localstorage import Db
 from elodie.media.media import Media, get_all_subclasses
 from elodie.media.audio import Audio
@@ -474,11 +475,60 @@ def _update(album, location, time, title, paths, debug):
         sys.exit(1)
 
 
+@click.command('compare')
+@click.option('--debug', default=False, is_flag=True,
+              help='Override the value in constants.py with True.')
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Dry run only, no change made to the filesystem.')
+@click.option('--find-duplicates', '-f', default=False, is_flag=True)
+@click.option('--output-dir', '-o', default=False, is_flag=True, help='output\
+        dir')
+@click.option('--remove-duplicates', '-r', default=False, is_flag=True)
+@click.option('--revert-compare', '-R', default=False, is_flag=True, help='Revert\
+        compare')
+@click.option('--similar-to', '-s', default=False, help='Similar to given\
+        image')
+@click.option('--similarity', '-S', default=80, help='Similarity level for\
+        images')
+@click.option('--verbose', '-v', default=False, is_flag=True,
+              help='True if you want to see details of file processing')
+@click.argument('path', nargs=1, required=True)
+def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
+        revert_compare, similar_to, similarity, verbose, path):
+    '''Compare files in directories'''
+
+    logger = logging.getLogger('elodie')
+    if debug:
+        logger.setLevel(logging.DEBUG)
+    elif verbose:
+        logger.setLevel(logging.INFO)
+    else:
+        logger.setLevel(logging.ERROR)
+
+    # Initialize Db
+    db = Db(path)
+
+    filesystem = FileSystem(mode='move', dry_run=dry_run, logger=logger)
+
+    if revert_compare:
+        summary, has_errors = filesystem.revert_compare(path, db, dry_run)
+    else:
+        summary, has_errors = filesystem.sort_similar_images(path, db,
+                similarity, dry_run)
+
+    if verbose or debug:
+        summary.write()
+
+    if has_errors:
+        sys.exit(1)
+
+
 @click.group()
 def main():
     pass
 
 
+main.add_command(_compare)
 main.add_command(_import)
 main.add_command(_sort)
 main.add_command(_update)

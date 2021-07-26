@@ -21,6 +21,7 @@ from elodie import constants
 
 from elodie.localstorage import Db
 from elodie.media.media import get_media_class, get_all_subclasses
+from elodie.media.photo import CompareImages
 from elodie.plugins.plugins import Plugins
 from elodie.summary import Summary
 
@@ -892,6 +893,149 @@ class FileSystem(object):
 
             return self.summary, has_errors
 
+
+    def check_path(self, path):
+        path = os.path.abspath(os.path.expanduser(path))
+
+        # some error checking
+        if not os.path.exists(path):
+            self.logger.error(f'Directory {path} does not exist')
+            sys.exit(1)
+
+        return path
+
+
+    def set_hash(self, result, src_path, dest_path, checksum, db):
+        if result:
+            # Check if file remain the same
+            result = self.checkcomp(dest_path, checksum)
+            has_errors = False
+            if result:
+                if not self.dry_run:
+                    db.add_hash(checksum, dest_path)
+                    db.update_hash_db()
+
+                if dest_path:
+                    self.logger.info(f'{src_path} -> {dest_path}')
+
+                self.summary.append((src_path, dest_path))
+
+            else:
+                self.logger.error(f'Files {src_path} and {dest_path} are not identical')
+                # sys.exit(1)
+                self.summary.append((src_path, False))
+                has_errors = True
+        else:
+            self.summary.append((src_path, False))
+            has_errors = True
+
+        return has_errors
+
+
+    def move_file(self, img_path, dest_path, checksum, db):
+        if not self.dry_run:
+            try:
+                shutil.move(img_path, dest_path)
+            except OSError as error:
+                self.logger.error(error)
+
+        self.logger.info(f'move: {img_path} -> {dest_path}')
+        return self.set_hash(True, img_path, dest_path, checksum, db)
+
+
+    def sort_similar_images(self, path, db, similarity=80):
+
+        has_errors = False
+        path = self.check_path(path)
+        for dirname, dirnames, filenames, level in self.walklevel(path, None):
+            if dirname == os.path.join(path, '.elodie'):
+                continue
+            if dirname.find('similar_to') == 0:
+                continue
+
+            file_paths = set()
+            for filename in filenames:
+                file_paths.add(os.path.join(dirname, filename))
+
+            ci = CompareImages(file_paths, logger=self.logger)
+
+            images = set([ i for i in ci.get_images() ])
+            for image in images:
+                if not os.path.isfile(image):
+                    continue
+                checksum1 = db.checksum(image)
+                # Process files
+                # media = get_media_class(src_path, False)
+                # TODO compare metadata
+                # if media:
+                #     metadata = media.get_metadata()
+                similar = False
+                moved_imgs = set()
+                for img_path in ci.find_similar(image, similarity):
+                    similar = True
+                    checksum2 = db.checksum(img_path)
+                    # move image into directory
+                    name = os.path.splitext(os.path.basename(image))[0]
+                    directory_name = 'similar_to_' + name
+                    dest_directory = os.path.join(os.path.dirname(img_path),
+                            directory_name)
+                    dest_path = os.path.join(dest_directory, os.path.basename(img_path))
+
+                    result = self.create_directory(dest_directory)
+                    # Move the simlars file into the destination directory
+                    if result:
+                        result = self.move_file(img_path, dest_path, checksum2, db)
+                        moved_imgs.add(img_path)
+                        if not result:
+                            has_errors = True
+                    else:
+                        has_errors = True
+
+
+                if similar:
+                    dest_path = os.path.join(dest_directory,
+                            os.path.basename(image))
+                    result = self.move_file(image, dest_path, checksum1, db)
+                    moved_imgs.add(image)
+                    if not result:
+                        has_errors = True
+
+                for moved_img in moved_imgs:
+                    ci.file_paths.remove(moved_img)
+
+        return self.summary, has_errors
+
+
+    def revert_compare(self, path, db):
+
+        has_errors = False
+        path = self.check_path(path)
+        for dirname, dirnames, filenames, level in self.walklevel(path, None):
+            if dirname == os.path.join(path, '.elodie'):
+                continue
+            if dirname.find('similar_to') == 0:
+                continue
+
+            for subdir in dirnames:
+                if subdir.find('similar_to') == 0:
+                    file_names = os.listdir(os.path.abspath(os.path.join(dirname, subdir)))
+                    for file_name in file_names:
+                        # move file to initial folder
+                        img_path = os.path.join(dirname, subdir, file_name)
+                        if os.path.isdir(img_path):
+                            continue
+                        checksum = db.checksum(img_path)
+                        dest_path = os.path.join(dirname, os.path.basename(img_path))
+                        result = self.move_file(img_path, dest_path, checksum, db)
+                        if not result:
+                            has_errors = True
+                    # remove directory
+                    try:
+                        os.rmdir(os.path.join (dirname, subdir))
+                    except OSError as error:
+                        self.logger.error(error)
+
+        return self.summary, has_errors
 
     def process_file(self, _file, destination, db, media, album_from_folder,
             mode, **kwargs):

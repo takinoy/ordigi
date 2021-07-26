@@ -5,8 +5,12 @@ image objects (JPG, DNG, etc.).
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
 """
 
+import imagehash
 import imghdr
+import logging
+import numpy as np
 import os
+from PIL import Image
 import time
 
 from .media import Media
@@ -81,3 +85,88 @@ class Photo(Media):
                         return False
 
         return extension in self.extensions
+
+
+class CompareImages:
+    def __init__(self, file_paths, hash_size=8, logger=logging.getLogger()):
+        self.file_paths = file_paths
+        self.hash_size = hash_size
+        self.logger = logger
+        logger.setLevel(logging.INFO)
+
+    def get_images(self):
+        '''
+        :returns: img_path generator
+        '''
+        for img_path in self.file_paths:
+            if imghdr.what(img_path) is not None:
+                yield img_path
+
+
+    def find_duplicates(self):
+        """
+        Find duplicates
+        """
+
+        hashes = {}
+        duplicates = []
+        # Searching for duplicates.
+        for img_path in self.get_images():
+            if imghdr.what(img_path) is not None:
+                with Image.open(img_path) as img:
+                    temp_hash = imagehash.average_hash(img, self.hash_size)
+                    if temp_hash in hashes:
+                        self.logger.info("Duplicate {} \nfound for image {}\n".format(img_path, hashes[temp_hash]))
+                        duplicates.append(img_path)
+                    else:
+                        hashes[temp_hash] = img_path
+
+        return duplicates
+
+
+    def remove_duplicates(self, duplicates):
+        for duplicate in duplicates:
+            try:
+                os.remove(duplicate)
+            except OSError as error:
+                self.logger.error(error)
+
+
+    def remove_duplicates_interactive(self, duplicates):
+        if len(duplicates) != 0:
+            answer = input(f"Do you want to delete these {duplicates} images? Y/n: ")
+            if(answer.strip().lower() == 'y'):
+                self.remove_duplicates(duplicates)
+                self.logger.info(f'{duplicate} deleted successfully!')
+        else:
+            self.logger.info("No duplicates found")
+
+
+    def find_similar(self, image, similarity=80):
+        '''
+        Find similar images
+        :returns: img_path generator
+        '''
+        threshold = 1 - similarity/100
+        diff_limit = int(threshold*(self.hash_size**2))
+
+        hash1 = ''
+        if imghdr.what(image) is not None:
+            with Image.open(image) as img:
+                hash1 = imagehash.average_hash(img, self.hash_size).hash
+
+        self.logger.info(f'Finding similar images to {image}')
+        for img_path in self.get_images():
+            if img_path == image:
+                continue
+            with Image.open(img_path) as img:
+                hash2 = imagehash.average_hash(img, self.hash_size).hash
+
+                diff_images = np.count_nonzero(hash1 != hash2)
+                if diff_images <= diff_limit:
+                    threshold_img = diff_images / (self.hash_size**2)
+                    similarity_img = round((1 - threshold_img) * 100)
+                    self.logger.info(f'{img_path} image found {similarity_img}% similar to {image}')
+                    yield img_path
+
+
