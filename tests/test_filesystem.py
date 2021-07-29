@@ -778,7 +778,8 @@ def test_sort_files():
     temporary_folder_destination, folder_destination = helper.create_working_folder()
 
     db = Db(folder)
-    filesystem = FileSystem()
+    path_format = os.path.join(constants.default_path, constants.default_name)
+    filesystem = FileSystem(path_format=path_format)
 
     filenames = ['photo.png', 'plain.jpg', 'text.txt', 'withoutextension']
     for src_file in filenames:

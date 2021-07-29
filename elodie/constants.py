@@ -16,6 +16,9 @@ if (
    ):
     application_directory = environ['ELODIE_APPLICATION_DIRECTORY']
 
+default_path = '{%Y-%m-%b}/{album}|{city}|{"Unknown Location"}'
+default_name = '{%Y-%m-%d_%H-%M-%S}-{original_name}-{title}.{ext}'
+
 #: File in which to store details about media Elodie has seen.
 hash_db = 'hash.json'
 # TODO  will be removed eventualy later

@@ -9,7 +9,9 @@ import filecmp
 import hashlib
 import logging
 import os
+import pathlib
 import re
+import sys
 import shutil
 import time
 from datetime import datetime, timedelta
@@ -29,9 +31,9 @@ from elodie.summary import Summary
 class FileSystem(object):
     """A class for interacting with the file system."""
 
-    def __init__(self, mode='copy', dry_run=False, exclude_regex_list=set(),
-            logger=logging.getLogger(), day_begins=0, filter_by_ext=(),
-            keep_folders=None, max_deep=None):
+    def __init__(self, day_begins=0, dry_run=False, exclude_regex_list=set(),
+            filter_by_ext=(), logger=logging.getLogger(), max_deep=None,
+            mode='copy', path_format=None):
         # The default folder path is along the lines of 2017-06-17_01-04-14-dsc_1234-some-title.jpg
         self.default_file_name_definition = {
             'date': '%Y-%m-%d_%H-%M-%S',
@@ -51,6 +53,26 @@ class FileSystem(object):
         # It captures some additional characters like the unicode checkmark \u2713.
         # See build failures in Python3 here.
         #  https://travis-ci.org/jmathai/elodie/builds/483012902
+
+        self.items = {
+            'album': '{album}',
+            'basename': '{basename}',
+            'camera_make': '{camera_make}',
+            'camera_model': '{camera_model}',
+            'city': '{city}',
+            'custom': '{".*"}',
+            'country': '{country}',
+            # 'folder': '{folder[<>]?[-+]?[1-9]?}',
+            'folder': '{folder}',
+            'folders': '{folders(\[[0-9:]{0,3}\])?}',
+            'location': '{location}',
+            'ext': '{ext}',
+            'original_name': '{original_name}',
+            'state': '{state}',
+            'title': '{title}',
+            'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}' # search for date format string
+                }
+
         self.whitespace_regex = '[ \t\n\r\f\v]+'
 
         self.dry_run = dry_run
@@ -60,8 +82,12 @@ class FileSystem(object):
         self.summary = Summary()
         self.day_begins = day_begins
         self.filter_by_ext = filter_by_ext
-        self.keep_folders = keep_folders
         self.max_deep = max_deep
+        if path_format:
+            self.path_format = path_format
+        else:
+            self.path_format = os.path.join(constants.default_path,
+                    constants.default_name)
 
         # Instantiate a plugins object
         self.plugins = Plugins()
@@ -201,7 +227,7 @@ class FileSystem(object):
         #  [
         #    [('date', '%Y-%m-%d_%H-%M-%S')],
         #    [('original_name', '')], [('title', '')], // contains a fallback
-        #    [('extension', '')]
+        #    [('ext', '')]
         #  ]
         name_template, definition = self.get_file_name_definition()
 
@@ -232,8 +258,12 @@ class FileSystem(object):
                     )
                     break
                 elif part in ('album', 'extension', 'title'):
-                    if metadata[part]:
-                        this_value = re.sub(self.whitespace_regex, '-', metadata[part].strip())
+                    key = part
+                    if part == 'extension':
+                        key = 'ext'
+                    if metadata[key]:
+                        this_value = re.sub(self.whitespace_regex, '-',
+                                metadata[key].strip())
                         break
                 elif part in ('original_name'):
                     # First we check if we have metadata['original_name'].
@@ -297,7 +327,7 @@ class FileSystem(object):
         [
             ('date', '%Y-%m-%d'),
             [
-                ('location', '%city'),
+                ('default', '%city'),
                 ('album', ''),
                 ('"Unknown Location", '')
             ]
@@ -320,7 +350,7 @@ class FileSystem(object):
 
         # Find all subpatterns of name that map to the components of the file's
         #  name.
-        #  I.e. %date-%original_name-%title.%extension => ['date', 'original_name', 'title', 'extension'] #noqa
+        #  I.e. %date-%original_name-%title.%extension => ['date', 'original_name', 'title', 'ext'] #noqa
         path_parts = re.findall(
                          '(\%[a-z_]+)',
                          config_file['name']
@@ -357,7 +387,7 @@ class FileSystem(object):
         [
             ('date', '%Y-%m-%d'),
             [
-                ('location', '%city'),
+                ('default', '%city'),
                 ('album', ''),
                 ('"Unknown Location", '')
             ]
@@ -407,6 +437,7 @@ class FileSystem(object):
 
         return self.cached_folder_path_definition
 
+
     def get_folder_path(self, metadata, db, path_parts=None):
         """Given a media's metadata this function returns the folder path as a string.
 
@@ -432,6 +463,167 @@ class FileSystem(object):
                     # Else we continue for fallbacks
                     break
         return os.path.join(*path)
+
+
+    def get_location_part(self, mask, part, place_name):
+        """Takes a mask for a location and interpolates the actual place names.
+
+        Given these parameters here are the outputs.
+
+        mask = 'city'
+        part = 'city-random'
+        place_name = {'city': u'Sunnyvale'}
+        return 'Sunnyvale'
+
+        mask = 'location'
+        part = 'location'
+        place_name = {'default': u'Sunnyvale', 'city': u'Sunnyvale'}
+        return 'Sunnyvale'
+
+        :returns: str
+        """
+        folder_name = part
+        if(mask in place_name):
+            replace_target = mask
+            replace_with = place_name[mask]
+        else:
+            replace_target = part
+            replace_with = ''
+
+        folder_name = folder_name.replace(
+            replace_target,
+            replace_with,
+        )
+
+        return folder_name
+
+
+
+    def get_part(self, item, mask, metadata, db, subdirs):
+        """Parse a specific folder's name given a mask and metadata.
+
+        :param item: Name of the item as defined in the path (i.e. date from %date)
+        :param mask: Mask representing the template for the path (i.e. %city %state
+        :param metadata: Metadata dictionary.
+        :returns: str
+        """
+
+        # Each item has its own custom logic and we evaluate a single item and return
+        #  the evaluated string.
+        if item in ('basename'):
+            return os.path.basename(metadata['base_name'])
+        elif item is 'date':
+            date = self.get_date_taken(metadata)
+            # early morning photos can be grouped with previous day
+            date = self.check_for_early_morning_photos(date)
+            if date is not None:
+                return date.strftime(mask)
+            else:
+                return ''
+
+        elif item in ('location', 'city', 'state', 'country'):
+            place_name = geolocation.place_name(
+                metadata['latitude'],
+                metadata['longitude'],
+                db
+            )
+            if item == 'location':
+                mask = 'default'
+
+            return self.get_location_part(mask, item, place_name)
+        elif item in ('folder'):
+            return os.path.basename(subdirs)
+
+        elif item in ('folders'):
+            folders = pathlib.Path(subdirs).parts
+            folders = eval(mask)
+
+            return os.path.join(*folders)
+
+        elif item in ('album','camera_make', 'camera_model', 'ext',
+                'title'):
+            if metadata[item]:
+                # return metadata[item]
+                return re.sub(self.whitespace_regex, '_', metadata[item].strip())
+        elif item in ('original_name'):
+            # First we check if we have metadata['original_name'].
+            # We have to do this for backwards compatibility because
+            #   we original did not store this back into EXIF.
+            if metadata[item]:
+                part = os.path.splitext(metadata['original_name'])[0]
+            else:
+                # We didn't always store original_name so this is 
+                #  for backwards compatability.
+                # We want to remove the hardcoded date prefix we used 
+                #  to add to the name.
+                # This helps when re-running the program on file 
+                #  which were already processed.
+                part = re.sub(
+                    '^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-',
+                    '',
+                    metadata['base_name']
+                )
+                if(len(part) == 0):
+                    part = metadata['base_name']
+            # Lastly we want to sanitize the name
+            return re.sub(self.whitespace_regex, '_', part.strip())
+        elif item in 'custom':
+            # Fallback string
+            return mask[1:-1]
+
+        return ''
+
+
+    def get_path(self, metadata, db, subdirs=''):
+        """path_format: {%Y-%d-%m}/%u{city}/{album}
+
+        Returns file path.
+
+        :returns: string"""
+
+        # if self.path_format is None:
+        #     path_format = self.get_path_definition()
+        path_format = self.path_format
+        # self.cached_folder_path_definition = []
+        path = []
+        path_parts = path_format.split('/')
+        for path_part in path_parts:
+            this_parts = path_part.split('|')
+            # p = []
+            for this_part in this_parts:
+                # parts = ''
+                for item, mask in self.items.items():
+                    matched = re.search(mask, this_part)
+                    if matched:
+                        # parts = re.split(mask, this_part)
+                        # parts = this_part.split('%')[1:]
+                        part = self.get_part(item, matched.group()[1:-1], metadata, db,
+                                subdirs)
+
+                        # Capitalization
+                        umask = '%u' + mask
+                        lmask = '%l' + mask
+                        if re.search(umask, this_part):
+                            this_part = re.sub(umask, part.upper(), this_part)
+                        elif re.search(lmask, this_part):
+                            this_part = re.sub(lmask, part.lower(), this_part)
+                        else:
+                            this_part = re.sub(mask, part, this_part)
+
+                if this_part:
+                    # Check if all masks are substituted
+                    if True in [c in this_part for c in '{}']:
+                        self.logger.error(f'Format path part invalid: \
+                                {this_part}')
+                        sys.exit(1)
+
+                    path.append(this_part.strip())
+                    # We break as soon as we have a value to append
+                    break
+                # Else we continue for fallbacks
+
+        return os.path.join(*path)
+
 
     def get_date_from_string(self, string, user_regex=None):
         # If missing datetime from EXIF data check if filename is in datetime format.
@@ -811,11 +1003,8 @@ class FileSystem(object):
                 self.max_deep):
             if dirname == os.path.join(path, '.elodie'):
                 continue
-            if self.keep_folders is not None:
-                if level < self.keep_folders:
-                    subdirs = ''
-                else:
-                    subdirs = os.path.join(subdirs, os.path.basename(dirname))
+
+            subdirs = os.path.join(subdirs, os.path.basename(dirname))
 
             for filename in filenames:
                 # If file extension is in `extensions` 
@@ -850,16 +1039,14 @@ class FileSystem(object):
                 if media:
                     metadata = media.get_metadata()
                     # Get the destination path according to metadata
-                    directory_name = self.get_folder_path(metadata, db)
-                    file_name = self.get_file_name(metadata)
+                    file_path = self.get_path(metadata, db, subdirs=subdirs)
                 else:
                     # Keep same directory structure
-                    directory_name = os.path.dirname(os.path.relpath(src_path,
-                        path))
-                    file_name = os.path.basename(src_path)
+                    file_path = os.path.relpath(src_path, path)
 
-                dest_directory = os.path.join(destination, directory_name)
-                dest_path = os.path.join(dest_directory, subdirs, file_name)
+                dest_directory = os.path.join(destination,
+                        os.path.dirname(file_path))
+                dest_path = os.path.join(destination, file_path)
                 self.create_directory(dest_directory)
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
                 if result:

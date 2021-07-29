@@ -111,7 +111,7 @@ class Media():
             return None
 
         source = self.source
-        return os.path.splitext(source)[1][1:].lower()
+        return os.path.splitext(source)[1][1:]
 
 
     def get_metadata(self, update_cache=False, album_from_folder=False):
@@ -146,7 +146,7 @@ class Media():
             'mime_type': self.get_mimetype(),
             'original_name': self.get_original_name(),
             'base_name': os.path.basename(os.path.splitext(source)[0]),
-            'extension': self.get_extension(),
+            'ext': self.get_extension(),
             'directory_path': os.path.dirname(source)
         }
 

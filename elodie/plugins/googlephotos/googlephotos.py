@@ -61,7 +61,7 @@ class GooglePhotos(PluginBase):
         self.session = None
 
     def after(self, file_path, destination_folder, final_file_path, metadata):
-        extension = metadata['extension']
+        extension = metadata['ext']
         if(extension in Photo.extensions or extension in Video.extensions):
             self.log(u'Added {} to db.'.format(final_file_path))
             self.db.set(final_file_path, metadata['original_name'])

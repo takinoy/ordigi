@@ -19,6 +19,7 @@ from elodie import constants
 from elodie import geolocation
 from elodie import log
 from elodie.compatability import _decode
+from elodie import config
 from elodie.config import load_config
 from elodie.filesystem import FileSystem
 from elodie.gui import CompareImageApp
@@ -182,8 +183,6 @@ def _import(destination, source, file, album_from_folder, trash,
 @click.option('--ignore-tags', '-i', default=set(), multiple=True,
               help='Specific tags or group that will be ignored when\
               searching for file data. Example \'File:FileModifyDate\' or \'Filename\'' )
-@click.option('--keep-folders', '-k', default=None,
-              help='Folder from given level are keep back')
 @click.option('--max-deep', '-m', default=None,
               help='Maximum level to proceed. Number from 0 to desired level.')
 @click.option('--remove-duplicates', '-r', default=False, is_flag=True,
@@ -193,7 +192,7 @@ def _import(destination, source, file, album_from_folder, trash,
               help='True if you want to see details of file processing')
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
 def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignore_tags,
-        keep_folders, max_deep, remove_duplicates, verbose, paths):
+        max_deep, remove_duplicates, verbose, paths):
     """Sort files or directories by reading their EXIF and organizing them
     according to config.ini preferences.
     """
@@ -209,9 +208,6 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
         constants.debug = logging.INFO
     else:
         constants.debug = logging.ERROR
-
-    if keep_folders is not None:
-        keep_folders = int(keep_folders)
 
     if max_deep is not None:
         max_deep = int(max_deep)
@@ -232,24 +228,26 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     if not os.path.exists(destination):
         logger.error(f'Directory {destination} does not exist')
 
+    conf = config.load_config(constants.CONFIG_FILE)
+    path_format = config.get_path_definition(conf)
+
     # if no exclude list was passed in we check if there's a config
     if len(exclude_regex) == 0:
-        config = load_config(constants.CONFIG_FILE)
-        if 'Exclusions' in config:
-            exclude_regex = [value for key, value in config.items('Exclusions')]
+        if 'Exclusions' in conf:
+            exclude_regex = [value for key, value in conf.items('Exclusions')]
 
     exclude_regex_list = set(exclude_regex)
 
     # Initialize Db
     db = Db(destination)
 
-    if 'Directory' in config and 'day_begins' in config['Directory']:
-        config_directory = config['Directory']
+    if 'Directory' in conf and 'day_begins' in conf['Directory']:
+        config_directory = conf['Directory']
         day_begins = config_directory['day_begins']
     else:
         day_begins = 0
-    filesystem = FileSystem(mode, dry_run, exclude_regex_list, logger,
-            day_begins, filter_by_ext, keep_folders, max_deep)
+    filesystem = FileSystem(day_begins, dry_run, exclude_regex_list,
+            filter_by_ext, logger, max_deep, mode, path_format)
 
     summary, has_errors = filesystem.sort_files(paths, destination, db,
             remove_duplicates, ignore_tags)
