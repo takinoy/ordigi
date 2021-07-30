@@ -11,9 +11,8 @@ import urllib.error
 import geopy
 from geopy.geocoders import Nominatim
 
-from elodie.config import load_config
-from elodie import constants
-from elodie import log
+from dozo import constants
+from dozo.config import load_config
 
 __KEY__ = None
 __DEFAULT_LOCATION__ = 'Unknown Location'
@@ -147,7 +146,7 @@ def get_prefer_english_names():
     __PREFER_ENGLISH_NAMES__ = bool(config['Geolocation']['prefer_english_names'])
     return __PREFER_ENGLISH_NAMES__
 
-def place_name(lat, lon, db):
+def place_name(lat, lon, db, cache=True, logger=logging.getLogger()):
     lookup_place_name_default = {'default': __DEFAULT_LOCATION__}
     if(lat is None or lon is None):
         return lookup_place_name_default
@@ -160,7 +159,9 @@ def place_name(lat, lon, db):
 
     # Try to get cached location first
     # 3km distace radious for a match
-    cached_place_name = db.get_location_name(lat, lon, 3000)
+    cached_place_name = None
+    if cache:
+        cached_place_name = db.get_location_name(lat, lon, 3000)
     # We check that it's a dict to coerce an upgrade of the location
     #  db from a string location to a dictionary. See gh-160.
     if(isinstance(cached_place_name, dict)):
@@ -197,7 +198,7 @@ def place_name(lat, lon, db):
 
     return lookup_place_name
 
-def lookup_osm(lat, lon):
+def lookup_osm(lat, lon, logger=logging.getLogger()):
 
     prefer_english_names = get_prefer_english_names()
     from geopy.geocoders import Nominatim
@@ -210,10 +211,10 @@ def lookup_osm(lat, lon):
             lang='local'
         return locator.reverse(coords, language=lang).raw
     except geopy.exc.GeocoderUnavailable as e:
-        log.error(e)
+        logger.error(e)
         return None
     except ValueError as e:
-        log.error(e)
+        logger.error(e)
         return None
 
 

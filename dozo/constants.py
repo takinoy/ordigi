@@ -1,5 +1,5 @@
 """
-Settings used by Elodie.
+Settings.
 """
 
 from os import environ, path
@@ -8,8 +8,8 @@ from sys import version_info
 #: If True, debug messages will be printed.
 debug = False
 
-#: Directory in which to store Elodie settings.
-application_directory = '{}/.elodie'.format(path.expanduser('~'))
+#: Directory in which to store Dozo settings.
+application_directory = '{}/.dozo'.format(path.expanduser('~'))
 if (
         'ELODIE_APPLICATION_DIRECTORY' in environ and
         path.isdir(environ['ELODIE_APPLICATION_DIRECTORY'])
@@ -18,21 +18,21 @@ if (
 
 default_path = '{%Y-%m-%b}/{album}|{city}|{"Unknown Location"}'
 default_name = '{%Y-%m-%d_%H-%M-%S}-{original_name}-{title}.{ext}'
-
-#: File in which to store details about media Elodie has seen.
+default_geocoder = 'Nominatim'
+# Checksum storage file.
 hash_db = 'hash.json'
 # TODO  will be removed eventualy later
 # hash_db = '{}/hash.json'.format(application_directory)
 
-#: File in which to store geolocation details about media Elodie has seen.
+# Geolocation details file.
 location_db = 'location.json'
 # TODO  will be removed eventualy later
 # location_db = '{}/location.json'.format(application_directory)
 
-#: Elodie installation directory.
+# Dozo installation directory.
 script_directory = path.dirname(path.dirname(path.abspath(__file__)))
 
-#: Path to Elodie's ExifTool config file.
+#: Path to ExifTool config file.
 exiftool_config = path.join(script_directory, 'configs', 'ExifTool_config')
 
 #: Path to MapQuest base URL

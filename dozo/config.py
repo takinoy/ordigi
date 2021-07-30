@@ -1,7 +1,7 @@
 """Load config file as a singleton."""
 from configparser import RawConfigParser
 from os import path
-from elodie import constants
+from dozo import constants
 
 
 def load_config(file):

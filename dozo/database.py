@@ -1,5 +1,5 @@
 """
-Methods for interacting with information Elodie caches about stored media.
+Methods for interacting with information Dozo caches about stored media.
 """
 from builtins import map
 from builtins import object
@@ -13,21 +13,21 @@ from math import radians, cos, sqrt
 from shutil import copyfile
 from time import strftime
 
-from elodie import constants
+from dozo import constants
 
 
 class Db(object):
 
-    """A class for interacting with the JSON files created by Elodie."""
+    """A class for interacting with the JSON files created by Dozo."""
 
     def __init__(self, target_dir):
-        # verify that the application directory (~/.elodie) exists,
+        # verify that the application directory (~/.dozo) exists,
         #   else create it
         # if not os.path.exists(constants.application_directory):
         #     os.makedirs(constants.application_directory)
 
         # Create dir for target database
-        dirname = os.path.join(target_dir, '.elodie')
+        dirname = os.path.join(target_dir, '.dozo')
         # Legacy dir
         # dirname = constants.application_directory
 

@@ -1,6 +1,6 @@
 """
 The audio module contains classes specifically for dealing with audio files.
-The :class:`Audio` class inherits from the :class:`~elodie.media.Media`
+The :class:`Audio` class inherits from the :class:`~dozo.media.Media`
 class.
 
 .. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>

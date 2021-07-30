@@ -1,7 +1,7 @@
 from tabulate import tabulate
 
 
-class Result(object):
+class Summary(object):
 
     def __init__(self):
         self.records = []
@@ -25,7 +25,7 @@ class Result(object):
             for id in self.error_items:
                 error_result.append([id])
 
-            print("****** ERROR DETAILS ******")
+            print('Errors details:')
             print(tabulate(error_result, headers=error_headers))
             print("\n")
 
@@ -35,5 +35,6 @@ class Result(object):
                     ["Error", self.error],
                  ]
 
-        print("****** SUMMARY ******")
-        print(tabulate(result, headers=headers))
+        print()
+        print('Summary:')
+        print(tabulate(result, tablefmt="plain"))

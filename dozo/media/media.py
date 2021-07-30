@@ -1,11 +1,7 @@
 """
-The media module provides a base :class:`Media` class for media objects that
-are tracked by Elodie. The Media class provides some base functionality used
-by all the media types. Its sub-classes (:class:`~elodie.media.Audio`,
-:class:`~elodie.media.Photo`, and :class:`~elodie.media.Video`)
-are used to represent the actual files.
-
-.. moduleauthor:: Jaisen Mathai <jaisen@jmathai.com>
+Base :class:`Media` class for media objects that are tracked by Dozo.
+The Media class provides some base functionality used by all the media types.
+Sub-classes (:class:`~dozo.media.Audio`, :class:`~dozo.media.Photo`, and :class:`~dozo.media.Video`).
 """
 
 import mimetypes
@@ -14,17 +10,9 @@ import six
 import logging
 
 # load modules
-from elodie import log
 from dateutil.parser import parse
 import re
 from elodie.external.pyexiftool import ExifTool
-
-# TODO remove
-# try:        # Py3k compatibility
-#     basestring
-# except NameError:
-#     basestring = (bytes, str)
-
 
 class Media():
 
@@ -329,7 +317,7 @@ class Media():
 
         #Cache exif metadata results and use if already exists for media
         if(self.exif_metadata is None):
-            self.exif_metadata = ExifTool().get_metadata(source)
+            self.exif_metadata = ExifToolCaching(source, logger=self.logger).asdict()
             for tag_regex in self.ignore_tags:
                 ignored_tags = set()
                 for tag in self.exif_metadata:
@@ -589,6 +577,8 @@ class Media():
 
         status = ''
         status = ExifTool().set_tags(tags, path)
+        for tag, value in tags.items():
+            status = ExifToolCaching(path, self.logger).setvalue(tag, value)
         if status.decode().find('unchanged') != -1 or status == '':
             return False
         if status.decode().find('error') != -1:
