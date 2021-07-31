@@ -4,7 +4,6 @@ Methods for interacting with information Dozo caches about stored media.
 from builtins import map
 from builtins import object
 
-import hashlib
 import json
 import os
 import sys
@@ -124,26 +123,6 @@ class Db(object):
         :returns: bool
         """
         return key in self.hash_db
-
-    def checksum(self, file_path, blocksize=65536):
-        """Create a hash value for the given file.
-
-        See http://stackoverflow.com/a/3431835/1318758.
-
-        :param str file_path: Path to the file to create a hash for.
-        :param int blocksize: Read blocks of this size from the file when
-            creating the hash.
-        :returns: str or None
-        """
-        hasher = hashlib.sha256()
-        with open(file_path, 'rb') as f:
-            buf = f.read(blocksize)
-
-            while len(buf) > 0:
-                hasher.update(buf)
-                buf = f.read(blocksize)
-            return hasher.hexdigest()
-        return None
 
     def get_hash(self, key):
         """Get the hash value for a given key.

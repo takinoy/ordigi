@@ -185,7 +185,6 @@ class FileSystem(object):
         return folder_name
 
 
-
     def get_part(self, item, mask, metadata, db, subdirs):
         """Parse a specific folder's name given a mask and metadata.
 
@@ -582,6 +581,7 @@ class FileSystem(object):
                 dest_directory = os.path.join(destination,
                         os.path.dirname(file_path))
                 dest_path = os.path.join(destination, file_path)
+
                 self.create_directory(dest_directory)
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
                 if result:
@@ -687,7 +687,7 @@ class FileSystem(object):
             for image in images:
                 if not os.path.isfile(image):
                     continue
-                checksum1 = db.checksum(image)
+                checksum1 = self.checksum(image)
                 # Process files
                 # media = get_media_class(src_path, False, self.logger)
                 # TODO compare metadata
@@ -697,7 +697,7 @@ class FileSystem(object):
                 moved_imgs = set()
                 for img_path in ci.find_similar(image, similarity):
                     similar = True
-                    checksum2 = db.checksum(img_path)
+                    checksum2 = self.checksum(img_path)
                     # move image into directory
                     name = os.path.splitext(os.path.basename(image))[0]
                     directory_name = 'similar_to_' + name
@@ -748,7 +748,7 @@ class FileSystem(object):
                         img_path = os.path.join(dirname, subdir, file_name)
                         if os.path.isdir(img_path):
                             continue
-                        checksum = db.checksum(img_path)
+                        checksum = self.checksum(img_path)
                         dest_path = os.path.join(dirname, os.path.basename(img_path))
                         result = self.move_file(img_path, dest_path, checksum, db)
                         if not result:

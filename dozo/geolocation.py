@@ -81,6 +81,7 @@ def get_prefer_english_names():
     __PREFER_ENGLISH_NAMES__ = bool(config['Geolocation']['prefer_english_names'])
     return __PREFER_ENGLISH_NAMES__
 
+
 def place_name(lat, lon, db, cache=True, logger=logging.getLogger()):
     lookup_place_name_default = {'default': __DEFAULT_LOCATION__}
     if(lat is None or lon is None):
@@ -130,6 +131,7 @@ def place_name(lat, lon, db, cache=True, logger=logging.getLogger()):
         lookup_place_name = lookup_place_name_default
 
     return lookup_place_name
+
 
 def lookup_osm(lat, lon, logger=logging.getLogger()):
 
