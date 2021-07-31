@@ -12,7 +12,7 @@ import geopy
 from geopy.geocoders import Nominatim
 
 from dozo import constants
-from dozo.config import load_config
+from dozo.config import load_config, get_geocoder
 
 __KEY__ = None
 __DEFAULT_LOCATION__ = 'Unknown Location'
@@ -105,17 +105,6 @@ def dms_string(decimal, type='latitude'):
     elif type == 'longitude':
         direction = 'E' if decimal >= 0 else 'W'
     return '{} deg {}\' {}" {}'.format(dms[0], dms[1], dms[2], direction)
-
-
-def get_geocoder():
-    config = load_config(constants.CONFIG_FILE)
-    try:
-        geocoder = config['Geolocation']['geocoder']
-    except KeyError as e:
-        log.error(e)
-        return None
-
-    return geocoder
 
 
 def get_key():

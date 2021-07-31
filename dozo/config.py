@@ -36,3 +36,10 @@ def get_path_definition(config):
 
     return constants.default_path + '/' + constants.default_name
 
+def get_geocoder():
+    config = load_config(constants.CONFIG_FILE)
+    if 'Geolocation' in config and 'geocoder' in config['Geolocation']:
+        return config['Geolocation']['geocoder']
+
+    return constants.default_geocoder
+
