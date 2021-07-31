@@ -4,12 +4,9 @@ from past.utils import old_div
 
 from os import path
 
-import requests
-import urllib.request
-import urllib.parse
-import urllib.error
 import geopy
 from geopy.geocoders import Nominatim
+import logging
 
 from dozo import constants
 from dozo.config import load_config, get_geocoder
@@ -38,41 +35,6 @@ def coordinates_by_name(name, db):
                 'latitude': geolocation_info.latitude,
                 'longitude': geolocation_info.longitude
             }
-    elif geocoder == 'MapQuest':
-        geolocation_info = lookup_mapquest(location=name)
-
-        if(geolocation_info is not None):
-            if(
-                'results' in geolocation_info and
-                len(geolocation_info['results']) != 0 and
-                'locations' in geolocation_info['results'][0] and
-                len(geolocation_info['results'][0]['locations']) != 0
-            ):
-
-                # By default we use the first entry unless we find one with
-                #   geocodeQuality=city.
-                geolocation_result = geolocation_info['results'][0]
-                use_location = geolocation_result['locations'][0]['latLng']
-                # Loop over the locations to see if we come accross a
-                #   geocodeQuality=city.
-                # If we find a city we set that to the use_location and break
-                for location in geolocation_result['locations']:
-                    if(
-                        'latLng' in location and
-                        'lat' in location['latLng'] and
-                        'lng' in location['latLng'] and
-                        location['geocodeQuality'].lower() == 'city'
-                    ):
-                        use_location = location['latLng']
-                        break
-
-                return {
-                    'latitude': use_location['lat'],
-                    'longitude': use_location['lng']
-                }
-
-        else:
-            return None
 
     return None
 
@@ -106,22 +68,6 @@ def dms_string(decimal, type='latitude'):
         direction = 'E' if decimal >= 0 else 'W'
     return '{} deg {}\' {}" {}'.format(dms[0], dms[1], dms[2], direction)
 
-
-def get_key():
-    global __KEY__
-    if __KEY__ is not None:
-        return __KEY__
-
-    if constants.mapquest_key is not None:
-        __KEY__ = constants.mapquest_key
-        return __KEY__
-
-    config = load_config(constants.CONFIG_FILE)
-    if('Geolocation' not in config):
-        return None
-
-    __KEY__ = config['Geolocation']['mapquest_key']
-    return __KEY__
 
 def get_prefer_english_names():
     global __PREFER_ENGLISH_NAMES__
@@ -159,9 +105,7 @@ def place_name(lat, lon, db, cache=True, logger=logging.getLogger()):
     lookup_place_name = {}
     geocoder = get_geocoder()
     if geocoder == 'Nominatim':
-        geolocation_info = lookup_osm(lat, lon)
-    elif geocoder == 'MapQuest':
-        geolocation_info = lookup_mapquest(lat=lat, lon=lon)
+        geolocation_info = lookup_osm(lat, lon, logger)
     else:
         return None
 
@@ -207,58 +151,3 @@ def lookup_osm(lat, lon, logger=logging.getLogger()):
         return None
 
 
-def lookup_mapquest(**kwargs):
-    if(
-        'location' not in kwargs and
-        'lat' not in kwargs and
-        'lon' not in kwargs
-    ):
-        return None
-
-    mapquest_key = get_key()
-    prefer_english_names = get_prefer_english_names()
-
-    if(mapquest_key is None):
-        return None
-
-    try:
-        params = {'format': 'json', 'key': mapquest_key}
-        params.update(kwargs)
-        path = '/geocoding/v1/address'
-        if('lat' in kwargs and 'lon' in kwargs):
-            path = '/nominatim/v1/reverse.php'
-        url = '%s%s?%s' % (
-                    constants.mapquest_base_url,
-                    path,
-                    urllib.parse.urlencode(params)
-              )
-        headers = {}
-        if(prefer_english_names):
-            headers = {'Accept-Language':'en-EN,en;q=0.8'}
-        r = requests.get(url, headers=headers)
-        return parse_result(r.json())
-    except requests.exceptions.RequestException as e:
-        log.error(e)
-        return None
-    except ValueError as e:
-        log.error(r.text)
-        log.error(e)
-        return None
-
-
-def parse_result(result):
-    if('error' in result):
-        return None
-
-    if(
-        'results' in result and
-        len(result['results']) > 0 and
-        'locations' in result['results'][0]
-        and len(result['results'][0]['locations']) > 0 and
-        'latLng' in result['results'][0]['locations'][0]
-    ):
-        latLng = result['results'][0]['locations'][0]['latLng']
-        if(latLng['lat'] == 39.78373 and latLng['lng'] == -100.445882):
-            return None
-
-    return result
