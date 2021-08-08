@@ -35,7 +35,7 @@ class Media():
     extensions = PHOTO + AUDIO + VIDEO
 
 
-    def __init__(self, sources=None, ignore_tags=set()):
+    def __init__(self, sources=None, ignore_tags=set(), logger=logging.getLogger()):
         self.source = sources
         self.reset_cache()
         self.date_original = [
@@ -74,6 +74,7 @@ class Media():
         self.metadata = None
         self.exif_metadata = None
         self.ignore_tags = ignore_tags
+        self.logger = logger
 
 
     def format_metadata(self, **kwargs):
@@ -212,7 +213,7 @@ class Media():
 
 
     @classmethod
-    def get_class_by_file(cls, _file, classes, ignore_tags=set()):
+    def get_class_by_file(cls, _file, classes, ignore_tags=set(), logger=logging.getLogger()):
         """Static method to get a media object by file.
         """
         basestring = (bytes, str)
@@ -230,7 +231,7 @@ class Media():
         if os.path.basename(_file) == '.DS_Store':
             return None
         else:
-            return Media(_file, ignore_tags=ignore_tags)
+            return Media(_file, ignore_tags=ignore_tags, logger=logger)
 
 
     @classmethod
@@ -362,7 +363,7 @@ class Media():
                     #     dt_list = map(int, dt_list)
                     #     return datetime(*dt_list)
             except BaseException  or dateutil.parser._parser.ParserError as e:
-                log.error(e)
+                self.logger.error(e)
                 return None
 
         return None
@@ -604,16 +605,17 @@ def get_all_subclasses(cls=None):
     return subclasses
 
 
-def get_media_class(_file, ignore_tags=set()):
+def get_media_class(_file, ignore_tags=set(), logger=logging.getLogger()):
     if not os.path.exists(_file):
-        logging.warning(f'Could not find {_file}')
-        logging.error(f'Could not find {_file}')
+        logger.warning(f'Could not find {_file}')
+        logger.error(f'Could not find {_file}')
         return False
 
-    media = Media.get_class_by_file(_file, get_all_subclasses(), ignore_tags=set())
+    media = Media.get_class_by_file(_file, get_all_subclasses(),
+            ignore_tags=set(), logger=logger)
     if not media:
-        logging.warning(f'File{_file} is not supported')
-        logging.error(f'File {_file} can\'t be imported')
+        logger.warning(f'File{_file} is not supported')
+        logger.error(f'File {_file} can\'t be imported')
         return False
 
     return media

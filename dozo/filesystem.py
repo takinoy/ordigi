@@ -388,13 +388,13 @@ class FileSystem(object):
         if metadata['date_original'] is not None:
             if (date_filename is not None and
                     date_filename != date_original):
-                log.warn(f"{basename} time mark is different from {date_original}")
+                self.logger.warn(f"{basename} time mark is different from {date_original}")
                 # TODO ask for keep date taken, filename time, or neither
             return metadata['date_original']
         elif True:
             if date_filename is not  None:
                 if date_created is not None and date_filename > date_created:
-                    log.warn(f"{basename} time mark is more recent than {date_created}")
+                    self.logger.warn(f"{basename} time mark is more recent than {date_created}")
                 return date_filename
         if True:
             if date_created is not  None:
@@ -568,7 +568,7 @@ class FileSystem(object):
             conflict_file_list = set()
             for src_path, subdirs in self.get_files_in_path(path):
                 # Process files
-                media = get_media_class(src_path, ignore_tags)
+                media = get_media_class(src_path, ignore_tags, self.logger)
                 if media:
                     metadata = media.get_metadata()
                     # Get the destination path according to metadata
@@ -685,7 +685,7 @@ class FileSystem(object):
                     continue
                 checksum1 = db.checksum(image)
                 # Process files
-                # media = get_media_class(src_path, False)
+                # media = get_media_class(src_path, False, self.logger)
                 # TODO compare metadata
                 # if media:
                 #     metadata = media.get_metadata()

@@ -34,6 +34,15 @@ def _batch(debug):
     plugins.run_batch()
 
 
+def get_logger(level=logging.WARNING):
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=level)
+    logging.debug('This message should appear on the console')
+    logging.info('So should this')
+    logging.getLogger('asyncio').setLevel(logging.WARNING)
+    logger = logging.getLogger('dozo')
+    logger.level = level
+    return logger
+
 @click.command('sort')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
@@ -79,13 +88,12 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     elif verbose:
         constants.debug = logging.INFO
     else:
-        constants.debug = logging.ERROR
+        constants.debug = logging.WARNING
 
     if max_deep is not None:
         max_deep = int(max_deep)
 
-    logger = logging.getLogger('dozo')
-    logger.setLevel(constants.debug)
+    logger = get_logger(constants.debug)
 
     cache = True
     if reset_cache:
@@ -223,6 +231,8 @@ def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
 
     # Initialize Db
     db = Db(path)
+
+    logger = get_logger(constants.debug)
 
     filesystem = FileSystem(mode='move', dry_run=dry_run, logger=logger)
 
