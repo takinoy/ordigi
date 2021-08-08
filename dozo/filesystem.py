@@ -197,17 +197,20 @@ class FileSystem(object):
 
         # Each item has its own custom logic and we evaluate a single item and return
         #  the evaluated string.
-        if item in ('basename'):
-            return os.path.basename(metadata['base_name'])
-        elif item is 'date':
+        part = ''
+        if item == 'basename':
+            part = os.path.basename(metadata['base_name'])
+        elif item == 'name':
+            # Remove date prefix added to the name.
+            part = metadata['base_name']
+            for i, rx in self.match_date_from_string(metadata['base_name']):
+                part = re.sub(rx, '', part)
+        elif item == 'date':
             date = self.get_date_taken(metadata)
             # early morning photos can be grouped with previous day
             date = self.check_for_early_morning_photos(date)
             if date is not None:
-                return date.strftime(mask)
-            else:
-                return ''
-
+                part = date.strftime(mask)
         elif item in ('location', 'city', 'state', 'country'):
             place_name = geolocation.place_name(
                 metadata['latitude'],
@@ -219,51 +222,33 @@ class FileSystem(object):
             if item == 'location':
                 mask = 'default'
 
-            return self.get_location_part(mask, item, place_name)
-        elif item in ('folder'):
-            return os.path.basename(subdirs)
+            part = self.get_location_part(mask, item, place_name)
+        elif item == 'folder':
+            part = os.path.basename(subdirs)
 
-        elif item in ('folders'):
+        elif item == 'folders':
             folders = pathlib.Path(subdirs).parts
             folders = eval(mask)
 
-            return os.path.join(*folders)
+            part = os.path.join(*folders)
 
         elif item in ('album','camera_make', 'camera_model', 'ext',
                 'title'):
             if metadata[item]:
-                # return metadata[item]
-                return re.sub(self.whitespace_regex, '_', metadata[item].strip())
+                part = metadata[item]
         elif item in ('original_name'):
             # First we check if we have metadata['original_name'].
             # We have to do this for backwards compatibility because
             #   we original did not store this back into EXIF.
             if metadata[item]:
                 part = os.path.splitext(metadata['original_name'])[0]
-            else:
-                # We didn't always store original_name so this is 
-                #  for backwards compatability.
-                # We want to remove the hardcoded date prefix we used 
-                #  to add to the name.
-                # This helps when re-running the program on file 
-                #  which were already processed.
-                part = re.sub(
-                    '^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-',
-                    '',
-                    metadata['base_name']
-                )
-                if(len(part) == 0):
-                    part = metadata['base_name']
-            # Lastly we want to sanitize the name
-            return re.sub(self.whitespace_regex, '_', part.strip())
         elif item in 'custom':
             # Fallback string
-            return mask[1:-1]
+            part = mask[1:-1]
 
-        return ''
+        return part
 
-
-    def get_path(self, metadata, db, subdirs=''):
+    def get_path(self, metadata, db, subdirs='', whitespace_sub='_'):
         """path_format: {%Y-%d-%m}/%u{city}/{album}
 
         Returns file path.
@@ -278,23 +263,26 @@ class FileSystem(object):
             # p = []
             for this_part in this_parts:
                 # parts = ''
-                for item, mask in self.items.items():
-                    matched = re.search(mask, this_part)
+                for item, regex in self.items.items():
+                    matched = re.search(regex, this_part)
                     if matched:
                         # parts = re.split(mask, this_part)
                         # parts = this_part.split('%')[1:]
                         part = self.get_part(item, matched.group()[1:-1], metadata, db,
                                 subdirs)
 
+                        part = part.strip()
+
                         # Capitalization
-                        umask = '%u' + mask
-                        lmask = '%l' + mask
-                        if re.search(umask, this_part):
-                            this_part = re.sub(umask, part.upper(), this_part)
-                        elif re.search(lmask, this_part):
-                            this_part = re.sub(lmask, part.lower(), this_part)
+                        u_regex = '%u' + regex
+                        l_regex = '%l' + regex
+                        if re.search(u_regex, this_part):
+                            this_part = re.sub(u_regex, part.upper(), this_part)
+                        elif re.search(l_regex, this_part):
+                            this_part = re.sub(l_regex, part.lower(), this_part)
                         else:
-                            this_part = re.sub(mask, part, this_part)
+                            this_part = re.sub(regex, part, this_part)
+
 
                 if this_part:
                     # Check if all masks are substituted
@@ -308,14 +296,18 @@ class FileSystem(object):
                     break
                 # Else we continue for fallbacks
 
-        return os.path.join(*path)
+        if(len(path[-1]) == 0):
+            path[-1] = metadata['base_name']
 
+        path_string = os.path.join(*path)
 
-    def get_date_from_string(self, string, user_regex=None):
-        # If missing datetime from EXIF data check if filename is in datetime format.
-        # For this use a user provided regex if possible.
-        # Otherwise assume a filename such as IMG_20160915_123456.jpg as default.
+        if whitespace_sub != ' ':
+            # Lastly we want to sanitize the name
+            path_string = re.sub(self.whitespace_regex, whitespace_sub, path_string)
 
+        return path_string
+
+    def match_date_from_string(self, string, user_regex=None):
         if user_regex is not None:
             matches = re.findall(user_regex, string)
         else:
@@ -325,30 +317,38 @@ class FileSystem(object):
                 'a': re.compile(
                     r'.*[_-]?(?P<year>\d{4})[_-]?(?P<month>\d{2})[_-]?(?P<day>\d{2})[_-]?(?P<hour>\d{2})[_-]?(?P<minute>\d{2})[_-]?(?P<second>\d{2})'),
                 'b': re.compile (
-                    '[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
+                    r'[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
                 # not very accurate
                 'c': re.compile (
-                    '[-_./](?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
+                    r'[-_./](?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
                 'd': re.compile (
-                '[-_./](?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})[-_./]')
+                r'[-_./](?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})[-_./]')
                 }
 
-            matches = []
             for i, rx in regex.items():
-                match = re.findall(rx, string)
-                if match != []:
-                    if i == 'c':
-                        match = [('20'+match[0][0],match[0][1],match[0][2])]
-                    elif i == 'd':
-                        # reorder items
-                        match = [(match[0][2],match[0][1],match[0][0])]
-                    # matches = match + matches
-                    if len(match) != 1:
-                        # The time string is not uniq
-                        continue
-                    matches.append((match[0], rx))
-                    # We want only the first match for the moment
-                    break
+                yield i, rx
+
+    def get_date_from_string(self, string, user_regex=None):
+        # If missing datetime from EXIF data check if filename is in datetime format.
+        # For this use a user provided regex if possible.
+        # Otherwise assume a filename such as IMG_20160915_123456.jpg as default.
+
+        matches = []
+        for i, rx in self.match_date_from_string(string, user_regex):
+            match = re.findall(rx, string)
+            if match != []:
+                if i == 'c':
+                    match = [('20' + match[0][0], match[0][1], match[0][2])]
+                elif i == 'd':
+                    # reorder items
+                    match = [(match[0][2], match[0][1], match[0][0])]
+                # matches = match + matches
+                if len(match) != 1:
+                    # The time string is not uniq
+                    continue
+                matches.append((match[0], rx))
+                # We want only the first match for the moment
+                break
 
         # check if there is only one result
         if len(set(matches)) == 1:
@@ -367,7 +367,6 @@ class FileSystem(object):
             return date
 
         return None
-
 
     def get_date_taken(self, metadata):
         '''
@@ -397,8 +396,8 @@ class FileSystem(object):
                     self.logger.warn(f"{basename} time mark is more recent than {date_created}")
                 return date_filename
         if True:
+            # TODO warm and ask for confirmation
             if date_created is not  None:
-                # TODO warm and ask for confirmation
                 return date_created
             elif metadata['date_modified'] is not  None:
                 return metadata['date_modified']

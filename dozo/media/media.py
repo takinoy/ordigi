@@ -352,9 +352,9 @@ class Media():
             try:
                 if(key in exif):
                     # correct nasty formated date
-                    regex = re.compile('(\d{4}):(\d{2}):(\d{2})')
+                    regex = re.compile(r'(\d{4}):(\d{2}):(\d{2})')
                     if(re.match(regex , exif[key]) is not None):  # noqa
-                        exif[key] = re.sub(regex ,'\g<1>-\g<2>-\g<3>',exif[key])
+                        exif[key] = re.sub(regex , r'\g<1>-\g<2>-\g<3>', exif[key])
                     return parse(exif[key])
                     # if(re.match('\d{4}(-|:)\d{2}(-|:)\d{2}', exif[key]) is not None):  # noqa
                     #     dt, tm = exif[key].split(' ')
