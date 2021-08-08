@@ -1,10 +1,6 @@
-""" Yet another simple exiftool wrapper 
-    I rolled my own for following reasons: 
-    1. I wanted something under MIT license (best alternative was licensed under GPL/BSD)
-    2. I wanted singleton behavior so only a single exiftool process was ever running
-    3. When used as a context manager, I wanted the operations to batch until exiting the context (improved performance)
-    If these aren't important to you, I highly recommend you use Sven Marnach's excellent 
-    pyexiftool: https://github.com/smarnach/pyexiftool which provides more functionality """
+""" Yet another simple exiftool wrapper from:
+https://github.com/RhetTbull/osxphotos/blob/master/osxphotos/exiftool.py
+"""
 
 import atexit
 import json
@@ -55,14 +51,15 @@ class _ExifToolProc:
 
         return cls.instance
 
-    def __init__(self, exiftool=None):
+    def __init__(self, exiftool=None, logger=logging.getLogger()):
         """construct _ExifToolProc singleton object or return instance of already created object
         exiftool: optional path to exiftool binary (if not provided, will search path to find it)"""
 
+        self.logger = logger
         if hasattr(self, "_process_running") and self._process_running:
             # already running
             if exiftool is not None and exiftool != self._exiftool:
-                logging.warning(
+                self.logger.warning(
                     f"exiftool subprocess already running, "
                     f"ignoring exiftool={exiftool}"
                 )
@@ -95,7 +92,7 @@ class _ExifToolProc:
         """ start exiftool in batch mode """
 
         if self._process_running:
-            logging.warning("exiftool already running: {self._process}")
+            self.logger.warning("exiftool already running: {self._process}")
             return
 
         # open exiftool process
@@ -145,7 +142,7 @@ class _ExifToolProc:
 class ExifTool:
     """ Basic exiftool interface for reading and writing EXIF tags """
 
-    def __init__(self, filepath, exiftool=None, overwrite=True, flags=None):
+    def __init__(self, filepath, exiftool=None, overwrite=True, flags=None, logger=logging.getLogger()):
         """Create ExifTool object
 
         Args:
@@ -165,7 +162,7 @@ class ExifTool:
         self.error = None
         # if running as a context manager, self._context_mgr will be True
         self._context_mgr = False
-        self._exiftoolproc = _ExifToolProc(exiftool=exiftool)
+        self._exiftoolproc = _ExifToolProc(exiftool=exiftool, logger=logger)
         self._read_exif()
 
     @property
@@ -391,15 +388,16 @@ class ExifToolCaching(ExifTool):
 
     _singletons = {}
 
-    def __new__(cls, filepath, exiftool=None):
+    def __new__(cls, filepath, exiftool=None, logger=logging.getLogger()):
         """ create new object or return instance of already created singleton """
         if filepath not in cls._singletons:
-            cls._singletons[filepath] = _ExifToolCaching(filepath, exiftool=exiftool)
+            cls._singletons[filepath] = _ExifToolCaching(filepath,
+                    exiftool=exiftool, logger=logger)
         return cls._singletons[filepath]
 
 
 class _ExifToolCaching(ExifTool):
-    def __init__(self, filepath, exiftool=None):
+    def __init__(self, filepath, exiftool=None, logger=logging.getLogger()):
         """Create read-only ExifTool object that caches values
 
         Args:
@@ -411,7 +409,8 @@ class _ExifToolCaching(ExifTool):
         """
         self._json_cache = None
         self._asdict_cache = {}
-        super().__init__(filepath, exiftool=exiftool, overwrite=False, flags=None)
+        super().__init__(filepath, exiftool=exiftool, overwrite=False,
+                flags=None, logger=logger)
 
     def run_commands(self, *commands, no_file=False):
         if commands[0] not in ["-json", "-ver"]:

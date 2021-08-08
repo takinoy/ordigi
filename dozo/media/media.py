@@ -12,7 +12,7 @@ import logging
 # load modules
 from dateutil.parser import parse
 import re
-from elodie.external.pyexiftool import ExifTool
+from dozo.exiftool import ExifToolCaching
 
 class Media():
 
@@ -576,7 +576,6 @@ class Media():
             return None
 
         status = ''
-        status = ExifTool().set_tags(tags, path)
         for tag, value in tags.items():
             status = ExifToolCaching(path, self.logger).setvalue(tag, value)
         if status.decode().find('unchanged') != -1 or status == '':
