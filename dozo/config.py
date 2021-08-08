@@ -4,17 +4,20 @@ from os import path
 from dozo import constants
 
 
-def load_config(file):
-    if hasattr(load_config, "config"):
-        return load_config.config
+def write(conf_file, config):
+    with open(conf_file, 'w') as conf_file:
+        config.write(conf_file)
+        return True
 
+    return False
+
+def load_config(file):
     if not path.exists(file):
         return {}
 
-    load_config.config = RawConfigParser()
-    load_config.config.read(file)
-    return load_config.config
-
+    config = RawConfigParser()
+    config.read(file)
+    return config
 
 def get_path_definition(config):
     """Returns a list of folder definitions.
