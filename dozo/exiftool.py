@@ -20,6 +20,12 @@ EXIFTOOL_STAYOPEN_EOF_LEN = len(EXIFTOOL_STAYOPEN_EOF)
 EXIFTOOL_PROCESSES = []
 
 
+def exiftool_is_running():
+    ps = subprocess.run(["ps"], capture_output=True)
+    stdout = ps.stdout.decode("utf-8")
+    return "exiftool" in stdout
+
+
 @atexit.register
 def terminate_exiftool():
     """Terminate any running ExifTool subprocesses; call this to cleanup when done using ExifTool """

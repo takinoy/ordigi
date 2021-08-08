@@ -1,6 +1,5 @@
 import json
 import pytest
-import subprocess
 
 import dozo.exiftool
 from dozo.exiftool import get_exiftool_path
@@ -178,15 +177,11 @@ def test_exiftool_terminate():
     """ Test that exiftool process is terminated when exiftool.terminate() is called """
     exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
 
-    ps = subprocess.run(["ps"], capture_output=True)
-    stdout = ps.stdout.decode("utf-8")
-    assert "exiftool" in stdout
+    assert dozo.exiftool.exiftool_is_running()
 
     dozo.exiftool.terminate_exiftool()
 
-    ps = subprocess.run(["ps"], capture_output=True)
-    stdout = ps.stdout.decode("utf-8")
-    assert "exiftool" not in stdout
+    assert not dozo.exiftool.exiftool_is_running()
 
     # verify we can create a new instance after termination
     exif2 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
