@@ -424,10 +424,10 @@ class FileSystem(object):
         return None
 
 
-    def checkcomp(self, src_path, dest_path):
+    def checkcomp(self, dest_path, src_checksum):
         """Check file.
         """
-        src_checksum = self.checksum(src_path)
+        # src_checksum = self.checksum(src_path)
 
         if self.dry_run:
             return src_checksum
@@ -481,10 +481,10 @@ class FileSystem(object):
         return False
 
 
-    def check_file(self, src_path, dest_path, db):
+    def check_file(self, src_path, dest_path, src_checksum, db):
 
         # Check if file remain the same
-        checksum = self.checkcomp(src_path, dest_path)
+        checksum = self.checkcomp(dest_path, src_checksum)
         has_errors = False
         if checksum:
             if not self.dry_run:
@@ -555,7 +555,9 @@ class FileSystem(object):
 
     def sort_files(self, paths, destination, db, remove_duplicates=False,
             ignore_tags=set()):
-
+        """
+        Sort files into appropriate folder
+        """
         has_errors = False
         for path in paths:
             # some error checking
@@ -567,6 +569,7 @@ class FileSystem(object):
             conflict_file_list = set()
             for src_path, subdirs in self.get_files_in_path(path):
                 # Process files
+                src_checksum = self.checksum(src_path)
                 media = get_media_class(src_path, ignore_tags, self.logger)
                 if media:
                     metadata = media.get_metadata()
@@ -582,7 +585,8 @@ class FileSystem(object):
                 self.create_directory(dest_directory)
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
                 if result:
-                    self.summary, has_errors = self.check_file(src_path, dest_path, db)
+                    self.summary, has_errors = self.check_file(src_path,
+                            dest_path, src_checksum, db)
                 else:
                     # There is conflict files
                     conflict_file_list.add((src_path, dest_path))
@@ -605,7 +609,8 @@ class FileSystem(object):
                     self.logger.info(f'Same name already exists...renaming to: {dest_path}')
 
                 if result:
-                    self.summary, has_errors = self.check_file(src_path, dest_path, db)
+                    self.summary, has_errors = self.check_file(src_path,
+                            dest_path, src_checksum, db)
                 else:
                     self.summary.append((src_path, False))
                     has_errors = True
@@ -624,10 +629,10 @@ class FileSystem(object):
         return path
 
 
-    def set_hash(self, result, src_path, dest_path, checksum, db):
+    def set_hash(self, result, src_path, dest_path, src_checksum, db):
         if result:
             # Check if file remain the same
-            result = self.checkcomp(dest_path, checksum)
+            result = self.checkcomp(dest_path, src_checksum)
             has_errors = False
             if result:
                 if not self.dry_run:
