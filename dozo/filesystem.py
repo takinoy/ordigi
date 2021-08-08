@@ -28,31 +28,12 @@ class FileSystem(object):
     def __init__(self, cache=False, day_begins=0, dry_run=False, exclude_regex_list=set(),
             filter_by_ext=(), logger=logging.getLogger(), max_deep=None,
             mode='copy', path_format=None):
-
-        self.items = {
-            'album': '{album}',
-            'basename': '{basename}',
-            'camera_make': '{camera_make}',
-            'camera_model': '{camera_model}',
-            'city': '{city}',
-            'custom': '{".*"}',
-            'country': '{country}',
-            # 'folder': '{folder[<>]?[-+]?[1-9]?}',
-            'folder': '{folder}',
-            'folders': '{folders(\[[0-9:]{0,3}\])?}',
-            'location': '{location}',
-            'ext': '{ext}',
-            'original_name': '{original_name}',
-            'state': '{state}',
-            'title': '{title}',
-            'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}' # search for date format string
-                }
-
         self.cache = cache
         self.day_begins = day_begins
         self.dry_run = dry_run
         self.exclude_regex_list = exclude_regex_list
         self.filter_by_ext = filter_by_ext
+        self.items = self.get_items()
         self.logger = logger
         self.max_deep = max_deep
         self.mode = mode
@@ -87,6 +68,28 @@ class FileSystem(object):
             pass
 
         return False
+
+
+    def get_items(self):
+        return {
+        'album': '{album}',
+        'basename': '{basename}',
+        'camera_make': '{camera_make}',
+        'camera_model': '{camera_model}',
+        'city': '{city}',
+        'custom': '{".*"}',
+        'country': '{country}',
+        # 'folder': '{folder[<>]?[-+]?[1-9]?}',
+        'ext': '{ext}',
+        'folder': '{folder}',
+        'folders': r'{folders(\[[0-9:]{0,3}\])?}',
+        'location': '{location}',
+        'name': '{name}',
+        'original_name': '{original_name}',
+        'state': '{state}',
+        'title': '{title}',
+        'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}' # search for date format string
+            }
 
 
     def walklevel(self, src_path, maxlevel=None):
