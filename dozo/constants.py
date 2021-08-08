@@ -17,7 +17,7 @@ if (
     application_directory = environ['ELODIE_APPLICATION_DIRECTORY']
 
 default_path = '{%Y-%m-%b}/{album}|{city}|{"Unknown Location"}'
-default_name = '{%Y-%m-%d_%H-%M-%S}-{original_name}-{title}.{ext}'
+default_name = '{%Y-%m-%d_%H-%M-%S}-{name}-{title}.%l{ext}'
 default_geocoder = 'Nominatim'
 # Checksum storage file.
 hash_db = 'hash.json'

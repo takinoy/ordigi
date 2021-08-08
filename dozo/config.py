@@ -49,9 +49,7 @@ def get_path_definition(config):
         if 'format' in config['Path']:
             return config['Path']['format']
         elif 'dirs_path' and 'name' in config['Path']:
-            return path.join(config['Path']['dirs_path'],
-                   config['Path']['name'])
+            return config['Path']['dirs_path'] + '/' + config['Path']['name']
 
-    return path.join(constants.default_path, constants.default_name)
-
+    return constants.default_path + '/' + constants.default_name
 

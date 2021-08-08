@@ -270,8 +270,6 @@ class FileSystem(object):
 
         :returns: string"""
 
-        # if self.path_format is None:
-        #     path_format = self.get_path_definition()
         path_format = self.path_format
         path = []
         path_parts = path_format.split('/')
