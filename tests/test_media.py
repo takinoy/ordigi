@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import tempfile
 
+from .conftest import copy_sample_files
 from dozo import constants
 from dozo.media.media import Media
 from dozo.media.audio import Audio
@@ -16,15 +17,7 @@ DOZO_PATH = Path(__file__).parent.parent
 class TestMetadata:
 
     def setup_class(cls):
-        cls.SRCPATH = tempfile.mkdtemp(prefix='dozo-src')
-        filenames = ['invalid.jpg', 'photo.png', 'plain.jpg', 'text.txt', 'withoutextension']
-        cls.file_paths = set()
-        for filename in filenames:
-            source_path = Path(cls.SRCPATH, filename)
-            file_path = Path(DOZO_PATH, 'samples', filename)
-            shutil.copyfile(file_path, source_path)
-            cls.file_paths.add(source_path)
-        cls.path_format = constants.default_path + '/' + constants.default_name
+        cls.src_paths, cls.file_paths = copy_sample_files()
 
     def test_get_exiftool_attribute(self, tmp_path):
         for file_path in self.file_paths:

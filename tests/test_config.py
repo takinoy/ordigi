@@ -1,4 +1,3 @@
-from configparser import RawConfigParser
 from pathlib import Path
 import pytest
 import shutil
@@ -21,27 +20,10 @@ def write_random_file(file_path):
 class TestConfig:
 
     @pytest.fixture(scope="module")
-    def conf_path(self):
-        tmp_path = tempfile.mkdtemp(prefix='dozo-')
-        yield Path(tmp_path, "dozo.conf")
-        shutil.rmtree(tmp_path)
-
-    @pytest.fixture(scope="module")
     def conf(self, conf_path):
         return config.load_config(conf_path)
 
     def test_write(self, conf_path):
-        conf = RawConfigParser() 
-        conf['Path'] = {
-                'day_begins': '4',
-                'dirs_path':'%u{%Y-%m}/{city}|{city}-{%Y}/{folders[:1]}/{folder}',
-                'name':'{%Y-%m-%b-%H-%M-%S}-{basename}.%l{ext}'
-                }
-        conf['Geolocation'] = {
-                'geocoder': 'Nominatium'
-                }
-
-        config.write(conf_path, conf)
         assert conf_path.is_file()
 
     def test_load_config(self, conf):
