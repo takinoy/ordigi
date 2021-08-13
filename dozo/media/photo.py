@@ -10,7 +10,7 @@ import imghdr
 import logging
 import numpy as np
 import os
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import time
 
 from .media import Media
@@ -28,101 +28,79 @@ class Photo(Media):
     #: Valid extensions for photo files.
     extensions = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
 
-    def __init__(self, source=None, ignore_tags=set()):
+    def __init__(self, source=None, hash_size=8, ignore_tags=set(),
+            logger=logging.getLogger()):
         super().__init__(source, ignore_tags)
 
-        # We only want to parse EXIF once so we store it here
-        self.exif = None
-
-        # Optionally import Pillow - see gh-325
-        # https://github.com/jmathai/elodie/issues/325
-        self.pillow = None
-        try:
-            from PIL import Image
-            self.pillow = Image
-        except ImportError:
-            pass
-
-
-    def is_valid(self):
-        """Check the file extension against valid file extensions.
-
-        The list of valid file extensions come from self.extensions. This
-        also checks whether the file is an image.
-
-        :returns: bool
-        """
-        source = self.source
-
-        # HEIC is not well supported yet so we special case it.
-        # https://github.com/python-pillow/Pillow/issues/2806
-        extension = os.path.splitext(source)[1][1:].lower()
-        if(extension != 'heic'):
-            # gh-4 This checks if the source file is an image.
-            # It doesn't validate against the list of supported types.
-            # We check with imghdr and pillow.
-            if(imghdr.what(source) is None):
-                # Pillow is used as a fallback and if it's not available we trust
-                #   what imghdr returned.
-                if(self.pillow is None):
-                    return False
-                else:
-                    # imghdr won't detect all variants of images (https://bugs.python.org/issue28591)
-                    # see https://github.com/jmathai/elodie/issues/281
-                    # before giving up, we use `pillow` imaging library to detect file type
-                    #
-                    # It is important to note that the library doesn't decode or load the
-                    # raster data unless it really has to. When you open a file,
-                    # the file header is read to determine the file format and extract
-                    # things like mode, size, and other properties required to decode the file,
-                    # but the rest of the file is not processed until later.
-                    try:
-                        im = self.pillow.open(source)
-                    except IOError:
-                        return False
-
-                    if(im.format is None):
-                        return False
-
-        return extension in self.extensions
-
-
-class CompareImages:
-    def __init__(self, file_paths, hash_size=8, logger=logging.getLogger()):
-        self.file_paths = file_paths
         self.hash_size = hash_size
         self.logger = logger
         logger.setLevel(logging.INFO)
 
-    def get_images(self):
+        # HEIC extension support (experimental, not tested)
+        self.pyheif = False
+        try:
+            from pyheif_pillow_opener import register_heif_opener
+            self.pyheif = True
+            # Allow to open HEIF/HEIC images from pillow
+            register_heif_opener()
+        except ImportError as e:
+            self.logger.info(e)
+
+    def is_image(self, img_path):
+        """Check whether the file is an image.
+        :returns: bool
+        """
+        # gh-4 This checks if the source file is an image.
+        # It doesn't validate against the list of supported types.
+        # We check with imghdr and pillow.
+        if imghdr.what(img_path) is None:
+            # Pillow is used as a fallback
+            # imghdr won't detect all variants of images (https://bugs.python.org/issue28591)
+            # see https://github.com/jmathai/elodie/issues/281
+            # before giving up, we use `pillow` imaging library to detect file type
+            #
+            # It is important to note that the library doesn't decode or load the
+            # raster data unless it really has to. When you open a file,
+            # the file header is read to determine the file format and extract
+            # things like mode, size, and other properties required to decode the file,
+            # but the rest of the file is not processed until later.
+            try:
+                im = Image.open(img_path)
+            except (IOError, UnidentifiedImageError):
+                return False
+
+            if(im.format is None):
+                return False
+
+        return True
+
+    def get_images(self, file_paths):
         '''
         :returns: img_path generator
         '''
-        for img_path in self.file_paths:
-            if imghdr.what(img_path) is not None:
+        for img_path in file_paths:
+            if self.is_image(img_path):
                 yield img_path
 
-
-    def find_duplicates(self):
-        """
-        Find duplicates
-        """
-
+    def get_images_hashes(self, file_paths):
+        """Get image hashes"""
         hashes = {}
         duplicates = []
         # Searching for duplicates.
-        for img_path in self.get_images():
-            if imghdr.what(img_path) is not None:
-                with Image.open(img_path) as img:
-                    temp_hash = imagehash.average_hash(img, self.hash_size)
-                    if temp_hash in hashes:
-                        self.logger.info("Duplicate {} \nfound for image {}\n".format(img_path, hashes[temp_hash]))
-                        duplicates.append(img_path)
-                    else:
-                        hashes[temp_hash] = img_path
+        for img_path in self.get_images(file_paths):
+            with Image.open(img_path) as img:
+                yield imagehash.average_hash(img, self.hash_size)
+
+    def find_duplicates(self, file_paths):
+        """Find duplicates"""
+        for temp_hash in get_images_hashes(file_paths):
+            if temp_hash in hashes:
+                self.logger.info("Duplicate {} \nfound for image {}\n".format(img_path, hashes[temp_hash]))
+                duplicates.append(img_path)
+            else:
+                hashes[temp_hash] = img_path
 
         return duplicates
-
 
     def remove_duplicates(self, duplicates):
         for duplicate in duplicates:
@@ -130,7 +108,6 @@ class CompareImages:
                 os.remove(duplicate)
             except OSError as error:
                 self.logger.error(error)
-
 
     def remove_duplicates_interactive(self, duplicates):
         if len(duplicates) != 0:
@@ -141,32 +118,41 @@ class CompareImages:
         else:
             self.logger.info("No duplicates found")
 
+    def get_hash(self, img_path):
+        with Image.open(img_path) as img:
+            return imagehash.average_hash(img, self.hash_size).hash
 
-    def find_similar(self, image, similarity=80):
+    def diff(self, hash1, hash2):
+        return np.count_nonzero(hash1 != hash2)
+
+    def similarity(self, img_diff):
+        threshold_img = img_diff / (self.hash_size**2)
+        similarity_img = round((1 - threshold_img) * 100)
+
+        return similarity_img
+
+    def find_similar(self, image, file_paths, similarity=80):
         '''
         Find similar images
         :returns: img_path generator
         '''
+        hash1 = ''
+        if self.is_image(image):
+            hash1 = self.get_hash(image)
+
+        self.logger.info(f'Finding similar images to {image}')
+
         threshold = 1 - similarity/100
         diff_limit = int(threshold*(self.hash_size**2))
 
-        hash1 = ''
-        if imghdr.what(image) is not None:
-            with Image.open(image) as img:
-                hash1 = imagehash.average_hash(img, self.hash_size).hash
-
-        self.logger.info(f'Finding similar images to {image}')
-        for img_path in self.get_images():
+        for img_path in self.get_images(file_paths):
             if img_path == image:
                 continue
-            with Image.open(img_path) as img:
-                hash2 = imagehash.average_hash(img, self.hash_size).hash
-
-                diff_images = np.count_nonzero(hash1 != hash2)
-                if diff_images <= diff_limit:
-                    threshold_img = diff_images / (self.hash_size**2)
-                    similarity_img = round((1 - threshold_img) * 100)
-                    self.logger.info(f'{img_path} image found {similarity_img}% similar to {image}')
-                    yield img_path
+            hash2 = self.get_hash(img_path)
+            img_diff = self.diff(hash1, hash2)
+            if img_diff <= diff_limit:
+                similarity_img = self.similarity(img_diff)
+                self.logger.info(f'{img_path} image found {similarity_img}% similar to {image}')
+                yield img_path
 
 

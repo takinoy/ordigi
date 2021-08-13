@@ -18,7 +18,7 @@ from dozo import constants
 from dozo import geolocation
 
 from dozo.media.media import get_media_class, get_all_subclasses
-from dozo.media.photo import CompareImages
+from dozo.media.photo import Photo
 from dozo.summary import Summary
 
 
@@ -684,9 +684,9 @@ class FileSystem(object):
             for filename in filenames:
                 file_paths.add(os.path.join(dirname, filename))
 
-            ci = CompareImages(file_paths, logger=self.logger)
+            photo = Photo(logger=self.logger)
 
-            images = set([ i for i in ci.get_images() ])
+            images = set([ i for i in photo.get_images(file_paths) ])
             for image in images:
                 if not os.path.isfile(image):
                     continue
@@ -698,7 +698,7 @@ class FileSystem(object):
                 #     metadata = media.get_metadata()
                 similar = False
                 moved_imgs = set()
-                for img_path in ci.find_similar(image, similarity):
+                for img_path in photo.find_similar(image, file_paths, similarity):
                     similar = True
                     checksum2 = self.checksum(img_path)
                     # move image into directory
@@ -727,8 +727,8 @@ class FileSystem(object):
                     if not result:
                         has_errors = True
 
-                for moved_img in moved_imgs:
-                    ci.file_paths.remove(moved_img)
+                # for moved_img in moved_imgs:
+                #     os.remove(moved_img)
 
         return self.summary, has_errors
 
