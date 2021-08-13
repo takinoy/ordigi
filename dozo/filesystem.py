@@ -238,12 +238,12 @@ class FileSystem(object):
                 'title'):
             if metadata[item]:
                 part = metadata[item]
-        elif item in ('original_name'):
+        elif item == 'original_name':
             # First we check if we have metadata['original_name'].
             # We have to do this for backwards compatibility because
             #   we original did not store this back into EXIF.
             if metadata[item]:
-                part = os.path.splitext(metadata['original_name'])[0]
+                part = metadata['original_name']
         elif item in 'custom':
             # Fallback string
             part = mask[1:-1]

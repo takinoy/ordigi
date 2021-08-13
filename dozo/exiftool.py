@@ -176,7 +176,7 @@ class ExifTool:
         return self._exiftoolproc.process
 
     def setvalue(self, tag, value):
-        """Set tag to value(s); if value is None, will delete tag
+        """Set tag to value(s); if value is None, tag will not be set
 
         Args:
             tag: str; name of tag to set
@@ -191,7 +191,7 @@ class ExifTool:
         """
 
         if value is None:
-            value = ""
+            return False
         command = [f"-{tag}={value}"]
         if self.overwrite and not self._context_mgr:
             command.append("-overwrite_original")

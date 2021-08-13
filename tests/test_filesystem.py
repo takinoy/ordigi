@@ -56,24 +56,15 @@ class TestFilesystem:
                 '{%Y-%m-%b}'
                 ]
 
-        media = Media()
-        exif_tags = {
-                'album': media.album_keys,
-                'camera_make': media.camera_make_keys,
-                'camera_model': media.camera_model_keys,
-                # 'date_original': media.date_original,
-                # 'date_created': media.date_created,
-                # 'date_modified': media.date_modified,
-                'latitude': media.latitude_keys,
-                'longitude': media.longitude_keys,
-                'original_name': [media.original_name_key],
-                'title': media.title_keys
-                }
-
         subdirs = Path('a', 'b', 'c', 'd')
 
         for file_path in self.file_paths:
             media = Media(str(file_path))
+            exif_tags = {}
+            for key in ('album', 'camera_make', 'camera_model', 'latitude',
+                    'longitude', 'original_name', 'title'):
+                exif_tags[key] = media.tags_keys[key]
+
             exif_data = ExifToolCaching(str(file_path)).asdict()
             metadata = media.get_metadata()
             for item, regex in items.items():
@@ -127,25 +118,22 @@ class TestFilesystem:
             metadata = media.get_metadata()
             date_taken = filesystem.get_date_taken(metadata)
 
-            dates = {}
-            for key, date in ('original', media.date_original), ('created',
-                    media.date_created), ('modified', media.date_modified):
-                dates[key] = media.get_date_attribute(date)
-
-            if media.original_name_key in exif_data:
-                date_filename = filesystem.get_date_from_string(
-                        exif_data[media.original_name_key])
-            else:
+            date_filename = None
+            for tag in media.tags_keys['original_name']:
+                if tag in exif_data:
+                    date_filename = filesystem.get_date_from_string(exif_data[tag])
+                break
+            if not date_filename:
                 date_filename = filesystem.get_date_from_string(file_path.name)
 
-            if dates['original']:
-                assert date_taken == dates['original']
+            if media.metadata['date_original']:
+                assert date_taken == media.metadata['date_original']
             elif date_filename:
                 assert date_taken == date_filename
-            elif dates['created']:
-                assert date_taken == dates['created']
-            elif dates['modified']:
-                assert date_taken == dates['modified']
+            elif media.metadata['date_created']:
+                assert date_taken == media.metadata['date_created']
+            elif media.metadata['date_modified']:
+                assert date_taken == media.metadata['date_modified']
 
     def test_sort_files(self, tmp_path):
         db = Db(tmp_path)
