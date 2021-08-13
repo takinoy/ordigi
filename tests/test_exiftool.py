@@ -1,8 +1,8 @@
 import json
 import pytest
 
-import dozo.exiftool
-from dozo.exiftool import get_exiftool_path
+import ordigi.exiftool
+from ordigi.exiftool import get_exiftool_path
 
 TEST_FILE_ONE_KEYWORD = "samples/images/wedding.jpg"
 TEST_FILE_BAD_IMAGE = "samples/images/badimage.jpeg"
@@ -103,86 +103,86 @@ if exiftool is None:
 
 def test_get_exiftool_path():
 
-    exiftool = dozo.exiftool.get_exiftool_path()
+    exiftool = ordigi.exiftool.get_exiftool_path()
     assert exiftool is not None
 
 
 def test_version():
-    exif = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     assert exif.version is not None
     assert isinstance(exif.version, str)
 
 
 def test_read():
-    exif = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     assert exif.data["File:MIMEType"] == "image/jpeg"
     assert exif.data["EXIF:ISO"] == 160
     assert exif.data["IPTC:Keywords"] == "wedding"
 
 
 def test_singleton():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
-    exif2 = dozo.exiftool.ExifTool(TEST_FILE_MULTI_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif2 = ordigi.exiftool.ExifTool(TEST_FILE_MULTI_KEYWORD)
 
     assert exif1._process.pid == exif2._process.pid
 
 
 def test_pid():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     assert exif1.pid == exif1._process.pid
 
 
 def test_exiftoolproc_process():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     assert exif1._exiftoolproc.process is not None
 
 
 def test_exiftoolproc_exiftool():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
-    assert exif1._exiftoolproc.exiftool == dozo.exiftool.get_exiftool_path()
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    assert exif1._exiftoolproc.exiftool == ordigi.exiftool.get_exiftool_path()
 
 
 def test_as_dict():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     exifdata = exif1.asdict()
     assert exifdata["XMP:TagsList"] == "wedding"
 
 
 def test_as_dict_normalized():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     exifdata = exif1.asdict(normalized=True)
     assert exifdata["xmp:tagslist"] == "wedding"
     assert "XMP:TagsList" not in exifdata
 
 
 def test_as_dict_no_tag_groups():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     exifdata = exif1.asdict(tag_groups=False)
     assert exifdata["TagsList"] == "wedding"
 
 
 def test_json():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     exifdata = json.loads(exif1.json())
     assert exifdata[0]["XMP:TagsList"] == "wedding"
 
 
 def test_str():
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     assert "file: " in str(exif1)
     assert "exiftool: " in str(exif1)
 
 
 def test_exiftool_terminate():
     """ Test that exiftool process is terminated when exiftool.terminate() is called """
-    exif1 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif1 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
 
-    assert dozo.exiftool.exiftool_is_running()
+    assert ordigi.exiftool.exiftool_is_running()
 
-    dozo.exiftool.terminate_exiftool()
+    ordigi.exiftool.terminate_exiftool()
 
-    assert not dozo.exiftool.exiftool_is_running()
+    assert not ordigi.exiftool.exiftool_is_running()
 
     # verify we can create a new instance after termination
-    exif2 = dozo.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
+    exif2 = ordigi.exiftool.ExifTool(TEST_FILE_ONE_KEYWORD)
     assert exif2.asdict()["IPTC:Keywords"] == "wedding"

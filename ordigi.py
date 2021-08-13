@@ -9,12 +9,12 @@ from datetime import datetime
 import click
 from send2trash import send2trash
 
-from dozo import constants
-from dozo import config
-from dozo.filesystem import FileSystem
-from dozo.database import Db
-from dozo.media.media import Media, get_all_subclasses
-from dozo.summary import Summary
+from ordigi import constants
+from ordigi import config
+from ordigi.filesystem import FileSystem
+from ordigi.database import Db
+from ordigi.media.media import Media, get_all_subclasses
+from ordigi.summary import Summary
 
 FILESYSTEM = FileSystem()
 
@@ -46,7 +46,7 @@ def get_logger(verbose, debug):
     logging.debug('This message should appear on the console')
     logging.info('So should this')
     logging.getLogger('asyncio').setLevel(level)
-    logger = logging.getLogger('dozo')
+    logger = logging.getLogger('ordigi')
     logger.level = level
     return logger
 
@@ -82,7 +82,7 @@ def get_logger(verbose, debug):
 def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignore_tags,
         max_deep, remove_duplicates, reset_cache, verbose, paths):
     """Sort files or directories by reading their EXIF and organizing them
-    according to config.ini preferences.
+    according to ordigi.conf preferences.
     """
 
     if copy:
@@ -148,7 +148,7 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
 def _generate_db(path, debug):
-    """Regenerate the hash.json database which contains all of the sha256 signatures of media files. The hash.json file is located at ~/.dozo/.
+    """Regenerate the hash.json database which contains all of the sha256 signatures of media files.
     """
     constants.debug = debug
     result = Result()

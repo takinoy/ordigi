@@ -8,11 +8,11 @@ from sys import platform
 from time import sleep
 
 from .conftest import copy_sample_files
-from dozo import constants
-from dozo.database import Db
-from dozo.filesystem import FileSystem
-from dozo.media.media import Media
-from dozo.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
+from ordigi import constants
+from ordigi.database import Db
+from ordigi.filesystem import FileSystem
+from ordigi.media import Media
+from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
 
 
 @pytest.mark.skip()

@@ -6,14 +6,12 @@ import shutil
 import tempfile
 
 from .conftest import copy_sample_files
-from dozo import constants
-from dozo.media.media import Media
-from dozo.media.audio import Audio
-from dozo.media.photo import Photo
-from dozo.media.video import Video
-from dozo.exiftool import ExifTool, ExifToolCaching
+from ordigi import constants
+from ordigi.media import Media
+from ordigi.images import Images
+from ordigi.exiftool import ExifTool, ExifToolCaching
 
-DOZO_PATH = Path(__file__).parent.parent
+ORDIGI_PATH = Path(__file__).parent.parent
 CACHING = True
 
 class TestMetadata:

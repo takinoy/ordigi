@@ -14,12 +14,12 @@ import shutil
 import time
 from datetime import datetime, timedelta
 
-from dozo import constants
-from dozo import geolocation
+from ordigi import constants
+from ordigi import geolocation
 
-from dozo.media.media import get_media_class, get_all_subclasses
-from dozo.media.photo import Photo
-from dozo.summary import Summary
+from ordigi.media.media import get_media_class, get_all_subclasses
+from ordigi.media.photo import Photo
+from ordigi.summary import Summary
 
 
 class FileSystem(object):
@@ -129,7 +129,7 @@ class FileSystem(object):
         # Create a list of compiled regular expressions to match against the file path
         compiled_regex_list = [re.compile(regex) for regex in exclude_regex_list]
         for dirname, dirnames, filenames in os.walk(path):
-            if dirname == os.path.join(path, '.dozo'):
+            if dirname == os.path.join(path, '.ordigi'):
                 continue
             for filename in filenames:
                 # If file extension is in `extensions` 
@@ -535,7 +535,7 @@ class FileSystem(object):
         subdirs = ''
         for dirname, dirnames, filenames, level in self.walklevel(path,
                 self.max_deep):
-            if dirname == os.path.join(path, '.dozo'):
+            if dirname == os.path.join(path, '.ordigi'):
                 continue
 
             subdirs = os.path.join(subdirs, os.path.basename(dirname))
@@ -675,7 +675,7 @@ class FileSystem(object):
         has_errors = False
         path = self.check_path(path)
         for dirname, dirnames, filenames, level in self.walklevel(path, None):
-            if dirname == os.path.join(path, '.dozo'):
+            if dirname == os.path.join(path, '.ordigi'):
                 continue
             if dirname.find('similar_to') == 0:
                 continue
@@ -738,7 +738,7 @@ class FileSystem(object):
         has_errors = False
         path = self.check_path(path)
         for dirname, dirnames, filenames, level in self.walklevel(path, None):
-            if dirname == os.path.join(path, '.dozo'):
+            if dirname == os.path.join(path, '.ordigi'):
                 continue
             if dirname.find('similar_to') == 0:
                 continue

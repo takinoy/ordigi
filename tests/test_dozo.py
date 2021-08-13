@@ -2,7 +2,7 @@ import pytest
 
 CONTENT = "content"
 
-class TestDozo:
+class TestOrdigi:
     @pytest.mark.skip()
     def test__sort(self):
         assert 0

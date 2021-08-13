@@ -1,7 +1,7 @@
 """
-Base :class:`Media` class for media objects that are tracked by Dozo.
+Base :class:`Media` class for media objects
 The Media class provides some base functionality used by all the media types.
-Sub-classes (:class:`~dozo.media.Audio`, :class:`~dozo.media.Photo`, and :class:`~dozo.media.Video`).
+Sub-classes (:class:`~ordigi.media.Audio`, :class:`~ordigi.media.Photo`, and :class:`~ordigi.media.Video`).
 """
 
 import mimetypes
@@ -12,7 +12,7 @@ import logging
 # load modules
 from dateutil.parser import parse
 import re
-from dozo.exiftool import ExifTool, ExifToolCaching
+from ordigi.exiftool import ExifTool, ExifToolCaching
 
 class Media():
 

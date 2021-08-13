@@ -1,7 +1,7 @@
 """Load config file as a singleton."""
 from configparser import RawConfigParser
 from os import path
-from dozo import constants
+from ordigi import constants
 
 
 def write(conf_file, config):

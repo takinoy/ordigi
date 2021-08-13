@@ -6,10 +6,10 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from dozo import config
-from dozo.exiftool import _ExifToolProc
+from ordigi import config
+from ordigi.exiftool import _ExifToolProc
 
-DOZO_PATH = Path(__file__).parent.parent
+ORDIGI_PATH = Path(__file__).parent.parent
 
 @pytest.fixture(autouse=True)
 def reset_singletons():
@@ -18,8 +18,8 @@ def reset_singletons():
 
 
 def copy_sample_files():
-    src_path = tempfile.mkdtemp(prefix='dozo-src')
-    paths = Path(DOZO_PATH, 'samples/test_exif').glob('*')
+    src_path = tempfile.mkdtemp(prefix='ordigi-src')
+    paths = Path(ORDIGI_PATH, 'samples/test_exif').glob('*')
     file_paths = [x for x in paths if x.is_file()]
     for file_path in file_paths:
         source_path = Path(src_path, file_path.name)
@@ -30,7 +30,7 @@ def copy_sample_files():
 
 @pytest.fixture(scope="module")
 def conf_path():
-    tmp_path = tempfile.mkdtemp(prefix='dozo-')
+    tmp_path = tempfile.mkdtemp(prefix='ordigi-')
     conf = RawConfigParser() 
     conf['Path'] = {
             'day_begins': '4',
@@ -40,7 +40,7 @@ def conf_path():
     conf['Geolocation'] = {
             'geocoder': 'Nominatium'
             }
-    conf_path = Path(tmp_path, "dozo.conf")
+    conf_path = Path(tmp_path, "ordigi.conf")
     config.write(conf_path, conf)
 
     yield conf_path

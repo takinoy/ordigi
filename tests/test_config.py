@@ -4,7 +4,7 @@ import shutil
 import tempfile
 from unittest import mock
 
-from dozo import config
+from ordigi import config
 
 # Helpers
 import random

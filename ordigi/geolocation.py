@@ -8,8 +8,8 @@ import geopy
 from geopy.geocoders import Nominatim
 import logging
 
-from dozo import constants
-from dozo.config import load_config, get_geocoder
+from ordigi import constants
+from ordigi.config import load_config, get_geocoder
 
 __KEY__ = None
 __DEFAULT_LOCATION__ = 'Unknown Location'

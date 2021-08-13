@@ -1,5 +1,5 @@
 """
-Methods for interacting with information Dozo caches about stored media.
+Methods for interacting with database files
 """
 from builtins import map
 from builtins import object
@@ -12,23 +12,17 @@ from math import radians, cos, sqrt
 from shutil import copyfile
 from time import strftime
 
-from dozo import constants
+from ordigi import constants
 
 
 class Db(object):
 
-    """A class for interacting with the JSON files created by Dozo."""
+    """A class for interacting with the JSON files  database."""
 
     def __init__(self, target_dir):
-        # verify that the application directory (~/.dozo) exists,
-        #   else create it
-        # if not os.path.exists(constants.application_directory):
-        #     os.makedirs(constants.application_directory)
 
         # Create dir for target database
-        dirname = os.path.join(target_dir, '.dozo')
-        # Legacy dir
-        # dirname = constants.application_directory
+        dirname = os.path.join(target_dir, '.ordigi')
 
         if not os.path.exists(dirname):
             try:
