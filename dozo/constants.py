@@ -10,12 +10,6 @@ debug = False
 
 #: Directory in which to store Dozo settings.
 application_directory = '{}/.dozo'.format(path.expanduser('~'))
-if (
-        'ELODIE_APPLICATION_DIRECTORY' in environ and
-        path.isdir(environ['ELODIE_APPLICATION_DIRECTORY'])
-   ):
-    application_directory = environ['ELODIE_APPLICATION_DIRECTORY']
-
 default_path = '{%Y-%m-%b}/{album}|{city}|{"Unknown Location"}'
 default_name = '{%Y-%m-%d_%H-%M-%S}-{name}-{title}.%l{ext}'
 default_geocoder = 'Nominatim'
@@ -31,9 +25,6 @@ location_db = 'location.json'
 
 # Dozo installation directory.
 script_directory = path.dirname(path.dirname(path.abspath(__file__)))
-
-#: Path to ExifTool config file.
-exiftool_config = path.join(script_directory, 'configs', 'ExifTool_config')
 
 #: Accepted language in responses from MapQuest
 accepted_language = 'en'
