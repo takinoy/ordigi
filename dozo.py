@@ -34,11 +34,18 @@ def _batch(debug):
     plugins.run_batch()
 
 
-def get_logger(level=logging.WARNING):
+def get_logger(verbose, debug):
+    if debug:
+        level = logging.DEBUG
+    elif verbose:
+        level = logging.INFO
+    else:
+        level = logging.WARNING
+
     logging.basicConfig(format='%(levelname)s:%(message)s', level=level)
     logging.debug('This message should appear on the console')
     logging.info('So should this')
-    logging.getLogger('asyncio').setLevel(logging.WARNING)
+    logging.getLogger('asyncio').setLevel(level)
     logger = logging.getLogger('dozo')
     logger.level = level
     return logger
@@ -83,17 +90,10 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     else:
         mode = 'move'
 
-    if debug:
-        constants.debug = logging.DEBUG
-    elif verbose:
-        constants.debug = logging.INFO
-    else:
-        constants.debug = logging.WARNING
+    logger = get_logger(verbose, debug)
 
     if max_deep is not None:
         max_deep = int(max_deep)
-
-    logger = get_logger(constants.debug)
 
     cache = True
     if reset_cache:
@@ -221,18 +221,11 @@ def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
         revert_compare, similar_to, similarity, verbose, path):
     '''Compare files in directories'''
 
-    logger = logging.getLogger('dozo')
-    if debug:
-        logger.setLevel(logging.DEBUG)
-    elif verbose:
-        logger.setLevel(logging.INFO)
-    else:
-        logger.setLevel(logging.ERROR)
+    logger = get_logger(verbose, debug)
 
     # Initialize Db
     db = Db(path)
 
-    logger = get_logger(constants.debug)
 
     filesystem = FileSystem(mode='move', dry_run=dry_run, logger=logger)
 
