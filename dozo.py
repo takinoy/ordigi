@@ -233,7 +233,7 @@ def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
         summary, has_errors = filesystem.revert_compare(path, db, dry_run)
     else:
         summary, has_errors = filesystem.sort_similar_images(path, db,
-                similarity, dry_run)
+                similarity)
 
     if verbose or debug:
         summary.write()
