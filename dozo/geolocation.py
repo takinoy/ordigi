@@ -35,6 +35,8 @@ def coordinates_by_name(name, db):
                 'latitude': geolocation_info.latitude,
                 'longitude': geolocation_info.longitude
             }
+    else:
+        raise NameError(geocoder)
 
     return None
 
@@ -108,7 +110,7 @@ def place_name(lat, lon, db, cache=True, logger=logging.getLogger()):
     if geocoder == 'Nominatim':
         geolocation_info = lookup_osm(lat, lon, logger)
     else:
-        return None
+        raise NameError(geocoder)
 
     if(geolocation_info is not None and 'address' in geolocation_info):
         address = geolocation_info['address']
@@ -136,7 +138,6 @@ def place_name(lat, lon, db, cache=True, logger=logging.getLogger()):
 def lookup_osm(lat, lon, logger=logging.getLogger()):
 
     prefer_english_names = get_prefer_english_names()
-    from geopy.geocoders import Nominatim
     try:
         locator = Nominatim(user_agent='myGeocoder')
         coords = (lat, lon)
@@ -148,7 +149,8 @@ def lookup_osm(lat, lon, logger=logging.getLogger()):
     except geopy.exc.GeocoderUnavailable as e:
         logger.error(e)
         return None
-    except ValueError as e:
+    # Fix *** TypeError: `address` must not be None
+    except (TypeError, ValueError) as e:
         logger.error(e)
         return None
 

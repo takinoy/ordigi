@@ -39,7 +39,9 @@ def get_path_definition(config):
 def get_geocoder():
     config = load_config(constants.CONFIG_FILE)
     if 'Geolocation' in config and 'geocoder' in config['Geolocation']:
-        return config['Geolocation']['geocoder']
+        geocoder = config['Geolocation']['geocoder']
+        if geocoder in ('Nominatim', ):
+            return geocoder
 
     return constants.default_geocoder
 
