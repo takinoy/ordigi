@@ -1,13 +1,11 @@
 """
-Base :class:`Media` class for media objects
-The Media class provides some base functionality used by all the media types.
-Sub-classes (:class:`~ordigi.media.Audio`, :class:`~ordigi.media.Photo`, and :class:`~ordigi.media.Video`).
+Media :class:`Media` class to get file metadata
 """
 
+import logging
 import mimetypes
 import os
 import six
-import logging
 
 # load modules
 from dateutil.parser import parse
@@ -18,10 +16,8 @@ class Media():
 
     """The media class for all media objects.
 
-    :param str source: The fully qualified path to the video file.
+    :param str file_path: The fully qualified path to the media file.
     """
-
-    __name__ = 'Media'
 
     d_coordinates = {
         'latitude': 'latitude_ref',
@@ -34,8 +30,8 @@ class Media():
 
     extensions = PHOTO + AUDIO + VIDEO
 
-    def __init__(self, sources=None, ignore_tags=set(), logger=logging.getLogger()):
-        self.source = sources
+    def __init__(self, file_path, ignore_tags=set(), logger=logging.getLogger()):
+        self.file_path = file_path
         self.ignore_tags = ignore_tags
         self.tags_keys = self.get_tags()
         self.exif_metadata = None
@@ -104,7 +100,7 @@ class Media():
 
         :returns: str or None
         """
-        mimetype = mimetypes.guess_type(self.source)
+        mimetype = mimetypes.guess_type(self.file_path)
         if(mimetype is None):
             return None
 
@@ -198,7 +194,7 @@ class Media():
         :returns: dict
         """
         # Get metadata from exiftool.
-        self.exif_metadata = ExifToolCaching(self.source, logger=self.logger).asdict()
+        self.exif_metadata = ExifToolCaching(self.file_path, logger=self.logger).asdict()
 
         # TODO to be removed
         self.metadata = {}
@@ -224,9 +220,9 @@ class Media():
 
             self.metadata[key] = formated_data
 
-        self.metadata['base_name']  = os.path.basename(os.path.splitext(self.source)[0])
-        self.metadata['ext'] = os.path.splitext(self.source)[1][1:]
-        self.metadata['directory_path'] = os.path.dirname(self.source)
+        self.metadata['base_name']  = os.path.basename(os.path.splitext(self.file_path)[0])
+        self.metadata['ext'] = os.path.splitext(self.file_path)[1][1:]
+        self.metadata['directory_path'] = os.path.dirname(self.file_path)
 
         return self.metadata
 
@@ -245,8 +241,7 @@ class Media():
     def get_class_by_file(cls, _file, classes, ignore_tags=set(), logger=logging.getLogger()):
         """Static method to get a media object by file.
         """
-        basestring = (bytes, str)
-        if not isinstance(_file, basestring) or not os.path.isfile(_file):
+        if not os.path.isfile(_file):
             return None
 
         extension = os.path.splitext(_file)[1][1:].lower()
@@ -254,13 +249,9 @@ class Media():
         if len(extension) > 0:
             for i in classes:
                 if(extension in i.extensions):
-                    return i(_file, ignore_tags=ignore_tags)
+                    return i(_file, ignore_tags=ignore_tags, logger=logger)
 
-        exclude_list = ['.DS_Store', '.directory']
-        if os.path.basename(_file) == '.DS_Store':
-            return None
-        else:
-            return Media(_file, ignore_tags=ignore_tags, logger=logger)
+        return Media(_file, logger, ignore_tags=ignore_tags, logger=logger)
 
     def set_date_taken(self, date_key, time):
         """Set the date/time a photo was taken.
@@ -309,7 +300,7 @@ class Media():
 
         :returns: bool
         """
-        folder = os.path.basename(os.path.dirname(self.source))
+        folder = os.path.basename(os.path.dirname(self.file_path))
 
         return set_value(self, 'album', folder)
 

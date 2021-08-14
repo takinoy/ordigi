@@ -17,8 +17,9 @@ from datetime import datetime, timedelta
 from ordigi import constants
 from ordigi import geolocation
 
-from ordigi.media.media import get_media_class, get_all_subclasses
-from ordigi.media.photo import Photo
+from ordigi import media
+from ordigi.media import Media, get_all_subclasses
+from ordigi.images import Images
 from ordigi.summary import Summary
 
 

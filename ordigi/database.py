@@ -83,7 +83,7 @@ class Db(object):
     # structure might be needed. Some speed up ideas:
     # - Sort it and inter-half method can be used
     # - Use integer part of long or lat as key to get a lower search list
-    # - Cache a small number of lookups, photos are likely to be taken in
+    # - Cache a small number of lookups, images are likely to be taken in
     #   clusters around a spot during import.
     def add_location(self, latitude, longitude, place, write=False):
         """Add a location to the database.

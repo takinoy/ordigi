@@ -8,11 +8,12 @@ from datetime import datetime
 
 import click
 
-from ordigi import constants
 from ordigi import config
-from ordigi.filesystem import FileSystem
+from ordigi import constants
+from ordigi import log
 from ordigi.database import Db
-from ordigi.media.media import Media, get_all_subclasses
+from ordigi.filesystem import FileSystem
+from ordigi.media import Media, get_all_subclasses
 from ordigi.summary import Summary
 
 FILESYSTEM = FileSystem()
