@@ -3,7 +3,6 @@
 import os
 import re
 import sys
-import logging
 from datetime import datetime
 
 import click
@@ -34,22 +33,6 @@ def _batch(debug):
     plugins.run_batch()
 
 
-def get_logger(verbose, debug):
-    if debug:
-        level = logging.DEBUG
-    elif verbose:
-        level = logging.INFO
-    else:
-        level = logging.WARNING
-
-    logging.basicConfig(format='%(levelname)s:%(message)s', level=level)
-    logging.debug('This message should appear on the console')
-    logging.info('So should this')
-    logging.getLogger('asyncio').setLevel(level)
-    logger = logging.getLogger('ordigi')
-    logger.level = level
-    return logger
-
 @click.command('sort')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
@@ -57,6 +40,8 @@ def get_logger(verbose, debug):
               help='Dry run only, no change made to the filesystem.')
 @click.option('--destination', '-d', type=click.Path(file_okay=False),
               default=None, help='Sort files into this directory.')
+@click.option('--clean', '-C', default=False, is_flag=True,
+              help='Clean empty folders')
 @click.option('--copy', '-c', default=False, is_flag=True,
               help='True if you want files to be copied over from src_dir to\
               dest_dir rather than moved')
@@ -79,7 +64,7 @@ def get_logger(verbose, debug):
 @click.option('--verbose', '-v', default=False, is_flag=True,
               help='True if you want to see details of file processing')
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
-def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignore_tags,
+def _sort(debug, dry_run, destination, clean, copy, exclude_regex, filter_by_ext, ignore_tags,
         max_deep, remove_duplicates, reset_cache, verbose, paths):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
@@ -90,7 +75,7 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     else:
         mode = 'move'
 
-    logger = get_logger(verbose, debug)
+    logger = log.get_logger(verbose, debug)
 
     if max_deep is not None:
         max_deep = int(max_deep)
@@ -106,6 +91,8 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
         sys.exit(1)
 
     paths = set(paths)
+    filter_by_ext = set(filter_by_ext)
+
     destination = os.path.abspath(os.path.expanduser(destination))
 
     if not os.path.exists(destination):
@@ -135,11 +122,50 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     summary, has_errors = filesystem.sort_files(paths, destination, db,
             remove_duplicates, ignore_tags)
 
+    if clean:
+        remove_empty_folders(destination, logger)
+
     if verbose or debug:
         summary.write()
 
     if has_errors:
         sys.exit(1)
+
+
+def remove_empty_folders(path, logger, remove_root=True):
+  'Function to remove empty folders'
+  if not os.path.isdir(path):
+    return
+
+  # remove empty subfolders
+  files = os.listdir(path)
+  if len(files):
+    for f in files:
+      fullpath = os.path.join(path, f)
+      if os.path.isdir(fullpath):
+        remove_empty_folders(fullpath, logger)
+
+  # if folder empty, delete it
+  files = os.listdir(path)
+  if len(files) == 0 and remove_root:
+    logger.info(f"Removing empty folder: {path}")
+    os.rmdir(path)
+
+
+@click.command('clean')
+@click.option('--debug', default=False, is_flag=True,
+              help='Override the value in constants.py with True.')
+@click.option('--verbose', '-v', default=False, is_flag=True,
+              help='True if you want to see details of file processing')
+@click.argument('path', required=True, nargs=1, type=click.Path())
+def _clean(debug, verbose, path):
+    """Remove empty folders
+    Usage: clean [--verbose|--debug] directory [removeRoot]"""
+
+    logger = log.get_logger(verbose, debug)
+
+    remove_empty_folders(path, logger)
+
 
 
 @click.command('generate-db')
@@ -221,7 +247,7 @@ def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
         revert_compare, similar_to, similarity, verbose, path):
     '''Compare files in directories'''
 
-    logger = get_logger(verbose, debug)
+    logger = log.get_logger(verbose, debug)
 
     # Initialize Db
     db = Db(path)
@@ -247,6 +273,7 @@ def main():
     pass
 
 
+main.add_command(_clean)
 main.add_command(_compare)
 main.add_command(_sort)
 main.add_command(_generate_db)
