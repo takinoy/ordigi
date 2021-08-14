@@ -76,7 +76,6 @@ class FileSystem(object):
 
         return False
 
-
     def get_items(self):
         return {
         'album': '{album}',
@@ -98,7 +97,6 @@ class FileSystem(object):
         'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}' # search for date format string
             }
 
-
     def walklevel(self, src_path, maxlevel=None):
         """
         Walk into input directory recursively until desired maxlevel
@@ -114,7 +112,6 @@ class FileSystem(object):
             yield root, dirs, files, level
             if maxlevel is not None and level >= maxlevel:
                 del dirs[:]
-
 
     def get_all_files(self, path, extensions=False, exclude_regex_list=set()):
         """Recursively get all files which match a path and extension.
@@ -150,7 +147,6 @@ class FileSystem(object):
                     ):
                     yield filename_path
 
-
     def check_for_early_morning_photos(self, date):
         """check for early hour photos to be grouped with previous day"""
 
@@ -160,7 +156,6 @@ class FileSystem(object):
             date = date - timedelta(hours=date.hour+1)  # push it to the day before for classificiation purposes
 
         return date
-
 
     def get_location_part(self, mask, part, place_name):
         """Takes a mask for a location and interpolates the actual place names.
@@ -193,7 +188,6 @@ class FileSystem(object):
         )
 
         return folder_name
-
 
     def get_part(self, item, mask, metadata, db, subdirs):
         """Parse a specific folder's name given a mask and metadata.
@@ -282,15 +276,20 @@ class FileSystem(object):
 
                         part = part.strip()
 
-                        # Capitalization
-                        u_regex = '%u' + regex
-                        l_regex = '%l' + regex
-                        if re.search(u_regex, this_part):
-                            this_part = re.sub(u_regex, part.upper(), this_part)
-                        elif re.search(l_regex, this_part):
-                            this_part = re.sub(l_regex, part.lower(), this_part)
-                        else:
+                        if part == '':
+                            # delete separator if any
+                            regex = '[-_ .]?(%[ul])?' + regex
                             this_part = re.sub(regex, part, this_part)
+                        else:
+                            # Capitalization
+                            u_regex = '%u' + regex
+                            l_regex = '%l' + regex
+                            if re.search(u_regex, this_part):
+                                this_part = re.sub(u_regex, part.upper(), this_part)
+                            elif re.search(l_regex, this_part):
+                                this_part = re.sub(l_regex, part.lower(), this_part)
+                            else:
+                                this_part = re.sub(regex, part, this_part)
 
 
                 if this_part:
@@ -411,7 +410,6 @@ class FileSystem(object):
             elif metadata['date_modified'] is not  None:
                 return metadata['date_modified']
 
-
     def checksum(self, file_path, blocksize=65536):
         """Create a hash value for the given file.
 
@@ -432,7 +430,6 @@ class FileSystem(object):
             return hasher.hexdigest()
         return None
 
-
     def checkcomp(self, dest_path, src_checksum):
         """Check file.
         """
@@ -449,7 +446,6 @@ class FileSystem(object):
 
         return src_checksum
 
-
     def sort_file(self, src_path, dest_path, remove_duplicates=True):
         '''Copy or move file to dest_path.'''
 
@@ -459,8 +455,8 @@ class FileSystem(object):
         # check for collisions
         if(src_path == dest_path):
             self.logger.info(f'File {dest_path} already sorted')
-            return True
-        if os.path.isfile(dest_path):
+            return None
+        elif os.path.isfile(dest_path):
             self.logger.info(f'File {dest_path} already exist')
             if remove_duplicates:
                 if filecmp.cmp(src_path, dest_path):
@@ -469,7 +465,7 @@ class FileSystem(object):
                         if not dry_run:
                             os.remove(src_path)
                         self.logger.info(f'remove: {src_path}')
-                    return True
+                    return None
                 else:  # name is same, but file is different
                     self.logger.info(f'File in source and destination are different.')
                     return False
@@ -487,9 +483,6 @@ class FileSystem(object):
                 self.logger.info(f'copy: {src_path} -> {dest_path}')
             return True
 
-        return False
-
-
     def check_file(self, src_path, dest_path, src_checksum, db):
 
         # Check if file remain the same
@@ -499,9 +492,6 @@ class FileSystem(object):
             if not self.dry_run:
                 db.add_hash(checksum, dest_path)
                 db.update_hash_db()
-
-            if dest_path:
-                self.logger.info(f'{src_path} -> {dest_path}')
 
             self.summary.append((src_path, dest_path))
 
@@ -550,6 +540,35 @@ class FileSystem(object):
 
         return file_list
 
+    def _conflict_solved(self, conflict_file_list, item, dest_path):
+        self.logger.warning(f'Same name already exists...renaming to: {dest_path}')
+        del(conflict_file_list[item])
+
+    def solve_conflicts(self, conflict_file_list, remove_duplicates):
+        file_list = conflict_file_list.copy()
+        for item, file_paths in enumerate(file_list):
+            src_path = file_paths['src_path']
+            dest_path = file_paths['dest_path']
+            # Try to sort the file
+            result = self.sort_file(src_path, dest_path, remove_duplicates)
+            # remove to conflict file list if file as be successfully copied or ignored
+            if result is True or None:
+                self._conflict_solved(conflict_file_list, item, dest_path)
+            else:
+                n = 1
+                while result is False:
+                    if n > 100:
+                        self.logger.warning(f'{self.mode}: to many append for {dest_path}...')
+                        break
+                    # Add appendix to the name
+                    pre, ext = os.path.splitext(dest_path)
+                    dest_path = pre + '_' + str(n) + ext
+                    conflict_file_list[item]['dest_path'] = dest_path
+                    result = self.sort_file(src_path, dest_path, remove_duplicates)
+                else:
+                    self._conflict_solved(conflict_file_list, item, dest_path)
+
+        return result
 
     def sort_files(self, paths, destination, db, remove_duplicates=False,
             ignore_tags=set()):
@@ -564,11 +583,12 @@ class FileSystem(object):
 
             path = os.path.expanduser(path)
 
-            conflict_file_list = set()
-            for src_path, subdirs in self.get_files_in_path(path):
+            conflict_file_list = []
+            for src_path, subdirs in self.get_files_in_path(path,
+                    extensions=self.filter_by_ext):
                 # Process files
                 src_checksum = self.checksum(src_path)
-                media = get_media_class(src_path, ignore_tags, self.logger)
+                media = Media(src_path, ignore_tags, self.logger)
                 if media:
                     metadata = media.get_metadata()
                     # Get the destination path according to metadata
@@ -583,39 +603,22 @@ class FileSystem(object):
 
                 self.create_directory(dest_directory)
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
-                if result:
-                    self.summary, has_errors = self.check_file(src_path,
-                            dest_path, src_checksum, db)
-                else:
+
+                if result is False:
                     # There is conflict files
-                    conflict_file_list.add((src_path, dest_path))
+                    conflict_file_list.append({'src_path': src_path, 'dest_path': dest_path})
+                    result = self.solve_conflicts(conflict_file_list, remove_duplicates)
 
-            for src_path, dest_path in conflict_file_list:
-                # Try to sort the file
-                result = self.sort_file(src_path, dest_path, remove_duplicates)
-                if result:
-                    conflict_file_list.remove((src_path, dest_path))
-                else:
-                    n = 1
-                    while not result:
-                        # Add appendix to the name
-                        pre, ext = os.path.splitext(dest_path)
-                        dest_path = pre + '_' + str(n) + ext
-                        result = self.sort_file(src_path, dest_path, remove_duplicates)
-                        if n > 100:
-                            self.logger.error(f'{self.mode}: to many append for {dest_path}...')
-                            break
-                    self.logger.info(f'Same name already exists...renaming to: {dest_path}')
-
-                if result:
+                if result is True:
                     self.summary, has_errors = self.check_file(src_path,
                             dest_path, src_checksum, db)
+                elif result is None:
+                    has_errors = False
                 else:
                     self.summary.append((src_path, False))
                     has_errors = True
 
             return self.summary, has_errors
-
 
     def check_path(self, path):
         path = os.path.abspath(os.path.expanduser(path))
@@ -626,7 +629,6 @@ class FileSystem(object):
             sys.exit(1)
 
         return path
-
 
     def set_hash(self, result, src_path, dest_path, src_checksum, db):
         if result:
@@ -654,7 +656,6 @@ class FileSystem(object):
 
         return has_errors
 
-
     def move_file(self, img_path, dest_path, checksum, db):
         if not self.dry_run:
             try:
@@ -664,7 +665,6 @@ class FileSystem(object):
 
         self.logger.info(f'move: {img_path} -> {dest_path}')
         return self.set_hash(True, img_path, dest_path, checksum, db)
-
 
     def sort_similar_images(self, path, db, similarity=80):
 
@@ -680,21 +680,21 @@ class FileSystem(object):
             for filename in filenames:
                 file_paths.add(os.path.join(dirname, filename))
 
-            photo = Photo(logger=self.logger)
+            i = Images(file_paths, logger=self.logger)
 
-            images = set([ i for i in photo.get_images(file_paths) ])
+            images = set([ i for i in i.get_images() ])
             for image in images:
                 if not os.path.isfile(image):
                     continue
                 checksum1 = self.checksum(image)
                 # Process files
-                # media = get_media_class(src_path, False, self.logger)
+                # media = Media(src_path, False, self.logger)
                 # TODO compare metadata
                 # if media:
                 #     metadata = media.get_metadata()
                 similar = False
                 moved_imgs = set()
-                for img_path in photo.find_similar(image, file_paths, similarity):
+                for img_path in i.find_similar(image, similarity):
                     similar = True
                     checksum2 = self.checksum(img_path)
                     # move image into directory
@@ -728,7 +728,6 @@ class FileSystem(object):
 
         return self.summary, has_errors
 
-
     def revert_compare(self, path, db):
 
         has_errors = False
@@ -760,14 +759,12 @@ class FileSystem(object):
 
         return self.summary, has_errors
 
-
     def set_utime_from_metadata(self, date_taken, file_path):
         """ Set the modification time on the file based on the file name.
         """
 
         # Initialize date taken to what's returned from the metadata function.
         os.utime(file_path, (int(datetime.now().timestamp()), int(date_taken.timestamp())))
-
 
     def should_exclude(self, path, regex_list=set(), needs_compiled=False):
         if(len(regex_list) == 0):
