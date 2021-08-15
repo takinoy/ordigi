@@ -5,7 +5,6 @@ Media :class:`Media` class to get file metadata
 import logging
 import mimetypes
 import os
-import six
 
 # load modules
 from dateutil.parser import parse

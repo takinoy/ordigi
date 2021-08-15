@@ -1,6 +1,4 @@
 """Look up geolocation information for media objects."""
-from past.utils import old_div
-
 
 from os import path
 
@@ -53,12 +51,10 @@ def decimal_to_dms(decimal):
 
 def dms_to_decimal(degrees, minutes, seconds, direction=' '):
     sign = 1
-    if(direction[0] in 'WSws'):
+    if direction[0] in 'WSws':
         sign = -1
-    return (
-        float(degrees) + old_div(float(minutes), 60) +
-        old_div(float(seconds), 3600)
-    ) * sign
+
+    return (degrees + minutes / 60 + seconds / 3600) * sign
 
 
 def dms_string(decimal, type='latitude'):
