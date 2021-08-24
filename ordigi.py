@@ -7,7 +7,6 @@ import logging
 from datetime import datetime
 
 import click
-from send2trash import send2trash
 
 from ordigi import constants
 from ordigi import config
