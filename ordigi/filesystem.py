@@ -15,7 +15,6 @@ import time
 from datetime import datetime, timedelta
 
 from ordigi import constants
-from ordigi import geolocation
 
 from ordigi import media
 from ordigi.media import Media, get_all_subclasses
@@ -189,7 +188,7 @@ class FileSystem(object):
 
         return folder_name
 
-    def get_part(self, item, mask, metadata, db, subdirs):
+    def get_part(self, item, mask, metadata, db, subdirs, loc):
         """Parse a specific folder's name given a mask and metadata.
 
         :param item: Name of the item as defined in the path (i.e. date from %date)
@@ -215,7 +214,7 @@ class FileSystem(object):
             if date is not None:
                 part = date.strftime(mask)
         elif item in ('location', 'city', 'state', 'country'):
-            place_name = geolocation.place_name(
+            place_name = loc.place_name(
                 metadata['latitude'],
                 metadata['longitude'],
                 db,
@@ -251,7 +250,7 @@ class FileSystem(object):
 
         return part
 
-    def get_path(self, metadata, db, subdirs='', whitespace_sub='_'):
+    def get_path(self, metadata, db, loc, subdirs='', whitespace_sub='_'):
         """path_format: {%Y-%d-%m}/%u{city}/{album}
 
         Returns file path.
@@ -272,7 +271,7 @@ class FileSystem(object):
                         # parts = re.split(mask, this_part)
                         # parts = this_part.split('%')[1:]
                         part = self.get_part(item, matched.group()[1:-1], metadata, db,
-                                subdirs)
+                                subdirs, loc)
 
                         part = part.strip()
 
@@ -570,7 +569,7 @@ class FileSystem(object):
 
         return result
 
-    def sort_files(self, paths, destination, db, remove_duplicates=False,
+    def sort_files(self, paths, destination, db, loc, remove_duplicates=False,
             ignore_tags=set()):
         """
         Sort files into appropriate folder
@@ -592,7 +591,7 @@ class FileSystem(object):
                 if media:
                     metadata = media.get_metadata()
                     # Get the destination path according to metadata
-                    file_path = self.get_path(metadata, db, subdirs=subdirs)
+                    file_path = self.get_path(metadata, db, loc, subdirs=subdirs)
                 else:
                     # Keep same directory structure
                     file_path = os.path.relpath(src_path, path)

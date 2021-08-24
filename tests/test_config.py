@@ -4,7 +4,7 @@ import shutil
 import tempfile
 from unittest import mock
 
-from ordigi import config
+from ordigi.config import Config
 
 # Helpers
 import random
@@ -21,7 +21,8 @@ class TestConfig:
 
     @pytest.fixture(scope="module")
     def conf(self, conf_path):
-        return config.load_config(conf_path)
+        config = Config(conf_path)
+        return config.load_config()
 
     def test_write(self, conf_path):
         assert conf_path.is_file()
@@ -38,20 +39,21 @@ class TestConfig:
 
     def test_load_config_no_exist(self):
         # test file not exist
-        conf = config.load_config('filename')
-        assert conf == {}
+        config = Config('filename')
+        assert config.conf == {}
 
     def test_load_config_invalid(self, conf_path):
         # test invalid config
         write_random_file(conf_path)
         with pytest.raises(Exception) as e:
-            config.load_config(conf_path)
+            config = Config(conf_path)
         assert e.typename == 'MissingSectionHeaderError'
 
     def test_get_path_definition(self, conf):
         """
         Get path definition from config
         """
-        path = config.get_path_definition(conf)
+        config = Config(conf=conf)
+        path = config.get_path_definition()
         assert path == '%u{%Y-%m}/{city}|{city}-{%Y}/{folders[:1]}/{folder}/{%Y-%m-%b-%H-%M-%S}-{basename}.%l{ext}'
 

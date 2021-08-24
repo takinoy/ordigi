@@ -7,11 +7,12 @@ from datetime import datetime
 
 import click
 
-from ordigi import config
+from ordigi.config import Config
 from ordigi import constants
 from ordigi import log
 from ordigi.database import Db
 from ordigi.filesystem import FileSystem
+from ordigi.geolocation import GeoLocation
 from ordigi.media import Media, get_all_subclasses
 from ordigi.summary import Summary
 
@@ -98,29 +99,24 @@ def _sort(debug, dry_run, destination, clean, copy, exclude_regex, filter_by_ext
     if not os.path.exists(destination):
         logger.error(f'Directory {destination} does not exist')
 
-    conf = config.load_config(constants.CONFIG_FILE)
-    path_format = config.get_path_definition(conf)
+    config = Config(constants.CONFIG_FILE)
+    opt = config.get_options()
 
     # if no exclude list was passed in we check if there's a config
     if len(exclude_regex) == 0:
-        if 'Exclusions' in conf:
-            exclude_regex = [value for key, value in conf.items('Exclusions')]
-
+        exclude_regex = opt['exclude_regex']
     exclude_regex_list = set(exclude_regex)
 
     # Initialize Db
     db = Db(destination)
 
-    if 'Path' in conf and 'day_begins' in conf['Path']:
-        config_directory = conf['Path']
-        day_begins = int(config_directory['day_begins'])
-    else:
-        day_begins = 0
-    filesystem = FileSystem(cache, day_begins, dry_run, exclude_regex_list,
-            filter_by_ext, logger, max_deep, mode, path_format)
+    filesystem = FileSystem(cache, opt['day_begins'], dry_run, exclude_regex_list,
+            filter_by_ext, logger, max_deep, mode, opt['path_format'])
+
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
 
     summary, has_errors = filesystem.sort_files(paths, destination, db,
-            remove_duplicates, ignore_tags)
+            loc, remove_duplicates, ignore_tags)
 
     if clean:
         remove_empty_folders(destination, logger)

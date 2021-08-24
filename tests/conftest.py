@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from ordigi import config
+from ordigi.config import Config
 from ordigi.exiftool import _ExifToolProc
 
 ORDIGI_PATH = Path(__file__).parent.parent
@@ -41,7 +41,8 @@ def conf_path():
             'geocoder': 'Nominatium'
             }
     conf_path = Path(tmp_path, "ordigi.conf")
-    config.write(conf_path, conf)
+    config = Config(conf_path)
+    config.write(conf)
 
     yield conf_path
 

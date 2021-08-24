@@ -1,47 +1,92 @@
-"""Load config file as a singleton."""
 from configparser import RawConfigParser
 from os import path
 from ordigi import constants
+from geopy.geocoders import options as gopt
 
 
-def write(conf_file, config):
-    with open(conf_file, 'w') as conf_file:
-        config.write(conf_file)
-        return True
+class Config:
+    """Manage config file"""
 
-    return False
+    def __init__(self, conf_path=None, conf={}):
+        self.conf_path = conf_path
+        if conf_path == None:
+            self.conf = conf
+        else:
+            self.conf = self.load_config()
 
-def load_config(file):
-    if not path.exists(file):
-        return {}
+    def write(self, conf):
+        with open(self.conf_path, 'w') as conf_path:
+            conf.write(conf_path)
+            return True
 
-    config = RawConfigParser()
-    config.read(file)
-    return config
+        return False
 
-def get_path_definition(config):
-    """Returns a list of folder definitions.
+    def load_config(self):
+        if not path.exists(self.conf_path):
+            return {}
 
-    Each element in the list represents a folder.
-    Fallback folders are supported and are nested lists.
+        conf = RawConfigParser()
+        conf.read(self.conf_path)
+        return conf
 
-    :returns: string
-    """
+    def get_option(self, option, section):
 
-    if 'Path' in config:
-        if 'format' in config['Path']:
-            return config['Path']['format']
-        elif 'dirs_path' and 'name' in config['Path']:
-            return config['Path']['dirs_path'] + '/' + config['Path']['name']
+        if section in self.conf and option in self.conf[section]:
+            return self.conf[section][option]
 
-    return constants.default_path + '/' + constants.default_name
+        return False
 
-def get_geocoder():
-    config = load_config(constants.CONFIG_FILE)
-    if 'Geolocation' in config and 'geocoder' in config['Geolocation']:
-        geocoder = config['Geolocation']['geocoder']
-        if geocoder in ('Nominatim', ):
-            return geocoder
+    def get_path_definition(self):
+        """Returns a list of folder definitions.
 
-    return constants.default_geocoder
+        Each element in the list represents a folder.
+        Fallback folders are supported and are nested lists.
+
+        :returns: string
+        """
+
+        if 'Path' in self.conf:
+            if 'format' in self.conf['Path']:
+                return self.conf['Path']['format']
+            elif 'dirs_path' and 'name' in self.conf['Path']:
+                return self.conf['Path']['dirs_path'] + '/' + self.conf['Path']['name']
+
+        return constants.default_path + '/' + constants.default_name
+
+    def get_options(self):
+        """Get config options
+        :returns: dict
+        """
+
+        options = {}
+        geocoder = self.get_option('geocoder', 'Geolocation')
+        if geocoder and geocoder in ('Nominatim', ):
+            options['geocoder'] = geocoder
+        else:
+            options['geocoder'] = constants.default_geocoder
+
+        prefer_english_names = self.get_option('prefer_english_names', 'Geolocation')
+        if prefer_english_names:
+            options['prefer_english_names'] = bool(prefer_english_names)
+        else:
+            options['prefer_english_names'] = False
+
+        timeout = self.get_option('timeout', 'Geolocation')
+        if timeout:
+            options['timeout'] = timeout
+        else:
+            options['timeout'] = gopt.default_timeout
+
+        options['path_format'] = self.get_path_definition()
+
+        if 'Path' in self.conf and 'day_begins' in self.conf['Path']:
+            config_directory = self.conf['Path']
+            options['day_begins'] = int(config_directory['day_begins'])
+        else:
+            options['day_begins'] = 0
+
+        if 'Exclusions' in self.conf:
+            options['exclude_regex'] = [value for key, value in self.conf.items('Exclusions')]
+
+        return options
 

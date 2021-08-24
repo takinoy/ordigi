@@ -10,9 +10,10 @@ from time import sleep
 from .conftest import copy_sample_files
 from ordigi import constants
 from ordigi.database import Db
-from ordigi.filesystem import FileSystem
-from ordigi.media import Media
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
+from ordigi.filesystem import FileSystem
+from ordigi.geolocation import GeoLocation
+from ordigi.media import Media
 
 
 @pytest.mark.skip()
@@ -67,12 +68,13 @@ class TestFilesystem:
 
             exif_data = ExifToolCaching(str(file_path)).asdict()
             metadata = media.get_metadata()
+            loc = GeoLocation()
             for item, regex in items.items():
                 for mask in masks:
                     matched = re.search(regex, mask)
                     if matched:
                         part = filesystem.get_part(item, mask[1:-1],
-                                metadata, Db(tmp_path), subdirs)
+                                metadata, Db(tmp_path), subdirs, loc)
                         # check if part is correct
                         assert isinstance(part, str), file_path
                         if item == 'basename':
@@ -138,8 +140,9 @@ class TestFilesystem:
     def test_sort_files(self, tmp_path):
         db = Db(tmp_path)
         filesystem = FileSystem(path_format=self.path_format)
-
-        summary, has_errors = filesystem.sort_files([self.src_paths], tmp_path, db)
+        loc = GeoLocation()
+        summary, has_errors = filesystem.sort_files([self.src_paths],
+                tmp_path, db, loc)
 
         # Summary is created and there is no errors
         assert summary, summary
@@ -154,7 +157,8 @@ class TestFilesystem:
             filesystem = FileSystem(path_format=self.path_format, mode=mode)
             # copy mode
             src_path = Path(self.src_paths, 'photo.png')
-            dest_path = Path(tmp_path,'photo_copy.png')
+            name = 'photo_' + mode + '.png'
+            dest_path = Path(tmp_path, name)
             src_checksum = filesystem.checksum(src_path)
             result_copy = filesystem.sort_file(src_path, dest_path)
             assert result_copy
