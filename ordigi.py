@@ -124,9 +124,9 @@ def _sort(debug, dry_run, destination, copy, exclude_regex, filter_by_ext, ignor
     # Initialize Db
     db = Db(destination)
 
-    if 'Directory' in conf and 'day_begins' in conf['Directory']:
-        config_directory = conf['Directory']
-        day_begins = config_directory['day_begins']
+    if 'Path' in conf and 'day_begins' in conf['Path']:
+        config_directory = conf['Path']
+        day_begins = int(config_directory['day_begins'])
     else:
         day_begins = 0
     filesystem = FileSystem(cache, day_begins, dry_run, exclude_regex_list,
