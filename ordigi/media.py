@@ -147,7 +147,7 @@ class Media():
                 value = re.sub(regex , r'\g<1>-\g<2>-\g<3>', value)
             return parse(value)
         except BaseException  or dateutil.parser._parser.ParserError as e:
-            self.logger.error(e)
+            self.logger.error(e, value)
             return None
 
     def get_coordinates(self, key, value):
