@@ -1,9 +1,12 @@
 """ pytest test configuration """
 
 from configparser import RawConfigParser
+import os
 import pytest
-from pathlib import Path
+from pathlib import Path, PurePath
+import random
 import shutil
+import string
 import tempfile
 
 from ordigi.config import Config
@@ -17,20 +20,35 @@ def reset_singletons():
     _ExifToolProc.instance = None
 
 
-def copy_sample_files():
-    src_path = tempfile.mkdtemp(prefix='ordigi-src')
+@pytest.fixture(scope="session")
+def sample_files_paths(tmpdir_factory):
+    tmp_path = tmpdir_factory.mktemp("ordigi-src-")
     paths = Path(ORDIGI_PATH, 'samples/test_exif').glob('*')
     file_paths = [x for x in paths if x.is_file()]
     for file_path in file_paths:
-        source_path = Path(src_path, file_path.name)
+        source_path = tmp_path.join(file_path.name)
         shutil.copyfile(file_path, source_path)
 
-    return src_path, file_paths
+    return tmp_path, file_paths
+
+
+def randomize_files(dest_dir):
+    # Get files randomly
+    paths = Path(dest_dir).glob('*')
+    for path, subdirs, files in os.walk(dest_dir):
+        for name in files:
+            file_path = PurePath(path, name)
+            if bool(random.getrandbits(1)):
+                with open(file_path, 'wb') as fout:
+                    fout.write(os.urandom(random.randrange(128, 2048)))
+            if bool(random.getrandbits(1)):
+                dest_path = PurePath(path, file_path.stem + '_1'+ file_path.suffix)
+                shutil.copyfile(file_path, dest_path)
 
 
 @pytest.fixture(scope="module")
 def conf_path():
-    tmp_path = tempfile.mkdtemp(prefix='ordigi-')
+    conf_dir = tempfile.mkdtemp(prefix='ordigi-')
     conf = RawConfigParser() 
     conf['Path'] = {
             'day_begins': '4',
@@ -40,11 +58,11 @@ def conf_path():
     conf['Geolocation'] = {
             'geocoder': 'Nominatium'
             }
-    conf_path = Path(tmp_path, "ordigi.conf")
+    conf_path = Path(conf_dir, "ordigi.conf")
     config = Config(conf_path)
     config.write(conf)
 
     yield conf_path
 
-    shutil.rmtree(tmp_path)
+    shutil.rmtree(conf_dir)
 

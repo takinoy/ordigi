@@ -7,11 +7,11 @@ import re
 from sys import platform
 from time import sleep
 
-from .conftest import copy_sample_files
+from .conftest import randomize_files
 from ordigi import constants
 from ordigi.database import Db
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
-from ordigi.filesystem import FileSystem
+from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media
 
@@ -20,9 +20,11 @@ from ordigi.media import Media
 class TestDb:
     pass
 
-class TestFilesystem:
-    def setup_class(cls):
-        cls.src_paths, cls.file_paths = copy_sample_files()
+class TestCollection:
+
+    @pytest.fixture(autouse=True)
+    def setup_class(cls, sample_files_paths):
+        cls.src_paths, cls.file_paths = sample_files_paths
         cls.path_format = constants.default_path + '/' + constants.default_name
 
     def teardown_class(self):
@@ -34,8 +36,8 @@ class TestFilesystem:
         Test all parts
         """
         # Item to search for:
-        filesystem = FileSystem()
-        items = filesystem.get_items()
+        collection = Collection(self.path_format, tmp_path)
+        items = collection.get_items()
         masks = [
                 '{album}',
                 '{basename}',
@@ -73,7 +75,7 @@ class TestFilesystem:
                 for mask in masks:
                     matched = re.search(regex, mask)
                     if matched:
-                        part = filesystem.get_part(item, mask[1:-1],
+                        part = collection.get_part(item, mask[1:-1],
                                 metadata, Db(tmp_path), subdirs, loc)
                         # check if part is correct
                         assert isinstance(part, str), file_path
@@ -92,7 +94,7 @@ class TestFilesystem:
                             assert part == file_path.suffix[1:], file_path
                         elif item == 'name':
                             expected_part = file_path.stem
-                            for i, rx in filesystem.match_date_from_string(expected_part):
+                            for i, rx in collection.get_date_regex(expected_part):
                                 part = re.sub(rx, '', expected_part)
                             assert part == expected_part, file_path
                         elif item == 'custom':
@@ -112,21 +114,21 @@ class TestFilesystem:
                             assert part == '', file_path
 
 
-    def test_get_date_taken(self):
-        filesystem = FileSystem()
+    def test_get_date_taken(self, tmp_path):
+        collection = Collection(self.path_format, tmp_path)
         for file_path in self.file_paths:
             exif_data = ExifToolCaching(str(file_path)).asdict()
             media = Media(str(file_path))
             metadata = media.get_metadata()
-            date_taken = filesystem.get_date_taken(metadata)
+            date_taken = collection.get_date_taken(metadata)
 
             date_filename = None
             for tag in media.tags_keys['original_name']:
                 if tag in exif_data:
-                    date_filename = filesystem.get_date_from_string(exif_data[tag])
+                    date_filename = collection.get_date_from_string(exif_data[tag])
                 break
             if not date_filename:
-                date_filename = filesystem.get_date_from_string(file_path.name)
+                date_filename = collection.get_date_from_string(file_path.name)
 
             if media.metadata['date_original']:
                 assert date_taken == media.metadata['date_original']
@@ -139,31 +141,40 @@ class TestFilesystem:
 
     def test_sort_files(self, tmp_path):
         db = Db(tmp_path)
-        filesystem = FileSystem(path_format=self.path_format)
+        collection = Collection(self.path_format, tmp_path)
         loc = GeoLocation()
-        summary, has_errors = filesystem.sort_files([self.src_paths],
-                tmp_path, db, loc)
+        summary, has_errors = collection.sort_files([self.src_paths],
+                db, loc)
 
         # Summary is created and there is no errors
         assert summary, summary
         assert not has_errors, has_errors
 
+        randomize_files(tmp_path)
+        collection = Collection(self.path_format, tmp_path)
+        loc = GeoLocation()
+        summary, has_errors = collection.sort_files([self.src_paths],
+                db, loc)
+
+        # Summary is created and there is no errors
+        assert summary, summary
+        assert not has_errors, has_errors
         # TODO check if path follow path_format
 
-    # TODO make another class?
+
     def test_sort_file(self, tmp_path):
 
         for mode in 'copy', 'move':
-            filesystem = FileSystem(path_format=self.path_format, mode=mode)
+            collection = Collection(self.path_format, tmp_path, mode=mode)
             # copy mode
             src_path = Path(self.src_paths, 'photo.png')
             name = 'photo_' + mode + '.png'
             dest_path = Path(tmp_path, name)
-            src_checksum = filesystem.checksum(src_path)
-            result_copy = filesystem.sort_file(src_path, dest_path)
+            src_checksum = collection.checksum(src_path)
+            result_copy = collection.sort_file(src_path, dest_path)
             assert result_copy
             # Ensure files remain the same
-            assert filesystem.checkcomp(dest_path, src_checksum)
+            assert collection.checkcomp(dest_path, src_checksum)
 
             if mode == 'copy':
                 assert src_path.exists()
@@ -175,7 +186,9 @@ class TestFilesystem:
 
         # TODO check date
 
-#    filesystem.sort_files
+    def test_filter_part():
+        _filter_part(dedup_regex, path_part, items)
+        assert 
 #- Sort similar images into a directory
-#    filesystem.sort_similar
+#    collection.sort_similar
 

@@ -5,7 +5,6 @@ import re
 import shutil
 import tempfile
 
-from .conftest import copy_sample_files
 from ordigi import constants
 from ordigi.media import Media
 from ordigi.images import Images
@@ -16,8 +15,9 @@ CACHING = True
 
 class TestMetadata:
 
-    def setup_class(cls):
-        cls.src_paths, cls.file_paths = copy_sample_files()
+    @pytest.fixture(autouse=True)
+    def setup_class(cls, sample_files_paths):
+        cls.src_paths, cls.file_paths = sample_files_paths
         cls.ignore_tags = ('EXIF:CreateDate', 'File:FileModifyDate',
                 'File:FileAccessDate', 'EXIF:Make', 'Composite:LightValue')
 

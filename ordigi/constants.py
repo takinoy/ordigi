@@ -36,7 +36,7 @@ script_directory = path.dirname(path.dirname(path.abspath(__file__)))
 #: Accepted language in responses from MapQuest
 accepted_language = 'en'
 
-# check python version, required in filesystem.py to trigger appropriate method
+# check python version, required in collection.py to trigger appropriate method
 python_version = version_info.major
 
 CONFIG_FILE = f'{application_directory}/ordigi.conf'
