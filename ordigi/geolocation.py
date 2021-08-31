@@ -8,7 +8,6 @@ import logging
 from ordigi import config
 
 __KEY__ = None
-__DEFAULT_LOCATION__ = 'Unknown Location'
 
 
 class GeoLocation:
@@ -43,8 +42,8 @@ class GeoLocation:
 
         return None
 
-    def place_name(self, lat, lon, db, cache=True, logger=logging.getLogger(), timeout=options.default_timeout):
-        lookup_place_name_default = {'default': __DEFAULT_LOCATION__}
+    def place_name(self, lat, lon, logger=logging.getLogger(), timeout=options.default_timeout):
+        lookup_place_name_default = {'default': None}
         if(lat is None or lon is None):
             return lookup_place_name_default
 
@@ -53,16 +52,6 @@ class GeoLocation:
             lat = float(lat)
         if(not isinstance(lon, float)):
             lon = float(lon)
-
-        # Try to get cached location first
-        # 3km distace radious for a match
-        cached_place_name = None
-        if cache:
-            cached_place_name = db.get_location_name(lat, lon, 3000)
-        # We check that it's a dict to coerce an upgrade of the location
-        #  db from a string location to a dictionary. See gh-160.
-        if(isinstance(cached_place_name, dict)):
-            return cached_place_name
 
         lookup_place_name = {}
         geocoder = self.geocoder
@@ -82,11 +71,6 @@ class GeoLocation:
                     #  set the most specific as the default.
                     if('default' not in lookup_place_name):
                         lookup_place_name['default'] = address[loc]
-
-        if(lookup_place_name):
-            db.add_location(lat, lon, lookup_place_name)
-            # TODO: Maybe this should only be done on exit and not for every write.
-            db.update_location_db()
 
         if('default' not in lookup_place_name):
             lookup_place_name = lookup_place_name_default

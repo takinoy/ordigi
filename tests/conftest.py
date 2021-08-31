@@ -36,6 +36,9 @@ def randomize_files(dest_dir):
     # Get files randomly
     paths = Path(dest_dir).glob('*')
     for path, subdirs, files in os.walk(dest_dir):
+        if '.ordigi' in path:
+            continue
+
         for name in files:
             file_path = PurePath(path, name)
             if bool(random.getrandbits(1)):
@@ -44,6 +47,13 @@ def randomize_files(dest_dir):
             if bool(random.getrandbits(1)):
                 dest_path = PurePath(path, file_path.stem + '_1'+ file_path.suffix)
                 shutil.copyfile(file_path, dest_path)
+
+
+def randomize_db(dest_dir):
+    # alterate database
+    file_path = Path(str(dest_dir), '.ordigi', str(dest_dir.name) + '.db')
+    with open(file_path, 'wb') as fout:
+        fout.write(os.urandom(random.randrange(128, 2048)))
 
 
 @pytest.fixture(scope="module")

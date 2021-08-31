@@ -10,7 +10,6 @@ import click
 from ordigi.config import Config
 from ordigi import constants
 from ordigi import log
-from ordigi.database import Db
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media, get_all_subclasses
@@ -87,11 +86,6 @@ def _sort(debug, dry_run, destination, clean, copy, exclude_regex, filter_by_ext
     paths = set(paths)
     filter_by_ext = set(filter_by_ext)
 
-    destination = os.path.abspath(os.path.expanduser(destination))
-
-    if not os.path.exists(destination):
-        logger.error(f'Directory {destination} does not exist')
-
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
 
@@ -100,17 +94,14 @@ def _sort(debug, dry_run, destination, clean, copy, exclude_regex, filter_by_ext
         exclude_regex = opt['exclude_regex']
     exclude_regex_list = set(exclude_regex)
 
-    # Initialize Db
-    db = Db(destination)
-
-    collection = Collection(opt['path_format'], destination, cache, 
+    collection = Collection(destination, opt['path_format'], cache, 
             opt['day_begins'], dry_run, exclude_regex_list, filter_by_ext,
             logger, max_deep, mode)
 
     loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
             opt['timeout'])
 
-    summary, has_errors = collection.sort_files(paths, db, loc,
+    summary, has_errors = collection.sort_files(paths, loc,
             remove_duplicates, ignore_tags)
 
     if clean:
@@ -176,18 +167,16 @@ def _clean(debug, dedup_regex, dry_run, folders, max_deep, path_string, remove_d
     if not root:
         root = path
 
-    if clean_all or folders:
-        remove_empty_folders(path, logger)
-
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
 
     if path_string:
-        # Initialize Db
-        db = Db(root)
-        collection = Collection(opt['path_format'], root, dry_run=dry_run, logger=logger, max_deep=max_deep, mode='move')
+        collection = Collection(root, opt['path_format'], dry_run=dry_run, logger=logger, max_deep=max_deep, mode='move')
         dedup_regex = list(dedup_regex)
-        summary, has_errors = collection.dedup_regex(path, dedup_regex, db, logger, remove_duplicates)
+        summary, has_errors = collection.dedup_regex(path, dedup_regex, logger, remove_duplicates)
+
+    if clean_all or folders:
+        remove_empty_folders(path, logger)
 
     if verbose or debug:
         summary.write()
@@ -251,16 +240,12 @@ def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
 
-    # Initialize Db
-    db = Db(root)
-
-    collection = Collection(path_format, root, mode='move', dry_run=dry_run, logger=logger)
+    collection = Collection(root, None, mode='move', dry_run=dry_run, logger=logger)
 
     if revert_compare:
-        summary, has_errors = collection.revert_compare(path, db, dry_run)
+        summary, has_errors = collection.revert_compare(path, dry_run)
     else:
-        summary, has_errors = collection.sort_similar_images(path, db,
-                similarity)
+        summary, has_errors = collection.sort_similar_images(path, similarity)
 
     if verbose or debug:
         summary.write()

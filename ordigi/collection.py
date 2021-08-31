@@ -14,6 +14,7 @@ import shutil
 from datetime import datetime, timedelta
 
 from ordigi import media
+from ordigi.database import Sqlite
 from ordigi.media import Media, get_all_subclasses
 from ordigi.images import Images
 from ordigi.summary import Summary
@@ -22,12 +23,20 @@ from ordigi.summary import Summary
 class Collection(object):
     """Class of the media collection."""
 
-    def __init__(self, path_format, root, cache=False, day_begins=0, dry_run=False, exclude_regex_list=set(),
+    def __init__(self, root, path_format, cache=False, day_begins=0, dry_run=False, exclude_regex_list=set(),
             filter_by_ext=set(), logger=logging.getLogger(), max_deep=None,
             mode='copy'):
 
-        self.root = root
+        # Attributes
+        self.root = Path(root).expanduser().absolute()
+        if not os.path.exists(self.root):
+            logger.error(f'Directory {self.root} does not exist')
+            sys.exit(1)
 
+        self.path_format = path_format
+        self.db = Sqlite(self.root)
+
+        # Options
         self.cache = cache
         self.day_begins = day_begins
         self.dry_run = dry_run
@@ -43,7 +52,6 @@ class Collection(object):
         self.logger = logger
         self.max_deep = max_deep
         self.mode = mode
-        self.path_format = path_format
 
         self.summary = Summary()
         self.whitespace_regex = '[ \t\n\r\f\v]+'
@@ -90,38 +98,6 @@ class Collection(object):
             for i, rx in regex.items():
                 yield i, rx
 
-    def get_location_part(self, mask, part, place_name):
-        """Takes a mask for a location and interpolates the actual place names.
-
-        Given these parameters here are the outputs.
-
-        mask = 'city'
-        part = 'city-random'
-        place_name = {'city': u'Sunnyvale'}
-        return 'Sunnyvale'
-
-        mask = 'location'
-        part = 'location'
-        place_name = {'default': u'Sunnyvale', 'city': u'Sunnyvale'}
-        return 'Sunnyvale'
-
-        :returns: str
-        """
-        folder_name = part
-        if(mask in place_name):
-            replace_target = mask
-            replace_with = place_name[mask]
-        else:
-            replace_target = part
-            replace_with = ''
-
-        folder_name = folder_name.replace(
-            replace_target,
-            replace_with,
-        )
-
-        return folder_name
-
     def check_for_early_morning_photos(self, date):
         """check for early hour photos to be grouped with previous day"""
 
@@ -132,7 +108,7 @@ class Collection(object):
 
         return date
 
-    def get_part(self, item, mask, metadata, db, subdirs, loc):
+    def get_part(self, item, mask, metadata, subdirs):
         """Parse a specific folder's name given a mask and metadata.
 
         :param item: Name of the item as defined in the path (i.e. date from %date)
@@ -157,18 +133,6 @@ class Collection(object):
             date = self.check_for_early_morning_photos(date)
             if date is not None:
                 part = date.strftime(mask)
-        elif item in ('location', 'city', 'state', 'country'):
-            place_name = loc.place_name(
-                metadata['latitude'],
-                metadata['longitude'],
-                db,
-                self.cache,
-                self.logger
-            )
-            if item == 'location':
-                mask = 'default'
-
-            part = self.get_location_part(mask, item, place_name)
         elif item == 'folder':
             part = os.path.basename(subdirs)
 
@@ -178,24 +142,27 @@ class Collection(object):
 
             part = os.path.join(*folders)
 
-        elif item in ('album','camera_make', 'camera_model', 'ext',
-                 'original_name', 'title'):
-            if metadata[item]:
-                part = metadata[item]
+        elif item in ('album','camera_make', 'camera_model', 'city', 'country', 'ext',
+                 'location', 'original_name', 'state', 'title'):
+            if item == 'location':
+                mask = 'default'
+
+            if metadata[mask]:
+                part = metadata[mask]
         elif item in 'custom':
             # Fallback string
             part = mask[1:-1]
 
         return part
 
-    def get_path_part(self, this_part, metadata, db, subdirs, loc):
+    def get_path_part(self, this_part, metadata, subdirs):
         """Build path part
         :returns: part (string)"""
         for item, regex in self.items.items():
             matched = re.search(regex, this_part)
             if matched:
-                part = self.get_part(item, matched.group()[1:-1], metadata, db,
-                        subdirs, loc)
+                part = self.get_part(item, matched.group()[1:-1], metadata,
+                        subdirs)
 
                 part = part.strip()
 
@@ -216,7 +183,7 @@ class Collection(object):
 
         return this_part
 
-    def get_path(self, metadata, db, loc, subdirs='', whitespace_sub='_'):
+    def get_path(self, metadata, subdirs='', whitespace_sub='_'):
         """path_format: {%Y-%d-%m}/%u{city}/{album}
 
         Returns file path.
@@ -229,7 +196,7 @@ class Collection(object):
         for path_part in path_parts:
             this_parts = path_part.split('|')
             for this_part in this_parts:
-                this_part = self.get_path_part(this_part, metadata, db, subdirs, loc)
+                this_part = self.get_path_part(this_part, metadata, subdirs)
 
                 if this_part:
                     # Check if all masks are substituted
@@ -364,15 +331,28 @@ class Collection(object):
 
         return src_checksum
 
-    def check_file(self, src_path, dest_path, src_checksum, db):
+    def _add_db_data(self, dest_path, metadata, checksum):
+        loc_keys = ('latitude', 'longitude', 'city', 'state', 'country', 'default')
+        loc_values = []
+        for key in loc_keys:
+            loc_values.append(metadata[key])
+        metadata['location_id'] = self.db.add_location(*loc_values)
+
+        file_keys = ('original_name', 'date_original', 'album', 'location_id')
+        file_values = []
+        for key in file_keys:
+            file_values.append(metadata[key])
+        dest_path_rel = os.path.relpath(dest_path, self.root)
+        self.db.add_file_data(dest_path_rel, checksum, *file_values)
+
+    def record_file(self, src_path, dest_path, src_checksum, metadata):
 
         # Check if file remain the same
         checksum = self.checkcomp(dest_path, src_checksum)
         has_errors = False
         if checksum:
             if not self.dry_run:
-                db.add_hash(checksum, dest_path)
-                db.update_hash_db()
+                self._add_db_data(dest_path, metadata, checksum)
 
             self.summary.append((src_path, dest_path))
 
@@ -452,7 +432,7 @@ class Collection(object):
                 self.logger.info(f'copy: {src_path} -> {dest_path}')
             return True
 
-    def solve_conflicts(self, conflict_file_list, db, remove_duplicates):
+    def solve_conflicts(self, conflict_file_list, metadata, remove_duplicates):
         has_errors = False
         unresolved_conflicts = []
         while conflict_file_list != []:
@@ -484,8 +464,8 @@ class Collection(object):
                 has_errors = True
 
             if result:
-                self.summary, has_errors = self.check_file(src_path,
-                    dest_path, src_checksum, db)
+                self.summary, has_errors = self.record_file(src_path,
+                    dest_path, src_checksum, metadata)
 
         if has_errors:
             return False
@@ -591,7 +571,7 @@ class Collection(object):
         # Initialize date taken to what's returned from the metadata function.
         os.utime(file_path, (int(datetime.now().timestamp()), int(date_taken.timestamp())))
 
-    def dedup_regex(self, path, dedup_regex, db, logger, remove_duplicates=False):
+    def dedup_regex(self, path, dedup_regex, logger, remove_duplicates=False):
         # cycle throught files
         has_errors = False
         path = self.check_path(path)
@@ -634,22 +614,22 @@ class Collection(object):
 
             result = self.sort_file(src_path, dest_path, remove_duplicates)
             if result:
-                self.summary, has_errors = self.check_file(src_path,
-                        dest_path, src_checksum, db)
+                self.summary, has_errors = self.record_file(src_path,
+                    dest_path, src_checksum, metadata)
             elif result is False:
                 # There is conflict files
                 conflict_file_list.append({'src_path': src_path,
                 'src_checksum': src_checksum, 'dest_path': dest_path})
 
         if conflict_file_list != []:
-            result = self.solve_conflicts(conflict_file_list, db, remove_duplicates)
+            result = self.solve_conflicts(conflict_file_list, metadata, remove_duplicates)
 
         if not result:
             has_errors = True
 
         return self.summary, has_errors
 
-    def sort_files(self, paths, db, loc, remove_duplicates=False,
+    def sort_files(self, paths, loc, remove_duplicates=False,
             ignore_tags=set()):
         """
         Sort files into appropriate folder
@@ -664,9 +644,9 @@ class Collection(object):
                 src_checksum = self.checksum(src_path)
                 media = Media(src_path, ignore_tags, self.logger)
                 if media:
-                    metadata = media.get_metadata()
+                    metadata = media.get_metadata(loc, self.db, self.cache)
                     # Get the destination path according to metadata
-                    file_path = self.get_path(metadata, db, loc, subdirs=subdirs)
+                    file_path = self.get_path(metadata, subdirs=subdirs)
                 else:
                     # Keep same directory structure
                     file_path = os.path.relpath(src_path, path)
@@ -679,28 +659,31 @@ class Collection(object):
 
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
 
-                if result is False:
+                if result:
+                    self.summary, has_errors = self.record_file(src_path,
+                        dest_path, src_checksum, metadata)
+                elif result is False:
                     # There is conflict files
                     conflict_file_list.append({'src_path': src_path,
                         'src_checksum': src_checksum, 'dest_path': dest_path})
 
             if conflict_file_list != []:
-                result = self.solve_conflicts(conflict_file_list, db, remove_duplicates)
+                result = self.solve_conflicts(conflict_file_list, metadata,
+                       remove_duplicates)
 
             if not result:
                 has_errors = True
 
             return self.summary, has_errors
 
-    def set_hash(self, result, src_path, dest_path, src_checksum, db):
+    def set_hash(self, result, src_path, dest_path, src_checksum):
         if result:
             # Check if file remain the same
             result = self.checkcomp(dest_path, src_checksum)
             has_errors = False
             if result:
                 if not self.dry_run:
-                    db.add_hash(checksum, dest_path)
-                    db.update_hash_db()
+                    self._add_db_data(dest_path, metadata, checksum)
 
                 if dest_path:
                     self.logger.info(f'{src_path} -> {dest_path}')
@@ -718,7 +701,7 @@ class Collection(object):
 
         return has_errors
 
-    def move_file(self, img_path, dest_path, checksum, db):
+    def move_file(self, img_path, dest_path, checksum):
         if not self.dry_run:
             try:
                 shutil.move(img_path, dest_path)
@@ -726,9 +709,9 @@ class Collection(object):
                 self.logger.error(error)
 
         self.logger.info(f'move: {img_path} -> {dest_path}')
-        return self.set_hash(True, img_path, dest_path, checksum, db)
+        return self.set_hash(True, img_path, dest_path, checksum)
 
-    def sort_similar_images(self, path, db, similarity=80):
+    def sort_similar_images(self, path, similarity=80):
 
         has_errors = False
         path = self.check_path(path)
@@ -769,7 +752,7 @@ class Collection(object):
                     result = self.create_directory(dest_directory)
                     # Move the simlars file into the destination directory
                     if result:
-                        result = self.move_file(img_path, dest_path, checksum2, db)
+                        result = self.move_file(img_path, dest_path, checksum2)
                         moved_imgs.add(img_path)
                         if not result:
                             has_errors = True
@@ -780,7 +763,7 @@ class Collection(object):
                 if similar:
                     dest_path = os.path.join(dest_directory,
                             os.path.basename(image))
-                    result = self.move_file(image, dest_path, checksum1, db)
+                    result = self.move_file(image, dest_path, checksum1)
                     moved_imgs.add(image)
                     if not result:
                         has_errors = True
@@ -790,7 +773,7 @@ class Collection(object):
 
         return self.summary, has_errors
 
-    def revert_compare(self, path, db):
+    def revert_compare(self, path):
 
         has_errors = False
         path = self.check_path(path)
@@ -810,7 +793,7 @@ class Collection(object):
                             continue
                         checksum = self.checksum(img_path)
                         dest_path = os.path.join(dirname, os.path.basename(img_path))
-                        result = self.move_file(img_path, dest_path, checksum, db)
+                        result = self.move_file(img_path, dest_path, checksum)
                         if not result:
                             has_errors = True
                     # remove directory

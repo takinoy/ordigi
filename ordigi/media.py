@@ -147,7 +147,7 @@ class Media():
                 value = re.sub(regex , r'\g<1>-\g<2>-\g<3>', value)
             return parse(value)
         except BaseException  or dateutil.parser._parser.ParserError as e:
-            self.logger.error(e, value)
+            self.logger.warning(e.args, value)
             return None
 
     def get_coordinates(self, key, value):
@@ -186,7 +186,7 @@ class Media():
 
         return None
 
-    def get_metadata(self):
+    def get_metadata(self, loc=None, db=None, cache=False):
         """Get a dictionary of metadata from exif.
         All keys will be present and have a value of None if not obtained.
 
@@ -220,8 +220,38 @@ class Media():
             self.metadata[key] = formated_data
 
         self.metadata['base_name']  = os.path.basename(os.path.splitext(self.file_path)[0])
-        self.metadata['ext'] = os.path.splitext(self.file_path)[1][1:]
         self.metadata['directory_path'] = os.path.dirname(self.file_path)
+        self.metadata['ext'] = os.path.splitext(self.file_path)[1][1:]
+
+        loc_keys = ('latitude', 'longitude', 'city', 'state', 'country', 'default')
+        location_id = None
+        if cache and db:
+            location_id = db.get_file_data(self.file_path, 'LocationId')
+
+        if location_id:
+            for key in loc_keys:
+                # use str to convert non string format data like latitude and
+                # longitude
+                self.metadata[key] = str(db.get_location(location_id, key.capitalize()))
+        elif loc:
+            place_name = loc.place_name(
+                self.metadata['latitude'],
+                self.metadata['longitude'],
+                self.logger
+            )
+            for key in ('city', 'state', 'country', 'default'):
+                # mask = 'city'
+                # place_name = {'default': u'Sunnyvale', 'city-random': u'Sunnyvale'}
+                if(key in place_name):
+                    self.metadata[key] = place_name[key]
+                else:
+                    self.metadata[key] = None
+
+        else:
+            for key in loc_keys:
+                self.metadata[key] = None
+
+        self.metadata['location_id'] = location_id
 
         return self.metadata
 
@@ -251,6 +281,13 @@ class Media():
                     return i(_file, ignore_tags=ignore_tags, logger=logger)
 
         return Media(_file, logger, ignore_tags=ignore_tags, logger=logger)
+
+    def set_value(self, tag, value):
+        """Set value of a tag.
+
+        :returns: value (str)
+        """
+        return ExifToolCaching(self.file_path, self.logger).setvalue(tag, value)
 
     def set_date_taken(self, date_key, time):
         """Set the date/time a photo was taken.
@@ -301,7 +338,7 @@ class Media():
         """
         folder = os.path.basename(os.path.dirname(self.file_path))
 
-        return set_value(self, 'album', folder)
+        return self.set_value('album', folder)
 
 
 def get_all_subclasses(cls=None):

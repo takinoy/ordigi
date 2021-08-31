@@ -2,23 +2,20 @@
 from datetime import datetime
 import os
 import pytest
+import sqlite3
 from pathlib import Path
 import re
 from sys import platform
 from time import sleep
 
-from .conftest import randomize_files
+from .conftest import randomize_files, randomize_db
 from ordigi import constants
-from ordigi.database import Db
+from ordigi.database import Sqlite
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media
 
-
-@pytest.mark.skip()
-class TestDb:
-    pass
 
 class TestCollection:
 
@@ -36,7 +33,7 @@ class TestCollection:
         Test all parts
         """
         # Item to search for:
-        collection = Collection(self.path_format, tmp_path)
+        collection = Collection(tmp_path, self.path_format)
         items = collection.get_items()
         masks = [
                 '{album}',
@@ -60,7 +57,6 @@ class TestCollection:
                 ]
 
         subdirs = Path('a', 'b', 'c', 'd')
-
         for file_path in self.file_paths:
             media = Media(str(file_path))
             exif_tags = {}
@@ -69,14 +65,14 @@ class TestCollection:
                 exif_tags[key] = media.tags_keys[key]
 
             exif_data = ExifToolCaching(str(file_path)).asdict()
-            metadata = media.get_metadata()
             loc = GeoLocation()
+            metadata = media.get_metadata(loc)
             for item, regex in items.items():
                 for mask in masks:
                     matched = re.search(regex, mask)
                     if matched:
                         part = collection.get_part(item, mask[1:-1],
-                                metadata, Db(tmp_path), subdirs, loc)
+                                metadata, subdirs)
                         # check if part is correct
                         assert isinstance(part, str), file_path
                         if item == 'basename':
@@ -115,7 +111,7 @@ class TestCollection:
 
 
     def test_get_date_taken(self, tmp_path):
-        collection = Collection(self.path_format, tmp_path)
+        collection = Collection(tmp_path, self.path_format)
         for file_path in self.file_paths:
             exif_data = ExifToolCaching(str(file_path)).asdict()
             media = Media(str(file_path))
@@ -140,32 +136,33 @@ class TestCollection:
                 assert date_taken == media.metadata['date_modified']
 
     def test_sort_files(self, tmp_path):
-        db = Db(tmp_path)
-        collection = Collection(self.path_format, tmp_path)
+        collection = Collection(tmp_path, self.path_format)
         loc = GeoLocation()
-        summary, has_errors = collection.sort_files([self.src_paths],
-                db, loc)
+        summary, has_errors = collection.sort_files([self.src_paths], loc)
 
         # Summary is created and there is no errors
         assert summary, summary
         assert not has_errors, has_errors
 
         randomize_files(tmp_path)
-        collection = Collection(self.path_format, tmp_path)
-        loc = GeoLocation()
-        summary, has_errors = collection.sort_files([self.src_paths],
-                db, loc)
+        summary, has_errors = collection.sort_files([self.src_paths], loc)
 
         # Summary is created and there is no errors
         assert summary, summary
         assert not has_errors, has_errors
         # TODO check if path follow path_format
 
+    def test_sort_files_invalid_db(self, tmp_path):
+        collection = Collection(tmp_path, self.path_format)
+        loc = GeoLocation()
+        randomize_db(tmp_path)
+        with pytest.raises(sqlite3.DatabaseError) as e:
+            summary, has_errors = collection.sort_files([self.src_paths], loc)
 
     def test_sort_file(self, tmp_path):
 
         for mode in 'copy', 'move':
-            collection = Collection(self.path_format, tmp_path, mode=mode)
+            collection = Collection(tmp_path, self.path_format, mode=mode)
             # copy mode
             src_path = Path(self.src_paths, 'photo.png')
             name = 'photo_' + mode + '.png'
@@ -186,9 +183,6 @@ class TestCollection:
 
         # TODO check date
 
-    def test_filter_part():
-        _filter_part(dedup_regex, path_part, items)
-        assert 
 #- Sort similar images into a directory
 #    collection.sort_similar
 

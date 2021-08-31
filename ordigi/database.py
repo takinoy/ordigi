@@ -1,134 +1,172 @@
-"""
-Methods for interacting with database files
-"""
-from builtins import map
-from builtins import object
 
 import json
 import os
+from pathlib import Path
+import sqlite3
 import sys
 
-from math import radians, cos, sqrt
 from shutil import copyfile
 from time import strftime
 
 from ordigi import constants
+from ordigi.utils import distance_between_two_points
 
 
-class Db(object):
+class Sqlite:
 
-    """A class for interacting with the JSON files  database."""
+    """Methods for interacting with Sqlite database"""
 
     def __init__(self, target_dir):
 
         # Create dir for target database
-        dirname = os.path.join(target_dir, '.ordigi')
+        db_dir = Path(target_dir, '.ordigi')
 
-        if not os.path.exists(dirname):
+        if not db_dir.exists():
             try:
-                os.makedirs(dirname)
+                db_dir.mkdir()
             except OSError:
                 pass
 
-        # self.hash_db = constants.hash_db
-        self.hash_db_file = os.path.join(dirname, constants.hash_db)
-        self.check_db(self.hash_db_file)
+        self.db_type = 'SQLite format 3'
+        self.filename = Path(db_dir, target_dir.name + '.db')
+        self.con = sqlite3.connect(self.filename)
+        # Allow selecting column by name
+        self.con.row_factory = sqlite3.Row
+        self.cur = self.con.cursor()
 
-        self.hash_db = {}
+        # Create tables
+        if not self.is_table('file'):
+            self.create_file_table()
+        if not self.is_table('location'):
+            self.create_location_table()
 
-        # We know from above that this file exists so we open it
-        #   for reading only.
-        with open(self.hash_db_file, 'r') as f:
-            try:
-                self.hash_db = json.load(f)
-            except ValueError:
-                pass
+    def is_Sqlite3(self, filename):
+        import ipdb; ipdb.set_trace()
+        if not os.path.isfile(filename):
+            return False
+        if os.path.getsize(filename) < 100: # SQLite database file header is 100 bytes
+            return False
 
-        # self.location_db_file = constants.location_db
-        self.location_db_file = os.path.join(dirname, constants.location_db)
-        self.check_db(self.location_db_file)
+        with open(filename, 'rb') as fd:
+            header = fd.read(100)
 
-        self.location_db = []
+        return header[:16] == self.db_type + '\x00'
 
-        # We know from above that this file exists so we open it
-        #   for reading only.
-        with open(self.location_db_file, 'r') as f:
-            try:
-                self.location_db = json.load(f)
-            except ValueError:
-                pass
+    def is_table(self, table):
+        """Check if table exist"""
 
-    def check_db(self, db_file):
-        '''Load db from file'''
-        # If the hash db doesn't exist we create it.
-        # Otherwise we only open for reading
-        if not os.path.isfile(db_file):
-            with open(db_file, 'a'):
-                os.utime(db_file, None)
+        try:
+            # get the count of tables with the name
+            self.cur.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{table}'")
+        except sqlite3.DatabaseError as e:
+            # raise type(e)(e.message + ' :{self.filename} %s' % arg1)
+            raise sqlite3.DatabaseError(f"{self.filename} is not valid database")
 
-    def add_hash(self, key, value, write=False):
-        """Add a hash to the hash db.
+        # if the count is 1, then table exists
+        if self.cur.fetchone()[0] == 1:
+            return True
 
-        :param str key:
-        :param str value:
-        :param bool write: If true, write the hash db to disk.
+        return False
+
+    def _run(self, query, n=0):
+        result = None
+        result = self.cur.execute(query).fetchone()
+
+        if result:
+            return result[n]
+        else:
+            return None
+
+    def _run_many(self, query):
+        self.cur.executemany(query, table_list)
+        if self.cur.fetchone()[0] != 1:
+            return False
+        self.con.commit()
+        return True
+
+    def create_file_table(self):
+        query = """create table file (
+            FilePath text not null primary key,
+            Checksum text,
+            OriginalName text,
+            DateOriginal text,
+            Album text,
+            LocationId integer)
         """
-        self.hash_db[key] = value
-        if(write is True):
-            self.update_hash_db()
+        self.cur.execute(query)
 
-    # Location database
-    # Currently quite simple just a list of long/lat pairs with a name
-    # If it gets many entries a lookup might take too long and a better
-    # structure might be needed. Some speed up ideas:
-    # - Sort it and inter-half method can be used
-    # - Use integer part of long or lat as key to get a lower search list
-    # - Cache a small number of lookups, images are likely to be taken in
-    #   clusters around a spot during import.
-    def add_location(self, latitude, longitude, place, write=False):
-        """Add a location to the database.
+    def add_file_data(self, FilePath, Checksum, OriginalName, DateOriginal,
+            Album, LocationId):
+        query =f"""insert into file values
+            ('{FilePath}', '{Checksum}', '{OriginalName}',
+            '{DateOriginal}', '{Album}', '{LocationId}')"""
 
-        :param float latitude: Latitude of the location.
-        :param float longitude: Longitude of the location.
-        :param str place: Name for the location.
-        :param bool write: If true, write the location db to disk.
+        self.cur.execute(query)
+        self.con.commit()
+
+    def add_file_values(self, table_list):
+        query = f"insert into file values (?, ?, ?, ?, ?, ?)"
+        return self._run_many(query)
+
+    def get_checksum(self, FilePath):
+        query = f"select Checksum from file where FilePath='{FilePath}'"
+        return self._run(query)
+
+    def get_file_data(self, FilePath, data):
+        query = f"select {data} from file where FilePath='{FilePath}'"
+        return self._run(query)
+
+    def create_location_table(self):
+        query = """create table location (
+            Latitude real not null,
+            Longitude real not null,
+            City text,
+            State text,
+            Country text,
+            'Default' text)
         """
-        data = {}
-        data['lat'] = latitude
-        data['long'] = longitude
-        data['name'] = place
-        self.location_db.append(data)
-        if(write is True):
-            self.update_location_db()
+        self.cur.execute(query)
 
-    def backup_hash_db(self):
-        """Backs up the hash db."""
-        # TODO 
-        if os.path.isfile(self.hash_db_file):
-            mask = strftime('%Y-%m-%d_%H-%M-%S')
-            backup_file_name = '%s-%s' % (self.hash_db_file, mask)
-            copyfile(self.hash_db_file, backup_file_name)
-            return backup_file_name
+    def match_location(self, Latitude, Longitude):
+        query = f"""select 1 from location where Latitude='{Latitude}'
+                and Longitude='{Longitude}'"""
+        return self._run(query)
 
-    def check_hash(self, key):
-        """Check whether a hash is present for the given key.
+    def add_location(self, Latitude, Longitude, City, State, Country, Default):
+        # Check if row with same latitude and longitude have not been already
+        # added
+        location_id = self.get_location(Latitude, Longitude, 'ROWID')
 
-        :param str key:
-        :returns: bool
-        """
-        return key in self.hash_db
+        if not location_id:
+            query = f"""insert into location values
+                ('{Latitude}', '{Longitude}', '{City}', '{State}',
+                '{Country}', '{Default}')
+            """
+            self.cur.execute(query)
+            self.con.commit()
 
-    def get_hash(self, key):
-        """Get the hash value for a given key.
+            return self._run('select last_insert_rowid()')
 
-        :param str key:
-        :returns: str or None
-        """
-        if(self.check_hash(key) is True):
-            return self.hash_db[key]
-        return None
+        return location_id
 
-    def get_location_name(self, latitude, longitude, threshold_m):
+    def add_location_values(self, table_list):
+        query = f"insert into location values (?, ?, ?, ?, ?, ?)"
+        return _insert_many_query(query)
+
+    def get_location_data(self, LocationId, data):
+        query = f"select {data} from file where ROWID='{LocationId}'"
+        return self._run(query)
+
+    def get_location(self, Latitude, Longitude, column):
+        query = f"""select {column} from location where Latitude='{Latitude}'
+        and Longitude='{Longitude}'"""
+        return self._run(query)
+
+    def _get_table(self, table):
+        self.cur.execute(f'SELECT * FROM {table}').fetchall()
+
+    def get_location_nearby(self, latitude, longitude, Column,
+            threshold_m=3000):
         """Find a name for a location in the database.
 
         :param float latitude: Latitude of the location.
@@ -137,58 +175,36 @@ class Db(object):
             the given latitude and longitude.
         :returns: str, or None if a matching location couldn't be found.
         """
-        last_d = sys.maxsize
-        name = None
-        for data in self.location_db:
-            # As threshold is quite small use simple math
-            # From http://stackoverflow.com/questions/15736995/how-can-i-quickly-estimate-the-distance-between-two-latitude-longitude-points  # noqa
-            # convert decimal degrees to radians
-
-            lon1, lat1, lon2, lat2 = list(map(
-                radians,
-                [longitude, latitude, data['long'], data['lat']]
-            ))
-
-            r = 6371000  # radius of the earth in m
-            x = (lon2 - lon1) * cos(0.5 * (lat2 + lat1))
-            y = lat2 - lat1
-            d = r * sqrt(x * x + y * y)
+        shorter_distance = sys.maxsize
+        value = None
+        self.cur.execute('SELECT * FROM location')
+        for row in self.cur:
+            distance = distance_between_two_points(latitude, longitude,
+                    row[0], row[1])
             # Use if closer then threshold_km reuse lookup
-            if(d <= threshold_m and d < last_d):
-                name = data['name']
-            last_d = d
+            if(distance < shorter_distance and distance <= threshold_m):
+                shorter_distance = distance
+                value = row[Column]
 
-        return name
+        return value
 
-    def get_location_coordinates(self, name):
-        """Get the latitude and longitude for a location.
-
-        :param str name: Name of the location.
-        :returns: tuple(float), or None if the location wasn't in the database.
+    def delete_row(self, table, id):
         """
-        for data in self.location_db:
-            if data['name'] == name:
-                return (data['lat'], data['long'])
-
-        return None
-
-    def all(self):
-        """Generator to get all entries from self.hash_db
-
-        :returns tuple(string)
+        Delete a row by row id in table
+        :param table: database table
+        :param id: id of the row
+        :return:
         """
-        for checksum, path in self.hash_db.items():
-            yield (checksum, path)
+        sql = f'delete from {table} where id=?'
+        self.cur.execute(sql, (id,))
+        self.con.commit()
 
-    def reset_hash_db(self):
-        self.hash_db = {}
-
-    def update_hash_db(self):
-        """Write the hash db to disk."""
-        with open(self.hash_db_file, 'w') as f:
-            json.dump(self.hash_db, f)
-
-    def update_location_db(self):
-        """Write the location db to disk."""
-        with open(self.location_db_file, 'w') as f:
-            json.dump(self.location_db, f)
+    def delete_all_rows(self, table):
+        """
+        Delete all row in table
+        :param table: database table
+        :return:
+        """
+        sql = f'delete from {table}'
+        self.cur.execute(sql)
+        self.con.commit()
