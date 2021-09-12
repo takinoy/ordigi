@@ -1,4 +1,5 @@
 
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -28,20 +29,64 @@ class Sqlite:
                 pass
 
         self.db_type = 'SQLite format 3'
+        self.types = {
+            'text': (str, datetime),
+            'integer': (int,),
+            'real': (float,)
+            }
+
         self.filename = Path(db_dir, target_dir.name + '.db')
         self.con = sqlite3.connect(self.filename)
         # Allow selecting column by name
         self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
 
+        metadata_header = {
+            'FilePath': 'text not null',
+            'Checksum': 'text',
+            'Album': 'text',
+            'LocationId': 'integer',
+            'DateTaken': 'text',
+            'DateOriginal': 'text',
+            'DateCreated': 'text',
+            'DateModified': 'text',
+            'CameraMake': 'text',
+            'CameraModel': 'text',
+            'SrcPath': 'text',
+            'Subdirs': 'text',
+            'Filename': 'text'
+        }
+
+        location_header = {
+            'Latitude': 'real not null',
+            'Longitude': 'real not null',
+            'LatitudeRef': 'text',
+            'LongitudeRef': 'text',
+            'City': 'text',
+            'State': 'text',
+            'Country': 'text',
+            'Default': 'text'
+        }
+
+        self.tables = {
+            'metadata': {
+                'header': metadata_header,
+                'primary_keys': ('FilePath',)
+            },
+            'location': {
+                'header': location_header,
+                'primary_keys': ('Latitude', 'Longitude')
+            }
+        }
+
+        self.primary_metadata_keys = self.tables['metadata']['primary_keys']
+        self.primary_location_keys = self.tables['location']['primary_keys']
         # Create tables
-        if not self.is_table('file'):
-            self.create_file_table()
-        if not self.is_table('location'):
-            self.create_location_table()
+        for table, d in self.tables.items():
+            if not self.is_table(table):
+                self.create_table(table, d['header'], d['primary_keys'])
 
     def is_Sqlite3(self, filename):
-        import ipdb; ipdb.set_trace()
         if not os.path.isfile(filename):
             return False
         if os.path.getsize(filename) < 100: # SQLite database file header is 100 bytes
@@ -57,7 +102,7 @@ class Sqlite:
 
         try:
             # get the count of tables with the name
-            self.cur.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{table}'")
+            self.cur.execute(f"select count(name) from sqlite_master where type='table' and name='{table}'")
         except sqlite3.DatabaseError as e:
             # raise type(e)(e.message + ' :{self.filename} %s' % arg1)
             raise sqlite3.DatabaseError(f"{self.filename} is not valid database")
@@ -84,77 +129,101 @@ class Sqlite:
         self.con.commit()
         return True
 
-    def create_file_table(self):
-        query = """create table file (
-            FilePath text not null primary key,
-            Checksum text,
-            OriginalName text,
-            DateOriginal text,
-            Album text,
-            LocationId integer)
+    def create_table(self, table, header, primary_keys):
         """
-        self.cur.execute(query)
+        :params: row data (dict), primary_key (tuple)
+        :returns: bool
+        """
+        fieldset = []
+        for col, definition in header.items():
+            fieldset.append(f"'{col}' {definition}")
+        items = ', '.join(primary_keys)
+        fieldset.append(f"primary key ({items})")
 
-    def add_file_data(self, FilePath, Checksum, OriginalName, DateOriginal,
-            Album, LocationId):
-        query =f"""insert into file values
-            ('{FilePath}', '{Checksum}', '{OriginalName}',
-            '{DateOriginal}', '{Album}', '{LocationId}')"""
+        if len(fieldset) > 0:
+            query = "create table {0} ({1})".format(table, ", ".join(fieldset))
+            self.cur.execute(query)
+            self.tables[table]['header'] = header
+            return True
 
-        self.cur.execute(query)
+        return False
+
+    def add_row(self, table, row_data):
+        """
+        :returns: lastrowid (int)
+        """
+        header = self.tables[table]['header']
+        if len(row_data) != len(header):
+            raise ValueError(f'''Table {table} length mismatch: row_data
+            {row_data}, header {header}''')
+
+        columns = ', '.join(row_data.keys())
+        placeholders = ', '.join('?' * len(row_data))
+        # If duplicate primary keys, row is replaced(updated) with new value
+        query = f'replace into {table} values ({placeholders})'
+        values = []
+        for key, value in row_data.items():
+            if key in self.tables[table]['primary_keys'] and value is None:
+                # Ignore entry is primary key is None
+                return None
+
+            if isinstance(value, bool):
+                values.append(int(value))
+            else:
+                values.append(value)
+
+        self.cur.execute(query, values)
         self.con.commit()
 
-    def add_file_values(self, table_list):
-        query = f"insert into file values (?, ?, ?, ?, ?, ?)"
-        return self._run_many(query)
+        return self.cur.lastrowid
+
+    def get_header(self, row_data):
+        """
+        :params: row data (dict)
+        :returns: header
+        """
+
+        sql_table = {}
+        for key, value in row_data.items():
+            for sql_type, t in self.types.items():
+                # Find corresponding sql_type from python type
+                if type(value) in t:
+                    sql_table[key] = sql_type
+
+        return sql_table
+
+    def build_table(self, table, row_data, primary_keys):
+        header = self.get_header(row_data)
+        create_table(table, row_data, primary_keys)
+
+    def build_row(self, table, row_data):
+        """
+        :params: row data (dict), primary_key (tuple)
+        :returns: bool
+        """
+        if not self.tables[table]['header']:
+            result = self.build_table(table, row_data,
+                    self.tables[table]['primary_keys'])
+            if not result:
+                return False
+
+        return self.add_row(table, row_data)
 
     def get_checksum(self, FilePath):
-        query = f"select Checksum from file where FilePath='{FilePath}'"
+        query = f"select Checksum from metadata where FilePath='{FilePath}'"
         return self._run(query)
 
-    def get_file_data(self, FilePath, data):
-        query = f"select {data} from file where FilePath='{FilePath}'"
+    def get_metadata_data(self, FilePath, data):
+        query = f"select {data} from metadata where FilePath='{FilePath}'"
         return self._run(query)
-
-    def create_location_table(self):
-        query = """create table location (
-            Latitude real not null,
-            Longitude real not null,
-            City text,
-            State text,
-            Country text,
-            'Default' text)
-        """
-        self.cur.execute(query)
 
     def match_location(self, Latitude, Longitude):
         query = f"""select 1 from location where Latitude='{Latitude}'
                 and Longitude='{Longitude}'"""
         return self._run(query)
 
-    def add_location(self, Latitude, Longitude, City, State, Country, Default):
-        # Check if row with same latitude and longitude have not been already
-        # added
-        location_id = self.get_location(Latitude, Longitude, 'ROWID')
-
-        if not location_id:
-            query = f"""insert into location values
-                ('{Latitude}', '{Longitude}', '{City}', '{State}',
-                '{Country}', '{Default}')
-            """
-            self.cur.execute(query)
-            self.con.commit()
-
-            return self._run('select last_insert_rowid()')
-
-        return location_id
-
-    def add_location_values(self, table_list):
-        query = f"insert into location values (?, ?, ?, ?, ?, ?)"
-        return _insert_many_query(query)
-
     def get_location_data(self, LocationId, data):
-        query = f"select {data} from file where ROWID='{LocationId}'"
+        query = f"select {data} from location where ROWID='{LocationId}'"
         return self._run(query)
 
     def get_location(self, Latitude, Longitude, column):

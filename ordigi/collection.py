@@ -18,6 +18,7 @@ from ordigi.database import Sqlite
 from ordigi.media import Media, get_all_subclasses
 from ordigi.images import Images
 from ordigi.summary import Summary
+from ordigi.utils import get_date_regex, camel2snake
 
 
 class Collection(object):
@@ -244,21 +245,21 @@ class Collection(object):
 
         return src_checksum
 
-    def _add_db_data(self, dest_path, metadata, checksum):
-        loc_keys = ('latitude', 'longitude', 'city', 'state', 'country', 'default')
-        loc_values = []
-        for key in loc_keys:
-            loc_values.append(metadata[key])
-        metadata['location_id'] = self.db.add_location(*loc_values)
+    def _get_row_data(self, table, metadata):
+        row_data = {}
+        for title in self.db.tables[table]['header']:
+            key = camel2snake(title)
+            row_data[title] = metadata[key]
 
-        file_keys = ('original_name', 'date_original', 'album', 'location_id')
-        file_values = []
-        for key in file_keys:
-            file_values.append(metadata[key])
-        dest_path_rel = os.path.relpath(dest_path, self.root)
-        self.db.add_file_data(dest_path_rel, checksum, *file_values)
+        return row_data
 
-    def record_file(self, src_path, dest_path, src_checksum, metadata):
+    def _add_db_data(self, dest_path, metadata):
+        loc_values = self._get_row_data('location', metadata)
+        metadata['location_id'] = self.db.add_row('location', loc_values)
+
+        row_data = self._get_row_data('metadata', metadata)
+        self.db.add_row('metadata', row_data)
+
     def _update_exif_data(self, dest_path, media):
         if self.album_from_folder:
             media.file_path = dest_path
@@ -275,11 +276,14 @@ class Collection(object):
         has_errors = False
         if checksum:
             if not self.dry_run:
-                self._add_db_data(dest_path, metadata, checksum)
                 updated = self._update_exif_data(dest_path, media)
                 if updated:
                     dest_checksum = self.checksum(dest_path)
 
+                media.metadata['file_path'] = os.path.relpath(dest_path,
+                        self.root)
+                media.metadata['checksum'] = checksum
+                self._add_db_data(dest_path, media.metadata)
 
             self.summary.append((src_path, dest_path))
 

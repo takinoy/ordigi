@@ -1,4 +1,5 @@
 
+from datetime import datetime
 from pathlib import Path
 import pytest
 import shutil
@@ -12,8 +13,38 @@ class TestSqlite:
     def setup_class(cls, tmp_path):
         cls.test='abs'
         cls.sqlite = Sqlite(tmp_path)
-        cls.sqlite.add_file_data('filename', 'ksinslsdosic', 'original_name', 'date_original', 'album', 1)
-        cls.sqlite.add_location(24.2, 7.3, 'city', 'state', 'country', 'default')
+
+        row_data = {
+            'FilePath': 'file_path',
+            'Checksum': 'checksum',
+            'Album': 'album',
+            'LocationId': 2,
+            'DateTaken': datetime(2012, 3, 27),
+            'DateOriginal': datetime(2013, 3, 27),
+            'DateCreated': 'date_created',
+            'DateModified': 'date_modified',
+            'CameraMake': 'camera_make',
+            'CameraModel': 'camera_model',
+            'SrcPath': 'src_path',
+            'Subdirs': 'subdirs',
+            'Filename': 'filename'
+        }
+
+        location_data = {
+            'Latitude': 24.2,
+            'Longitude': 7.3,
+            'LatitudeRef': 'latitude_ref',
+            'LongitudeRef': 'longitude_ref',
+            'City': 'city',
+            'State': 'state',
+            'Country': 'country',
+            'Default': 'default'
+        }
+
+        cls.sqlite.add_row('metadata', row_data)
+        cls.sqlite.add_row('location', location_data)
+        # cls.sqlite.add_metadata_data('filename', 'ksinslsdosic', 'original_name', 'date_original', 'album', 1)
+        # cls.sqlite.add_location(24.2, 7.3, 'city', 'state', 'country', 'default')
 
         yield
 
@@ -24,29 +55,27 @@ class TestSqlite:
         assert isinstance(self.sqlite.con, sqlite3.Connection)
         assert isinstance(self.sqlite.cur, sqlite3.Cursor)
 
-    def test_create_file_table(self):
-        assert self.sqlite.is_table('file')
+    def test_create_table(self):
+        assert self.sqlite.is_table('metadata')
+        assert self.sqlite.is_table('location')
 
-    def test_add_file_data(self):
-        result = tuple(self.sqlite.cur.execute("""select * from file where
+    def test_add_metadata_data(self):
+        result = tuple(self.sqlite.cur.execute("""select * from metadata where
             rowid=1""").fetchone())
-        assert result == ('filename', 'ksinslsdosic', 'original_name', 'date_original', 'album', 1)
+        assert result == ('file_path', 'checksum', 'album', 2, '2012-03-27 00:00:00', '2013-03-27 00:00:00', 'date_created', 'date_modified', 'camera_make', 'camera_model', 'src_path', 'subdirs', 'filename')
 
     def test_get_checksum(self):
-        assert not self.sqlite.get_checksum('checksum')
-        assert self.sqlite.get_checksum('filename') == 'ksinslsdosic'
+        assert not self.sqlite.get_checksum('invalid')
+        assert self.sqlite.get_checksum('file_path') == 'checksum'
 
-    def test_get_file_data(self):
-        assert not self.sqlite.get_file_data('invalid', 'DateOriginal')
-        assert self.sqlite.get_file_data('filename', 'Album') == 'album'
-
-    def test_create_location_table(self):
-        assert self.sqlite.is_table('location')
+    def test_get_metadata_data(self):
+        assert not self.sqlite.get_metadata_data('invalid', 'DateOriginal')
+        assert self.sqlite.get_metadata_data('file_path', 'Album') == 'album'
 
     def test_add_location(self):
         result = tuple(self.sqlite.cur.execute("""select * from location where
             rowid=1""").fetchone())
-        assert result == (24.2, 7.3, 'city', 'state', 'country', 'default')
+        assert result == (24.2, 7.3, 'latitude_ref', 'longitude_ref', 'city', 'state', 'country', 'default')
 
     @pytest.mark.skip('TODO')
     def test_get_location_data(self, LocationId, data):
