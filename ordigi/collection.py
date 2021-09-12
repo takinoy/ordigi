@@ -23,9 +23,10 @@ from ordigi.summary import Summary
 class Collection(object):
     """Class of the media collection."""
 
-    def __init__(self, root, path_format, cache=False, day_begins=0, dry_run=False, exclude_regex_list=set(),
-            filter_by_ext=set(), logger=logging.getLogger(), max_deep=None,
-            mode='copy'):
+    def __init__(self, root, path_format, album_from_folder=False,
+            cache=False, day_begins=0, dry_run=False, exclude_regex_list=set(),
+            filter_by_ext=set(), interactive=False, logger=logging.getLogger(),
+            max_deep=None, mode='copy'):
 
         # Attributes
         self.root = Path(root).expanduser().absolute()
@@ -37,6 +38,7 @@ class Collection(object):
         self.db = Sqlite(self.root)
 
         # Options
+        self.album_from_folder = album_from_folder
         self.cache = cache
         self.day_begins = day_begins
         self.dry_run = dry_run
@@ -49,6 +51,7 @@ class Collection(object):
             self.filter_by_ext = filter_by_ext
 
         self.items = self.get_items()
+        self.interactive = interactive
         self.logger = logger
         self.max_deep = max_deep
         self.mode = mode
@@ -77,27 +80,6 @@ class Collection(object):
         'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}' # search for date format string
             }
 
-    def get_date_regex(self, string, user_regex=None):
-        if user_regex is not None:
-            matches = re.findall(user_regex, string)
-        else:
-            regex = {
-                # regex to match date format type %Y%m%d, %y%m%d, %d%m%Y,
-                # etc...
-                'a': re.compile(
-                    r'.*[_-]?(?P<year>\d{4})[_-]?(?P<month>\d{2})[_-]?(?P<day>\d{2})[_-]?(?P<hour>\d{2})[_-]?(?P<minute>\d{2})[_-]?(?P<second>\d{2})'),
-                'b': re.compile (
-                    r'[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
-                # not very accurate
-                'c': re.compile (
-                    r'[-_./](?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
-                'd': re.compile (
-                r'[-_./](?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})[-_./]')
-                }
-
-            for i, rx in regex.items():
-                yield i, rx
-
     def check_for_early_morning_photos(self, date):
         """check for early hour photos to be grouped with previous day"""
 
@@ -120,15 +102,18 @@ class Collection(object):
         # Each item has its own custom logic and we evaluate a single item and return
         # the evaluated string.
         part = ''
+        basename = os.path.splitext(metadata['filename'])[0]
         if item == 'basename':
-            part = os.path.basename(metadata['base_name'])
+            part = basename
+        elif item == 'ext':
+            part = os.path.splitext(metadata['filename'])[1][1:]
         elif item == 'name':
             # Remove date prefix added to the name.
-            part = metadata['base_name']
-            for i, rx in self.get_date_regex(metadata['base_name']):
+            part = basename
+            for i, rx in get_date_regex(basename):
                 part = re.sub(rx, '', part)
         elif item == 'date':
-            date = self.get_date_taken(metadata)
+            date = metadata['date_taken']
             # early morning photos can be grouped with previous day
             date = self.check_for_early_morning_photos(date)
             if date is not None:
@@ -142,7 +127,7 @@ class Collection(object):
 
             part = os.path.join(*folders)
 
-        elif item in ('album','camera_make', 'camera_model', 'city', 'country', 'ext',
+        elif item in ('album','camera_make', 'camera_model', 'city', 'country',
                  'location', 'original_name', 'state', 'title'):
             if item == 'location':
                 mask = 'default'
@@ -210,8 +195,8 @@ class Collection(object):
                     break
                 # Else we continue for fallbacks
 
-        if(len(path[-1]) == 0):
-            path[-1] = metadata['base_name']
+        if len(path[-1]) == 0 or re.match(r'^\..*', path[-1]):
+            path[-1] = metadata['filename']
 
         path_string = os.path.join(*path)
 
@@ -221,79 +206,7 @@ class Collection(object):
 
         return path_string
 
-    def get_date_from_string(self, string, user_regex=None):
-        # If missing datetime from EXIF data check if filename is in datetime format.
-        # For this use a user provided regex if possible.
-        # Otherwise assume a filename such as IMG_20160915_123456.jpg as default.
-
-        matches = []
-        for i, rx in self.get_date_regex(string, user_regex):
-            match = re.findall(rx, string)
-            if match != []:
-                if i == 'c':
-                    match = [('20' + match[0][0], match[0][1], match[0][2])]
-                elif i == 'd':
-                    # reorder items
-                    match = [(match[0][2], match[0][1], match[0][0])]
-                # matches = match + matches
-                if len(match) != 1:
-                    # The time string is not uniq
-                    continue
-                matches.append((match[0], rx))
-                # We want only the first match for the moment
-                break
-
-        # check if there is only one result
-        if len(set(matches)) == 1:
-            try:
-                # Convert str to int
-                date_object = tuple(map(int, matches[0][0]))
-
-                time = False
-                if len(date_object) > 3:
-                    time = True
-
-                date = datetime(*date_object)
-            except (KeyError, ValueError):
-                return None
-
-            return date
-
         return None
-
-    def get_date_taken(self, metadata):
-        '''
-        Get the date taken from metadata or filename
-        :returns: datetime or None.
-        '''
-        if metadata is None:
-            return None
-
-        basename = metadata['base_name']
-        date_original = metadata['date_original']
-        if metadata['original_name'] is not  None:
-            date_filename = self.get_date_from_string(metadata['original_name'])
-        else:
-            date_filename = self.get_date_from_string(basename)
-
-        date_created = metadata['date_created']
-        if metadata['date_original'] is not None:
-            if (date_filename is not None and
-                    date_filename != date_original):
-                self.logger.warn(f"{basename} time mark is different from {date_original}")
-                # TODO ask for keep date taken, filename time, or neither
-            return metadata['date_original']
-        elif True:
-            if date_filename is not  None:
-                if date_created is not None and date_filename > date_created:
-                    self.logger.warn(f"{basename} time mark is more recent than {date_created}")
-                return date_filename
-        if True:
-            # TODO warm and ask for confirmation
-            if date_created is not  None:
-                return date_created
-            elif metadata['date_modified'] is not  None:
-                return metadata['date_modified']
 
     def checksum(self, file_path, blocksize=65536):
         """Create a hash value for the given file.
@@ -346,6 +259,16 @@ class Collection(object):
         self.db.add_file_data(dest_path_rel, checksum, *file_values)
 
     def record_file(self, src_path, dest_path, src_checksum, metadata):
+    def _update_exif_data(self, dest_path, media):
+        if self.album_from_folder:
+            media.file_path = dest_path
+            media.set_album_from_folder()
+            return True
+
+        return False
+
+    def record_file(self, src_path, dest_path, src_checksum, media):
+        """Check file and record the file to db"""
 
         # Check if file remain the same
         checksum = self.checkcomp(dest_path, src_checksum)
@@ -353,6 +276,10 @@ class Collection(object):
         if checksum:
             if not self.dry_run:
                 self._add_db_data(dest_path, metadata, checksum)
+                updated = self._update_exif_data(dest_path, media)
+                if updated:
+                    dest_checksum = self.checksum(dest_path)
+
 
             self.summary.append((src_path, dest_path))
 
@@ -364,15 +291,9 @@ class Collection(object):
 
         return self.summary, has_errors
 
-    def should_exclude(self, path, regex_list=set(), needs_compiled=False):
+    def should_exclude(self, path, regex_list=set()):
         if(len(regex_list) == 0):
             return False
-
-        if(needs_compiled):
-            compiled_list = []
-            for regex in regex_list:
-                compiled_list.append(re.compile(regex))
-            regex_list = compiled_list
 
         return any(regex.search(path) for regex in regex_list)
 
@@ -432,7 +353,7 @@ class Collection(object):
                 self.logger.info(f'copy: {src_path} -> {dest_path}')
             return True
 
-    def solve_conflicts(self, conflict_file_list, metadata, remove_duplicates):
+    def _solve_conflicts(self, conflict_file_list, media, remove_duplicates):
         has_errors = False
         unresolved_conflicts = []
         while conflict_file_list != []:
@@ -465,7 +386,7 @@ class Collection(object):
 
             if result:
                 self.summary, has_errors = self.record_file(src_path,
-                    dest_path, src_checksum, metadata)
+                    dest_path, src_checksum, media)
 
         if has_errors:
             return False
@@ -505,8 +426,7 @@ class Collection(object):
         """
         file_list = set()
         if os.path.isfile(path):
-            if not self.should_exclude(path, self.exclude_regex_list, True):
-                file_list.add((path, ''))
+            file_list.add((path, ''))
 
         # Create a list of compiled regular expressions to match against the file path
         compiled_regex_list = [re.compile(regex) for regex in self.exclude_regex_list]
@@ -514,10 +434,12 @@ class Collection(object):
         subdirs = ''
         for dirname, dirnames, filenames, level in self.walklevel(path,
                 self.max_deep):
-            if dirname == os.path.join(path, '.ordigi'):
+            should_exclude_dir = self.should_exclude(dirname, compiled_regex_list)
+            if dirname == os.path.join(path, '.ordigi') or should_exclude_dir:
                 continue
 
-            subdirs = os.path.join(subdirs, os.path.basename(dirname))
+            if level > 0:
+                subdirs = os.path.join(subdirs, os.path.basename(dirname))
 
             for filename in filenames:
                 # If file extension is in `extensions` 
@@ -527,9 +449,9 @@ class Collection(object):
                 if (
                         extensions == set()
                         or os.path.splitext(filename)[1][1:].lower() in extensions
-                        and not self.should_exclude(filename_path, compiled_regex_list, False)
+                        and not self.should_exclude(filename, compiled_regex_list)
                     ):
-                    file_list.add((filename_path, subdirs))
+                    file_list.add((filename, subdirs))
 
         return file_list
 
@@ -592,7 +514,8 @@ class Collection(object):
             ]
 
         conflict_file_list = []
-        for src_path, _ in self.get_files_in_path(path):
+        for filename, subdirs in self.get_files_in_path(path):
+            file_path = os.path.join(path, subdirs, filename)
             src_checksum = self.checksum(src_path)
             file_path = Path(src_path).relative_to(self.root)
             path_parts = file_path.parts
@@ -615,14 +538,14 @@ class Collection(object):
             result = self.sort_file(src_path, dest_path, remove_duplicates)
             if result:
                 self.summary, has_errors = self.record_file(src_path,
-                    dest_path, src_checksum, metadata)
+                    dest_path, src_checksum, media)
             elif result is False:
                 # There is conflict files
                 conflict_file_list.append({'src_path': src_path,
                 'src_checksum': src_checksum, 'dest_path': dest_path})
 
         if conflict_file_list != []:
-            result = self.solve_conflicts(conflict_file_list, metadata, remove_duplicates)
+            result = self._solve_conflicts(conflict_file_list, media, remove_duplicates)
 
         if not result:
             has_errors = True
@@ -638,11 +561,13 @@ class Collection(object):
         for path in paths:
             path = self.check_path(path)
             conflict_file_list = []
-            for src_path, subdirs in self.get_files_in_path(path,
+            for filename, subdirs in self.get_files_in_path(path,
                     extensions=self.filter_by_ext):
+                src_path = os.path.join(path, subdirs, filename)
                 # Process files
                 src_checksum = self.checksum(src_path)
-                media = Media(src_path, ignore_tags, self.logger)
+                media = Media(path, subdirs, filename, self.album_from_folder, ignore_tags,
+                        self.interactive, self.logger)
                 if media:
                     metadata = media.get_metadata(loc, self.db, self.cache)
                     # Get the destination path according to metadata
@@ -661,14 +586,14 @@ class Collection(object):
 
                 if result:
                     self.summary, has_errors = self.record_file(src_path,
-                        dest_path, src_checksum, metadata)
+                        dest_path, src_checksum, media)
                 elif result is False:
                     # There is conflict files
                     conflict_file_list.append({'src_path': src_path,
                         'src_checksum': src_checksum, 'dest_path': dest_path})
 
             if conflict_file_list != []:
-                result = self.solve_conflicts(conflict_file_list, metadata,
+                result = self._solve_conflicts(conflict_file_list, media,
                        remove_duplicates)
 
             if not result:
@@ -803,4 +728,5 @@ class Collection(object):
                         self.logger.error(error)
 
         return self.summary, has_errors
+
 

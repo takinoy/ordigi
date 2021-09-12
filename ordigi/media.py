@@ -10,6 +10,7 @@ import os
 from dateutil.parser import parse
 import re
 from ordigi.exiftool import ExifTool, ExifToolCaching
+from ordigi.utils import get_date_from_string
 
 class Media():
 
@@ -29,11 +30,18 @@ class Media():
 
     extensions = PHOTO + AUDIO + VIDEO
 
-    def __init__(self, file_path, ignore_tags=set(), logger=logging.getLogger()):
-        self.file_path = file_path
+    def __init__(self, path, subdirs, filename, album_from_folder=False, ignore_tags=set(),
+            interactive=False, logger=logging.getLogger()):
+        self.path = path
+        self.subdirs = subdirs
+        self.filename = filename
+        self.file_path = os.path.join(path, subdirs, filename)
+
+        self.album_from_folder = album_from_folder
         self.ignore_tags = ignore_tags
         self.tags_keys = self.get_tags()
         self.exif_metadata = None
+        self.interactive = interactive
         self.metadata = None
         self.logger = logger
 
@@ -122,13 +130,12 @@ class Media():
 
         :returns: str or None
         """
-        exiftool_attributes = self.get_exiftool_attributes()
-        if exiftool_attributes is None:
+        if self.exif_metadata is None:
             return None
-        if(tag not in exiftool_attributes):
+        if(tag not in self.exif_metadata):
             return None
 
-        return exiftool_attributes[tag]
+        return self.exif_metadata[tag]
 
     def get_date_format(self, value):
         """Formate date attribute.
@@ -186,16 +193,52 @@ class Media():
 
         return None
 
+    def get_date_taken(self):
+        '''
+        Get the date taken from self.metadata or filename
+        :returns: datetime or None.
+        '''
+        if self.metadata is None:
+            return None
+
+        basename = os.path.splitext(self.metadata['filename'])[0]
+        date_original = self.metadata['date_original']
+        if self.metadata['original_name'] is not  None:
+            date_filename = get_date_from_string(self.metadata['original_name'])
+        else:
+            date_filename = get_date_from_string(basename)
+
+        date_created = self.metadata['date_created']
+        if self.metadata['date_original'] is not None:
+            if (date_filename is not None and
+                    date_filename != date_original):
+                self.logger.warn(f"{basename} time mark is different from {date_original}")
+                # TODO ask for keep date taken, filename time, or neither
+            return self.metadata['date_original']
+        elif True:
+            if date_filename is not  None:
+                if date_created is not None and date_filename > date_created:
+                    self.logger.warn(f"{basename} time mark is more recent than {date_created}")
+                return date_filename
+        if True:
+            # TODO warm and ask for confirmation
+            if date_created is not  None:
+                return date_created
+            elif self.metadata['date_modified'] is not  None:
+                return self.metadata['date_modified']
+
+    def get_exif_metadata(self):
+        # Get metadata from exiftool.
+        self.exif_metadata = ExifToolCaching(self.file_path, logger=self.logger).asdict()
+
     def get_metadata(self, loc=None, db=None, cache=False):
         """Get a dictionary of metadata from exif.
         All keys will be present and have a value of None if not obtained.
 
         :returns: dict
         """
-        # Get metadata from exiftool.
-        self.exif_metadata = ExifToolCaching(self.file_path, logger=self.logger).asdict()
+        self.get_exif_metadata()
 
-        # TODO to be removed
         self.metadata = {}
         # Retrieve selected metadata to dict
         if not self.exif_metadata:
@@ -219,14 +262,35 @@ class Media():
 
             self.metadata[key] = formated_data
 
-        self.metadata['base_name']  = os.path.basename(os.path.splitext(self.file_path)[0])
-        self.metadata['directory_path'] = os.path.dirname(self.file_path)
-        self.metadata['ext'] = os.path.splitext(self.file_path)[1][1:]
+        self.metadata['src_path']  = self.path
+        self.metadata['subdirs']  = self.subdirs
+        self.metadata['filename']  = self.filename
+        self.metadata['date_taken']  = self.get_date_taken()
+
+        if self.album_from_folder:
+            album = self.metadata['album']
+            folder = os.path.basename(self.subdirs)
+            if  album and album != '':
+                if self.interactive:
+                    print(f"Conflict for file: {self.file_path}")
+                    print(f"Exif album is already set to '{album}'', folder='{folder}'")
+                    i = f"Choice for 'album': (a) '{album}', (f) '{folder}', (c) custom ?\n"
+                    answer = input(i)
+                    if answer == 'c':
+                        self.metadata['album'] = input('album=')
+                        self.set_value('album', folder)
+                    if answer == 'a':
+                        self.metadata['album'] = album
+                    elif answer == 'f':
+                        self.metadata['album'] = folder
+
+            if  not album or album == '':
+                self.metadata['album'] = folder
 
         loc_keys = ('latitude', 'longitude', 'city', 'state', 'country', 'default')
         location_id = None
         if cache and db:
-            location_id = db.get_file_data(self.file_path, 'LocationId')
+            location_id = db.get_metadata_data(self.file_path, 'LocationId')
 
         if location_id:
             for key in loc_keys:
@@ -287,7 +351,7 @@ class Media():
 
         :returns: value (str)
         """
-        return ExifToolCaching(self.file_path, self.logger).setvalue(tag, value)
+        return ExifTool(self.file_path, self.logger).setvalue(tag, value)
 
     def set_date_taken(self, date_key, time):
         """Set the date/time a photo was taken.
@@ -331,7 +395,7 @@ class Media():
         else:
             return False
 
-    def set_album_from_folder(self, path):
+    def set_album_from_folder(self):
         """Set the album attribute based on the leaf folder name
 
         :returns: bool

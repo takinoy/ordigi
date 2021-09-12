@@ -21,6 +21,8 @@ def print_help(command):
 
 
 @click.command('sort')
+@click.option('--album-from-folder', default=False, is_flag=True,
+              help="Use images' folders as their album names.")
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
 @click.option('--dry-run', default=False, is_flag=True,
@@ -41,6 +43,8 @@ def print_help(command):
 @click.option('--ignore-tags', '-i', default=set(), multiple=True,
               help='Specific tags or group that will be ignored when\
               searching for file data. Example \'File:FileModifyDate\' or \'Filename\'' )
+@click.option('--interactive', default=False, is_flag=True,
+              help="Interactive mode")
 @click.option('--max-deep', '-m', default=None,
               help='Maximum level to proceed. Number from 0 to desired level.')
 @click.option('--remove-duplicates', '-R', default=False, is_flag=True,
@@ -51,7 +55,8 @@ def print_help(command):
 @click.option('--verbose', '-v', default=False, is_flag=True,
               help='True if you want to see details of file processing')
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
-def _sort(debug, dry_run, destination, clean, copy, exclude_regex, filter_by_ext, ignore_tags,
+def _sort(album_from_folder, debug, dry_run, destination, clean, copy,
+        exclude_regex, interactive, filter_by_ext, ignore_tags,
         max_deep, remove_duplicates, reset_cache, verbose, paths):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
@@ -94,8 +99,9 @@ def _sort(debug, dry_run, destination, clean, copy, exclude_regex, filter_by_ext
         exclude_regex = opt['exclude_regex']
     exclude_regex_list = set(exclude_regex)
 
-    collection = Collection(destination, opt['path_format'], cache, 
-            opt['day_begins'], dry_run, exclude_regex_list, filter_by_ext,
+    collection = Collection(destination, opt['path_format'],
+            album_from_folder, cache, opt['day_begins'], dry_run,
+            exclude_regex_list, filter_by_ext, interactive,
             logger, max_deep, mode)
 
     loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],

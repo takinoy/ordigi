@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import pytest
 from pathlib import Path
 import re
@@ -24,10 +25,10 @@ class TestMetadata:
     def get_media(self):
         for file_path in self.file_paths:
             self.exif_data = ExifTool(str(file_path)).asdict()
-            yield Media(str(file_path), self.ignore_tags)
+            yield file_path, Media(os.path.dirname(file_path), '', os.path.basename(file_path), album_from_folder=True, ignore_tags=self.ignore_tags)
 
     def test_get_metadata(self):
-        for media in self.get_media():
+        for file_path, media in self.get_media():
             result = media.get_metadata()
             assert result
             assert isinstance(media.metadata, dict), media.metadata
@@ -48,6 +49,13 @@ class TestMetadata:
                         assert isinstance(value, str)
                 else:
                     assert value is None
+
+                if key == 'album':
+                    if 'with-album' in str(file_path):
+                        assert value == "Test Album"
+                    else:
+                        assert value == file_path.parent.name
+
             # Check if has_exif_data() is True if 'date_original' key is
             # present, else check if it's false
             has_exif_data = False

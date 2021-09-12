@@ -15,6 +15,7 @@ from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exif
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media
+from ordigi.utils import get_date_from_string, get_date_regex
 
 
 class TestCollection:
@@ -58,7 +59,7 @@ class TestCollection:
 
         subdirs = Path('a', 'b', 'c', 'd')
         for file_path in self.file_paths:
-            media = Media(str(file_path))
+            media = Media(os.path.dirname(file_path), '', os.path.basename(file_path))
             exif_tags = {}
             for key in ('album', 'camera_make', 'camera_model', 'latitude',
                     'longitude', 'original_name', 'title'):
@@ -90,7 +91,7 @@ class TestCollection:
                             assert part == file_path.suffix[1:], file_path
                         elif item == 'name':
                             expected_part = file_path.stem
-                            for i, rx in collection.get_date_regex(expected_part):
+                            for i, rx in get_date_regex(expected_part):
                                 part = re.sub(rx, '', expected_part)
                             assert part == expected_part, file_path
                         elif item == 'custom':
@@ -114,17 +115,17 @@ class TestCollection:
         collection = Collection(tmp_path, self.path_format)
         for file_path in self.file_paths:
             exif_data = ExifToolCaching(str(file_path)).asdict()
-            media = Media(str(file_path))
+            media = Media(os.path.dirname(file_path), '', os.path.basename(file_path))
             metadata = media.get_metadata()
-            date_taken = collection.get_date_taken(metadata)
+            date_taken = media.get_date_taken()
 
             date_filename = None
             for tag in media.tags_keys['original_name']:
                 if tag in exif_data:
-                    date_filename = collection.get_date_from_string(exif_data[tag])
+                    date_filename = get_date_from_string(exif_data[tag])
                 break
             if not date_filename:
-                date_filename = collection.get_date_from_string(file_path.name)
+                date_filename = get_date_from_string(file_path.name)
 
             if media.metadata['date_original']:
                 assert date_taken == media.metadata['date_original']
@@ -136,7 +137,7 @@ class TestCollection:
                 assert date_taken == media.metadata['date_modified']
 
     def test_sort_files(self, tmp_path):
-        collection = Collection(tmp_path, self.path_format)
+        collection = Collection(tmp_path, self.path_format, album_from_folder=True)
         loc = GeoLocation()
         summary, has_errors = collection.sort_files([self.src_paths], loc)
 
@@ -144,10 +145,17 @@ class TestCollection:
         assert summary, summary
         assert not has_errors, has_errors
 
+        for file_path in tmp_path.glob('*/**/*.*'):
+            if '.db' not in str(file_path):
+                media = Media(os.path.dirname(file_path), '', os.path.basename(file_path), album_from_folder=True)
+                media.get_exif_metadata()
+                for value in media._get_key_values('album'):
+                    assert value != '' or None
+
+        # test with populated dest dir
         randomize_files(tmp_path)
         summary, has_errors = collection.sort_files([self.src_paths], loc)
 
-        # Summary is created and there is no errors
         assert summary, summary
         assert not has_errors, has_errors
         # TODO check if path follow path_format
