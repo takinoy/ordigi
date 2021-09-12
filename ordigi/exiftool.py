@@ -388,8 +388,8 @@ class ExifTool:
 
 class ExifToolCaching(ExifTool):
     """ Basic exiftool interface for reading and writing EXIF tags, with caching. 
-        Use this only when you know the file's EXIF data will not be changed by any external process. 
-        
+        Use this only when you know the file's EXIF data will not be changed by any external process.
+
         Creates a singleton cached ExifTool instance """
 
     _singletons = {}
