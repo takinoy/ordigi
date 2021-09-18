@@ -18,14 +18,14 @@ class TestMetadata:
 
     @pytest.fixture(autouse=True)
     def setup_class(cls, sample_files_paths):
-        cls.src_paths, cls.file_paths = sample_files_paths
+        cls.src_path, cls.file_paths = sample_files_paths
         cls.ignore_tags = ('EXIF:CreateDate', 'File:FileModifyDate',
                 'File:FileAccessDate', 'EXIF:Make', 'Composite:LightValue')
 
     def get_media(self):
         for file_path in self.file_paths:
-            self.exif_data = ExifTool(str(file_path)).asdict()
-            yield file_path, Media(os.path.dirname(file_path), '', os.path.basename(file_path), album_from_folder=True, ignore_tags=self.ignore_tags)
+            self.exif_data = ExifTool(file_path).asdict()
+            yield file_path, Media(file_path, self.src_path, album_from_folder=True, ignore_tags=self.ignore_tags)
 
     def test_get_metadata(self):
         for file_path, media in self.get_media():
@@ -51,8 +51,10 @@ class TestMetadata:
                     assert value is None
 
                 if key == 'album':
-                    if 'with-album' in str(file_path):
-                        assert value == "Test Album"
+                    for album in  media._get_key_values('album'):
+                        if album is not None and album != '':
+                            assert value == album
+                            break
                     else:
                         assert value == file_path.parent.name
 

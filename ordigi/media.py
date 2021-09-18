@@ -30,12 +30,16 @@ class Media():
 
     extensions = PHOTO + AUDIO + VIDEO
 
-    def __init__(self, path, subdirs, filename, album_from_folder=False, ignore_tags=set(),
+    def __init__(self, file_path, root, album_from_folder=False, ignore_tags=set(),
             interactive=False, logger=logging.getLogger()):
-        self.path = path
-        self.subdirs = subdirs
-        self.filename = filename
-        self.file_path = os.path.join(path, subdirs, filename)
+        """
+        :params: Path, Path, bool, set, bool, Logger
+        """
+        self.file_path = str(file_path)
+        self.root = str(root)
+        self.subdirs = str(file_path.relative_to(root).parent)
+        self.folder = str(file_path.parent.name)
+        self.filename = str(file_path.name)
 
         self.album_from_folder = album_from_folder
         self.ignore_tags = ignore_tags
@@ -262,14 +266,14 @@ class Media():
 
             self.metadata[key] = formated_data
 
-        self.metadata['src_path']  = self.path
+        self.metadata['src_path']  = self.root
         self.metadata['subdirs']  = self.subdirs
         self.metadata['filename']  = self.filename
         self.metadata['date_taken']  = self.get_date_taken()
 
         if self.album_from_folder:
             album = self.metadata['album']
-            folder = os.path.basename(self.subdirs)
+            folder = self.folder
             if  album and album != '':
                 if self.interactive:
                     print(f"Conflict for file: {self.file_path}")
@@ -351,7 +355,7 @@ class Media():
 
         :returns: value (str)
         """
-        return ExifTool(self.file_path, self.logger).setvalue(tag, value)
+        return ExifTool(self.file_path, logger=self.logger).setvalue(tag, value)
 
     def set_date_taken(self, date_key, time):
         """Set the date/time a photo was taken.
@@ -400,9 +404,7 @@ class Media():
 
         :returns: bool
         """
-        folder = os.path.basename(os.path.dirname(self.file_path))
-
-        return self.set_value('album', folder)
+        return self.set_value('album', self.folder)
 
 
 def get_all_subclasses(cls=None):

@@ -86,7 +86,7 @@ class Config:
             options['day_begins'] = 0
 
         if 'Exclusions' in self.conf:
-            options['exclude_regex'] = [value for key, value in self.conf.items('Exclusions')]
+            options['exclude'] = [value for key, value in self.conf.items('Exclusions')]
 
         return options
 

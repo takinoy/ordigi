@@ -22,12 +22,11 @@ def reset_singletons():
 
 @pytest.fixture(scope="session")
 def sample_files_paths(tmpdir_factory):
-    tmp_path = tmpdir_factory.mktemp("ordigi-src-")
-    paths = Path(ORDIGI_PATH, 'samples/test_exif').glob('*')
+    tmp_path = Path(tmpdir_factory.mktemp("ordigi-src-"))
+    path = Path(ORDIGI_PATH, 'samples/test_exif')
+    shutil.copytree(path, tmp_path / path.name)
+    paths = Path(tmp_path).glob('**/*')
     file_paths = [x for x in paths if x.is_file()]
-    for file_path in file_paths:
-        source_path = tmp_path.join(file_path.name)
-        shutil.copyfile(file_path, source_path)
 
     return tmp_path, file_paths
 

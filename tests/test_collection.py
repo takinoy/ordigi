@@ -22,7 +22,7 @@ class TestCollection:
 
     @pytest.fixture(autouse=True)
     def setup_class(cls, sample_files_paths):
-        cls.src_paths, cls.file_paths = sample_files_paths
+        cls.src_path, cls.file_paths = sample_files_paths
         cls.path_format = constants.default_path + '/' + constants.default_name
 
     def teardown_class(self):
@@ -57,9 +57,9 @@ class TestCollection:
                 '{%Y-%m-%b}'
                 ]
 
-        subdirs = Path('a', 'b', 'c', 'd')
         for file_path in self.file_paths:
-            media = Media(os.path.dirname(file_path), '', os.path.basename(file_path))
+            media = Media(file_path, self.src_path)
+            subdirs = file_path.relative_to(self.src_path).parent
             exif_tags = {}
             for key in ('album', 'camera_make', 'camera_model', 'latitude',
                     'longitude', 'original_name', 'title'):
@@ -83,10 +83,7 @@ class TestCollection:
                         elif item == 'folder':
                             assert part == subdirs.name, file_path
                         elif item == 'folders':
-                            if platform == "win32":
-                                assert '\\' in part, file_path
-                            else:
-                                assert '/' in part, file_path
+                            assert part in str(subdirs)
                         elif item == 'ext':
                             assert part == file_path.suffix[1:], file_path
                         elif item == 'name':
@@ -115,7 +112,7 @@ class TestCollection:
         collection = Collection(tmp_path, self.path_format)
         for file_path in self.file_paths:
             exif_data = ExifToolCaching(str(file_path)).asdict()
-            media = Media(os.path.dirname(file_path), '', os.path.basename(file_path))
+            media = Media(file_path, self.src_path)
             metadata = media.get_metadata()
             date_taken = media.get_date_taken()
 
@@ -139,22 +136,22 @@ class TestCollection:
     def test_sort_files(self, tmp_path):
         collection = Collection(tmp_path, self.path_format, album_from_folder=True)
         loc = GeoLocation()
-        summary, has_errors = collection.sort_files([self.src_paths], loc)
+        summary, has_errors = collection.sort_files([self.src_path], loc)
 
         # Summary is created and there is no errors
         assert summary, summary
         assert not has_errors, has_errors
 
-        for file_path in tmp_path.glob('*/**/*.*'):
+        for file_path in tmp_path.glob('**/*'):
             if '.db' not in str(file_path):
-                media = Media(os.path.dirname(file_path), '', os.path.basename(file_path), album_from_folder=True)
+                media = Media(file_path, tmp_path, album_from_folder=True)
                 media.get_exif_metadata()
                 for value in media._get_key_values('album'):
                     assert value != '' or None
 
         # test with populated dest dir
         randomize_files(tmp_path)
-        summary, has_errors = collection.sort_files([self.src_paths], loc)
+        summary, has_errors = collection.sort_files([self.src_path], loc)
 
         assert summary, summary
         assert not has_errors, has_errors
@@ -165,14 +162,14 @@ class TestCollection:
         loc = GeoLocation()
         randomize_db(tmp_path)
         with pytest.raises(sqlite3.DatabaseError) as e:
-            summary, has_errors = collection.sort_files([self.src_paths], loc)
+            summary, has_errors = collection.sort_files([self.src_path], loc)
 
     def test_sort_file(self, tmp_path):
 
         for mode in 'copy', 'move':
             collection = Collection(tmp_path, self.path_format, mode=mode)
             # copy mode
-            src_path = Path(self.src_paths, 'photo.png')
+            src_path = Path(self.src_path, 'test_exif', 'photo.png')
             name = 'photo_' + mode + '.png'
             dest_path = Path(tmp_path, name)
             src_checksum = collection.checksum(src_path)
@@ -191,6 +188,15 @@ class TestCollection:
 
         # TODO check date
 
-#- Sort similar images into a directory
+    def test__get_files_in_path(self, tmp_path):
+        collection = Collection(tmp_path, self.path_format, exclude='**/*.dng')
+        paths = [x for x in collection._get_files_in_path(self.src_path,
+            maxlevel=1, glob='**/photo*')]
+        assert len(paths) == 6
+        for path in paths:
+            assert isinstance(path, Path)
+
+
+# TODO Sort similar images into a directory
 #    collection.sort_similar
 

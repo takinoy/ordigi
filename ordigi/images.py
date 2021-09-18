@@ -75,33 +75,33 @@ class Images():
     #: Valid extensions for image files.
     extensions = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
 
-    def __init__(self, file_paths=None, hash_size=8, logger=logging.getLogger()):
+    def __init__(self, img_paths=set(), hash_size=8, logger=logging.getLogger()):
 
-        self.file_paths = file_paths
-        self.hash_size = hash_size
+        self.img_paths = img_paths
         self.duplicates = []
+        self.hash_size = hash_size
         self.logger = logger
 
-    def get_images(self):
+    def add_images(self, file_paths):
         ''':returns: img_path generator
         '''
-        for img_path in self.file_paths:
+        for img_path in file_paths:
             image = Image(img_path)
             if image.is_image():
-                yield img_path
+                self.img_paths.add(img_path)
 
     def get_images_hashes(self):
         """Get image hashes"""
         hashes = {}
         # Searching for duplicates.
-        for img_path in self.get_images():
+        for img_path in self.img_paths:
             with img.open(img_path) as img:
                 yield imagehash.average_hash(img, self.hash_size)
 
     def find_duplicates(self, img_path):
         """Find duplicates"""
         duplicates = []
-        for temp_hash in get_images_hashes(self.file_paths):
+        for temp_hash in get_images_hashes(self.img_paths):
             if temp_hash in hashes:
                 self.logger.info("Duplicate {} \nfound for image {}\n".format(img_path, hashes[temp_hash]))
                 duplicates.append(img_path)
@@ -150,7 +150,7 @@ class Images():
         threshold = 1 - similarity/100
         diff_limit = int(threshold*(self.hash_size**2))
 
-        for img_path in self.get_images():
+        for img_path in self.img_paths:
             if img_path == image:
                 continue
             hash2 = image.get_hash()

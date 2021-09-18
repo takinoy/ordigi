@@ -3,7 +3,6 @@
 import os
 import re
 import sys
-from datetime import datetime
 
 import click
 
@@ -16,17 +15,56 @@ from ordigi.media import Media, get_all_subclasses
 from ordigi.summary import Summary
 
 
+_logger_options = [
+    click.option('--debug', default=False, is_flag=True,
+                  help='Override the value in constants.py with True.'),
+    click.option('--verbose', '-v', default=False, is_flag=True,
+                  help='True if you want to see details of file processing')
+]
+
+_dry_run_options = [
+    click.option('--dry-run', default=False, is_flag=True,
+              help='Dry run only, no change made to the filesystem.')
+]
+
+_filter_option = [
+    click.option('--exclude', '-e', default=set(), multiple=True,
+                  help='Directories or files to exclude.'),
+    click.option('--filter-by-ext', '-f', default=set(), multiple=True,
+    help="""Use filename
+            extension to filter files for sorting. If value is '*', use
+            common media file extension for filtering. Ignored files remain in
+            the same directory structure""" ),
+    click.option('--glob', '-g', default='**/*',
+                  help='Glob file selection')
+]
+
+
 def print_help(command):
     click.echo(command.get_help(click.Context(sort)))
 
 
+def add_options(options):
+    def _add_options(func):
+        for option in reversed(options):
+            func = option(func)
+        return func
+    return _add_options
+
+
+def _get_exclude(opt, exclude):
+    # if no exclude list was passed in we check if there's a config
+    if len(exclude) == 0:
+        exclude = opt['exclude']
+    return set(exclude)
+
+
 @click.command('sort')
+@add_options(_logger_options)
+@add_options(_dry_run_options)
+@add_options(_filter_option)
 @click.option('--album-from-folder', default=False, is_flag=True,
               help="Use images' folders as their album names.")
-@click.option('--debug', default=False, is_flag=True,
-              help='Override the value in constants.py with True.')
-@click.option('--dry-run', default=False, is_flag=True,
-              help='Dry run only, no change made to the filesystem.')
 @click.option('--destination', '-d', type=click.Path(file_okay=False),
               default=None, help='Sort files into this directory.')
 @click.option('--clean', '-C', default=False, is_flag=True,
@@ -34,16 +72,10 @@ def print_help(command):
 @click.option('--copy', '-c', default=False, is_flag=True,
               help='True if you want files to be copied over from src_dir to\
               dest_dir rather than moved')
-@click.option('--exclude-regex', '-e', default=set(), multiple=True,
-              help='Regular expression for directories or files to exclude.')
-@click.option('--filter-by-ext', '-f', default=set(), multiple=True, help='''Use filename
-        extension to filter files for sorting. If value is '*', use
-        common media file extension for filtering. Ignored files remain in
-        the same directory structure''' )
-@click.option('--ignore-tags', '-i', default=set(), multiple=True,
+@click.option('--ignore-tags', '-I', default=set(), multiple=True,
               help='Specific tags or group that will be ignored when\
               searching for file data. Example \'File:FileModifyDate\' or \'Filename\'' )
-@click.option('--interactive', default=False, is_flag=True,
+@click.option('--interactive', '-i', default=False, is_flag=True,
               help="Interactive mode")
 @click.option('--max-deep', '-m', default=None,
               help='Maximum level to proceed. Number from 0 to desired level.')
@@ -52,28 +84,31 @@ def print_help(command):
                       and a file hash')
 @click.option('--reset-cache', '-r', default=False, is_flag=True,
               help='Regenerate the hash.json and location.json database ')
-@click.option('--verbose', '-v', default=False, is_flag=True,
-              help='True if you want to see details of file processing')
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
-def _sort(album_from_folder, debug, dry_run, destination, clean, copy,
-        exclude_regex, interactive, filter_by_ext, ignore_tags,
-        max_deep, remove_duplicates, reset_cache, verbose, paths):
+def sort(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
     """
 
-    if copy:
+    debug = kwargs['debug']
+    destination = kwargs['destination']
+    verbose = kwargs['verbose']
+
+    paths = kwargs['paths']
+
+    if kwargs['copy']:
         mode = 'copy'
     else:
         mode = 'move'
 
     logger = log.get_logger(verbose, debug)
 
+    max_deep = kwargs['max_deep']
     if max_deep is not None:
         max_deep = int(max_deep)
 
     cache = True
-    if reset_cache:
+    if kwargs['reset_cache']:
         cache = False
 
     if len(paths) > 1:
@@ -89,28 +124,25 @@ def _sort(album_from_folder, debug, dry_run, destination, clean, copy,
         sys.exit(1)
 
     paths = set(paths)
-    filter_by_ext = set(filter_by_ext)
 
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
 
-    # if no exclude list was passed in we check if there's a config
-    if len(exclude_regex) == 0:
-        exclude_regex = opt['exclude_regex']
-    exclude_regex_list = set(exclude_regex)
+    exclude = _get_exclude(opt, kwargs['exclude'])
+    filter_by_ext = set(kwargs['filter_by_ext'])
 
     collection = Collection(destination, opt['path_format'],
-            album_from_folder, cache, opt['day_begins'], dry_run,
-            exclude_regex_list, filter_by_ext, interactive,
+            kwargs['album_from_folder'], cache, opt['day_begins'], kwargs['dry_run'],
+            exclude, filter_by_ext, kwargs['glob'], kwargs['interactive'],
             logger, max_deep, mode)
 
     loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
             opt['timeout'])
 
     summary, has_errors = collection.sort_files(paths, loc,
-            remove_duplicates, ignore_tags)
+            kwargs['remove_duplicates'], kwargs['ignore_tags'])
 
-    if clean:
+    if kwargs['clean']:
         remove_empty_folders(destination, logger)
 
     if verbose or debug:
@@ -141,12 +173,11 @@ def remove_empty_folders(path, logger, remove_root=True):
 
 
 @click.command('clean')
-@click.option('--debug', default=False, is_flag=True,
-              help='Override the value in constants.py with True.')
+@add_options(_logger_options)
+@add_options(_dry_run_options)
+@add_options(_filter_option)
 @click.option('--dedup-regex', '-d', default=set(), multiple=True,
               help='Regex to match duplicate strings parts')
-@click.option('--dry-run', default=False, is_flag=True,
-              help='Dry run only, no change made to the filesystem.')
 @click.option('--folders', '-f', default=False, is_flag=True,
               help='Remove empty folders')
 @click.option('--max-deep', '-m', default=None,
@@ -158,15 +189,20 @@ def remove_empty_folders(path, logger, remove_root=True):
                       and a file hash')
 @click.option('--root', '-r', type=click.Path(file_okay=False),
               default=None, help='Root dir of media collection. If not set, use path')
-@click.option('--verbose', '-v', default=False,
-              help='True if you want to see details of file processing')
 @click.argument('path', required=True, nargs=1, type=click.Path())
-def _clean(debug, dedup_regex, dry_run, folders, max_deep, path_string, remove_duplicates, root, verbose, path):
+def clean(**kwargs):
     """Remove empty folders
     Usage: clean [--verbose|--debug] directory [removeRoot]"""
 
-    logger = log.get_logger(verbose, debug)
+    debug = kwargs['debug']
+    dry_run = kwargs['dry_run']
+    folders = kwargs['folders']
+    root = kwargs['root']
+    verbose = kwargs['verbose']
 
+    path = kwargs['path']
+
+    logger = log.get_logger(verbose, debug)
     clean_all = False
     if not folders:
         clean_all = True
@@ -176,10 +212,15 @@ def _clean(debug, dedup_regex, dry_run, folders, max_deep, path_string, remove_d
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
 
-    if path_string:
-        collection = Collection(root, opt['path_format'], dry_run=dry_run, logger=logger, max_deep=max_deep, mode='move')
-        dedup_regex = list(dedup_regex)
-        summary, has_errors = collection.dedup_regex(path, dedup_regex, logger, remove_duplicates)
+    exclude = _get_exclude(opt, kwargs['exclude'])
+    filter_by_ext = set(kwargs['filter_by_ext'])
+
+    if kwargs['path_string']:
+        collection = Collection(root, opt['path_format'], dry_run=dry_run,
+                exclude=exclude, filter_by_ext=filter_by_ext, glob=kwargs['glob'],
+                logger=logger, max_deep=kwargs['max_deep'], mode='move')
+        dedup_regex = list(kwargs['dedup_regex'])
+        summary, has_errors = collection.dedup_regex(path, dedup_regex, logger, kwargs['remove_duplicates'])
 
     if clean_all or folders:
         remove_empty_folders(path, logger)
@@ -192,11 +233,10 @@ def _clean(debug, dedup_regex, dry_run, folders, max_deep, path_string, remove_d
 
 
 @click.command('generate-db')
+@add_options(_logger_options)
 @click.option('--path', type=click.Path(file_okay=False),
               required=True, help='Path of your photo library.')
-@click.option('--debug', default=False, is_flag=True,
-              help='Override the value in constants.py with True.')
-def _generate_db(path, debug):
+def generate_db(**kwargs):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files.
     """
     # TODO
@@ -204,21 +244,19 @@ def _generate_db(path, debug):
 
 
 @click.command('verify')
+@add_options(_logger_options)
 @click.option('--path', type=click.Path(file_okay=False),
               required=True, help='Path of your photo library.')
-@click.option('--debug', default=False, is_flag=True,
-              help='Override the value in constants.py with True.')
-def _verify(path, debug):
+def verify(**kwargs):
     """Verify hashes"""
     # TODO
     pass
 
 
 @click.command('compare')
-@click.option('--debug', default=False, is_flag=True,
-              help='Override the value in constants.py with True.')
-@click.option('--dry-run', default=False, is_flag=True,
-              help='Dry run only, no change made to the filesystem.')
+@add_options(_logger_options)
+@add_options(_dry_run_options)
+@add_options(_filter_option)
 @click.option('--find-duplicates', '-f', default=False, is_flag=True)
 @click.option('--output-dir', '-o', default=False, is_flag=True, help='output\
         dir')
@@ -231,27 +269,35 @@ def _verify(path, debug):
         image')
 @click.option('--similarity', '-S', default=80, help='Similarity level for\
         images')
-@click.option('--verbose', '-v', default=False, is_flag=True,
-              help='True if you want to see details of file processing')
 @click.argument('path', nargs=1, required=True)
-def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
-        revert_compare, root, similar_to, similarity, verbose, path):
+def compare(**kwargs):
     '''Compare files in directories'''
 
-    logger = log.get_logger(verbose, debug)
+    debug = kwargs['debug']
+    dry_run = kwargs['dry_run']
+    root = kwargs['root']
+    verbose = kwargs['verbose']
 
+    path = kwargs['path']
+
+    logger = log.get_logger(verbose, debug)
     if not root:
-        root = path
+        root = kwargs['path']
 
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
 
-    collection = Collection(root, None, mode='move', dry_run=dry_run, logger=logger)
+    exclude = _get_exclude(opt, kwargs['exclude'])
+    filter_by_ext = set(kwargs['filter_by_ext'])
 
-    if revert_compare:
-        summary, has_errors = collection.revert_compare(path, dry_run)
+    collection = Collection(root, None, exclude=exclude,
+            filter_by_ext=filter_by_ext, glob=kwargs['glob'],
+            mode='move', dry_run=dry_run, logger=logger)
+
+    if kwargs['revert_compare']:
+        summary, has_errors = collection.revertcompare(path, dry_run)
     else:
-        summary, has_errors = collection.sort_similar_images(path, similarity)
+        summary, has_errors = collection.sort_similar_images(path, kwargs['similarity'])
 
     if verbose or debug:
         summary.write()
@@ -261,16 +307,17 @@ def _compare(debug, dry_run, find_duplicates, output_dir, remove_duplicates,
 
 
 @click.group()
-def main():
+def main(**kwargs):
     pass
 
 
-main.add_command(_clean)
-main.add_command(_compare)
-main.add_command(_sort)
-main.add_command(_generate_db)
-main.add_command(_verify)
+main.add_command(clean)
+main.add_command(compare)
+main.add_command(sort)
+main.add_command(generate_db)
+main.add_command(verify)
 
 
 if __name__ == '__main__':
     main()
+

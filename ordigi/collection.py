@@ -4,10 +4,11 @@ General file system methods.
 from builtins import object
 
 import filecmp
+from fnmatch import fnmatch
 import hashlib
 import logging
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import re
 import sys
 import shutil
@@ -16,7 +17,7 @@ from datetime import datetime, timedelta
 from ordigi import media
 from ordigi.database import Sqlite
 from ordigi.media import Media, get_all_subclasses
-from ordigi.images import Images
+from ordigi.images import Image, Images
 from ordigi.summary import Summary
 from ordigi.utils import get_date_regex, camel2snake
 
@@ -25,9 +26,9 @@ class Collection(object):
     """Class of the media collection."""
 
     def __init__(self, root, path_format, album_from_folder=False,
-            cache=False, day_begins=0, dry_run=False, exclude_regex_list=set(),
-            filter_by_ext=set(), interactive=False, logger=logging.getLogger(),
-            max_deep=None, mode='copy'):
+            cache=False, day_begins=0, dry_run=False, exclude=set(),
+            filter_by_ext=set(), glob='**/*', interactive=False,
+            logger=logging.getLogger(), max_deep=None, mode='copy'):
 
         # Attributes
         self.root = Path(root).expanduser().absolute()
@@ -43,7 +44,7 @@ class Collection(object):
         self.cache = cache
         self.day_begins = day_begins
         self.dry_run = dry_run
-        self.exclude_regex_list = exclude_regex_list
+        self.exclude = exclude
 
         if '%media' in filter_by_ext:
             filter_by_ext.remove('%media')
@@ -51,6 +52,7 @@ class Collection(object):
         else:
             self.filter_by_ext = filter_by_ext
 
+        self.glob = glob
         self.items = self.get_items()
         self.interactive = interactive
         self.logger = logger
@@ -91,6 +93,47 @@ class Collection(object):
 
         return date
 
+    def _get_folders(self, folders, mask):
+        """
+        Get folders part
+        :params: Part, list
+        :returns: list
+        """
+        n = len(folders) - 1
+
+        if not re.search(r':', mask):
+            a = re.compile(r'[0-9]')
+            match = re.search(a, mask)
+            if match:
+                # single folder example: folders[1]
+                i = int(match[0])
+                if i > n:
+                    # i is out of range, use ''
+                    return ['']
+                else:
+                    return folders[i]
+            else:
+                # all folders example: folders
+                return folders
+        else:
+            # multiple folder selection: example folders[1:3]
+            a = re.compile(r'[0-9]:')
+            b = re.compile(r':[0-9]')
+            begin = int(re.search(a, mask)[0][0])
+            end = int(re.search(b, mask)[0][1])
+
+            if begin > n:
+                # no matched folders
+                return ['']
+            if end > n:
+                end = n
+
+            if begin >= end:
+                return ['']
+            else:
+                # select matched folders
+                return folders[begin:end]
+
     def get_part(self, item, mask, metadata, subdirs):
         """Parse a specific folder's name given a mask and metadata.
 
@@ -123,9 +166,8 @@ class Collection(object):
             part = os.path.basename(subdirs)
 
         elif item == 'folders':
-            folders = Path(subdirs).parts
-            folders = eval(mask)
-
+            folders = subdirs.parts
+            folders = self._get_folders(folders, mask)
             part = os.path.join(*folders)
 
         elif item in ('album','camera_make', 'camera_model', 'city', 'country',
@@ -169,7 +211,7 @@ class Collection(object):
 
         return this_part
 
-    def get_path(self, metadata, subdirs='', whitespace_sub='_'):
+    def get_path(self, metadata, subdirs, whitespace_sub='_'):
         """path_format: {%Y-%d-%m}/%u{city}/{album}
 
         Returns file path.
@@ -295,28 +337,6 @@ class Collection(object):
 
         return self.summary, has_errors
 
-    def should_exclude(self, path, regex_list=set()):
-        if(len(regex_list) == 0):
-            return False
-
-        return any(regex.search(path) for regex in regex_list)
-
-    def walklevel(self, src_path, maxlevel=None):
-        """
-        Walk into input directory recursively until desired maxlevel
-        source: https://stackoverflow.com/questions/229186/os-walk-without-digging-into-directories-below
-        """
-        src_path = src_path.rstrip(os.path.sep)
-        if not os.path.isdir(src_path):
-            return None
-
-        num_sep = src_path.count(os.path.sep)
-        for root, dirs, files in os.walk(src_path):
-            level = root.count(os.path.sep) - num_sep
-            yield root, dirs, files, level
-            if maxlevel is not None and level >= maxlevel:
-                del dirs[:]
-
     def remove(self, file_path):
         if not self.dry_run:
             os.remove(file_path)
@@ -421,43 +441,90 @@ class Collection(object):
 
         return items
 
-    def get_files_in_path(self, path, extensions=set()):
+    def walklevel(self, src_path, maxlevel=None):
+        """
+        Walk into input directory recursively until desired maxlevel
+        source: https://stackoverflow.com/questions/229186/os-walk-without-digging-into-directories-below
+        """
+        src_path = str(src_path)
+        if not os.path.isdir(src_path):
+            return None
+
+        num_sep = src_path.count(os.path.sep)
+        for root, dirs, files in os.walk(src_path):
+            level = root.count(os.path.sep) - num_sep
+            yield root, dirs, files, level
+            if maxlevel is not None and level >= maxlevel:
+                del dirs[:]
+
+    def level(self, path):
+        """
+        :param: Path
+        :return: int
+        """
+        # if isinstance(path, str):
+        #     # To remove trailing '/' chars
+        #     path = Path(path)
+        # path = str(path)
+        return len(path.parts) - 1
+
+    # TODO move to utils.. or CPath..
+    def _get_files_in_path(self, path, glob='**/*', maxlevel=None, extensions=set()):
         """Recursively get files which match a path and extension.
 
         :param str path string: Path to start recursive file listing
         :param tuple(str) extensions: File extensions to include (whitelist)
-        :returns: file_path, subdirs
+        :returns: Path file_path, Path subdirs
         """
-        file_list = set()
-        if os.path.isfile(path):
-            file_list.add((path, ''))
-
-        # Create a list of compiled regular expressions to match against the file path
-        compiled_regex_list = [re.compile(regex) for regex in self.exclude_regex_list]
-
-        subdirs = ''
-        for dirname, dirnames, filenames, level in self.walklevel(path,
-                self.max_deep):
-            should_exclude_dir = self.should_exclude(dirname, compiled_regex_list)
-            if dirname == os.path.join(path, '.ordigi') or should_exclude_dir:
+        for path0 in path.glob(glob):
+            if path0.is_dir():
                 continue
+            else:
+                file_path = path0
+                parts = file_path.parts
+                subdirs = file_path.relative_to(path).parent
+                if glob == '*':
+                    level = 0
+                else:
+                    level = len(subdirs.parts)
 
-            if level > 0:
-                subdirs = os.path.join(subdirs, os.path.basename(dirname))
+                if file_path.parts[0] == '.ordigi':
+                    continue
 
-            for filename in filenames:
-                # If file extension is in `extensions` 
-                # And if file path is not in exclude regexes
-                # Then append to the list
-                filename_path = os.path.join(dirname, filename)
+                if maxlevel is not None:
+                    if level > maxlevel:
+                        continue
+
+                for exclude in self.exclude:
+                    if fnmatch(file_path, exclude):
+                        continue
+
                 if (
                         extensions == set()
-                        or os.path.splitext(filename)[1][1:].lower() in extensions
-                        and not self.should_exclude(filename, compiled_regex_list)
+                        or PurePath(file_path).suffix.lower() in extensions
                     ):
-                    file_list.add((filename, subdirs))
+                    # return file_path and subdir
+                    yield file_path
 
-        return file_list
+    def _create_directory(self, directory_path):
+        """Create a directory if it does not already exist.
+
+        :param Path: A fully qualified path of the to create.
+        :returns: bool
+        """
+        try:
+            if directory_path.exists():
+                return True
+            else:
+                if not self.dry_run:
+                    directory_path.mkdir(parents=True, exist_ok=True)
+                self.logger.info(f'Create {directory_path}')
+                return True
+        except OSError:
+            # OSError is thrown for cases like no permission
+            pass
+
+        return False
 
     def create_directory(self, directory_path):
         """Create a directory if it does not already exist.
@@ -480,6 +547,20 @@ class Collection(object):
 
         return False
 
+    def _check_path(self, path):
+        """
+        :param: str path
+        :return: Path path
+        """
+        path = Path(path).expanduser().absolute()
+
+        # some error checking
+        if not path.exists():
+            self.logger.error(f'Directory {path} does not exist')
+            sys.exit(1)
+
+        return path
+
     def check_path(self, path):
         path = os.path.abspath(os.path.expanduser(path))
 
@@ -500,7 +581,7 @@ class Collection(object):
     def dedup_regex(self, path, dedup_regex, logger, remove_duplicates=False):
         # cycle throught files
         has_errors = False
-        path = self.check_path(path)
+        path = self._check_path(path)
         # Delimiter regex
         delim = r'[-_ .]'
         # Numeric date item  regex
@@ -518,11 +599,9 @@ class Collection(object):
             ]
 
         conflict_file_list = []
-        for filename, subdirs in self.get_files_in_path(path):
-            file_path = os.path.join(path, subdirs, filename)
+        for src_path in self._get_files_in_path(path, glob=self.glob):
             src_checksum = self.checksum(src_path)
-            file_path = Path(src_path).relative_to(self.root)
-            path_parts = file_path.parts
+            path_parts = src_path.relative_to(self.root).parts
             dedup_path = []
             for path_part in path_parts:
                 items = []
@@ -536,8 +615,11 @@ class Collection(object):
                 dedup_path.append(''.join(filtered_items))
 
             # Dedup path
-            dest_path = os.path.join(self.root, *dedup_path)
-            self.create_directory(os.path.dirname(dest_path))
+            dest_path = self.root.joinpath(*dedup_path)
+            self._create_directory(dest_path.parent.name)
+
+            src_path = str(src_path)
+            dest_path = str(dest_path)
 
             result = self.sort_file(src_path, dest_path, remove_duplicates)
             if result:
@@ -563,28 +645,29 @@ class Collection(object):
         """
         has_errors = False
         for path in paths:
-            path = self.check_path(path)
+            path = self._check_path(path)
             conflict_file_list = []
-            for filename, subdirs in self.get_files_in_path(path,
+            for src_path in self._get_files_in_path(path, glob=self.glob,
                     extensions=self.filter_by_ext):
-                src_path = os.path.join(path, subdirs, filename)
+                subdirs = src_path.relative_to(path).parent
                 # Process files
                 src_checksum = self.checksum(src_path)
-                media = Media(path, subdirs, filename, self.album_from_folder, ignore_tags,
+                media = Media(src_path, path, self.album_from_folder, ignore_tags,
                         self.interactive, self.logger)
                 if media:
                     metadata = media.get_metadata(loc, self.db, self.cache)
                     # Get the destination path according to metadata
-                    file_path = self.get_path(metadata, subdirs=subdirs)
+                    file_path = Path(self.get_path(metadata, subdirs))
                 else:
                     # Keep same directory structure
-                    file_path = os.path.relpath(src_path, path)
+                    file_path = src_path.relative_to(path)
 
-                dest_directory = os.path.join(self.root,
-                        os.path.dirname(file_path))
-                dest_path = os.path.join(self.root, file_path)
+                dest_directory = self.root / file_path.parent
+                self._create_directory(dest_directory)
 
-                self.create_directory(dest_directory)
+                # Convert paths to string
+                src_path = str(src_path)
+                dest_path = str(self.root / file_path)
 
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
 
@@ -640,65 +723,70 @@ class Collection(object):
         self.logger.info(f'move: {img_path} -> {dest_path}')
         return self.set_hash(True, img_path, dest_path, checksum)
 
-    def sort_similar_images(self, path, similarity=80):
+    def _get_images(self, path):
+        """
+        :returns: iter
+        """
+        for src_path in self._get_files_in_path(path, glob=self.glob,
+                extensions=self.filter_by_ext):
+            dirname = src_path.parent.name
 
-        has_errors = False
-        path = self.check_path(path)
-        for dirname, dirnames, filenames, level in self.walklevel(path, None):
-            if dirname == os.path.join(path, '.ordigi'):
-                continue
             if dirname.find('similar_to') == 0:
                 continue
 
-            file_paths = set()
-            for filename in filenames:
-                file_paths.add(os.path.join(dirname, filename))
+            image = Image(src_path)
 
-            i = Images(file_paths, logger=self.logger)
+            if image.is_image():
+                yield src_path
 
-            images = set([ i for i in i.get_images() ])
-            for image in images:
-                if not os.path.isfile(image):
-                    continue
-                checksum1 = self.checksum(image)
-                # Process files
-                # media = Media(src_path, False, self.logger)
-                # TODO compare metadata
-                # if media:
-                #     metadata = media.get_metadata()
-                similar = False
-                moved_imgs = set()
-                for img_path in i.find_similar(image, similarity):
-                    similar = True
-                    checksum2 = self.checksum(img_path)
-                    # move image into directory
-                    name = os.path.splitext(os.path.basename(image))[0]
-                    directory_name = 'similar_to_' + name
-                    dest_directory = os.path.join(os.path.dirname(img_path),
-                            directory_name)
-                    dest_path = os.path.join(dest_directory, os.path.basename(img_path))
+    def sort_similar_images(self, path, similarity=80):
 
-                    result = self.create_directory(dest_directory)
-                    # Move the simlars file into the destination directory
-                    if result:
-                        result = self.move_file(img_path, dest_path, checksum2)
-                        moved_imgs.add(img_path)
-                        if not result:
-                            has_errors = True
-                    else:
-                        has_errors = True
+        has_errors = False
+        path = self._check_path(path)
+        img_paths = set([ x for x in self._get_images(path) ])
+        i = Images(img_paths, logger=self.logger)
+        for image in img_paths:
+            if not os.path.isfile(image):
+                continue
+            checksum1 = self.checksum(image)
+            # Process files
+            # media = Media(src_path, False, self.logger)
+            # TODO compare metadata
+            # if media:
+            #     metadata = media.get_metadata()
+            similar = False
+            moved_imgs = set()
+            for img_path in i.find_similar(image, similarity):
+                similar = True
+                checksum2 = self.checksum(img_path)
+                # move image into directory
+                name = os.path.splitext(os.path.basename(image))[0]
+                directory_name = 'similar_to_' + name
+                dest_directory = os.path.join(os.path.dirname(img_path),
+                        directory_name)
+                dest_path = os.path.join(dest_directory, os.path.basename(img_path))
 
-
-                if similar:
-                    dest_path = os.path.join(dest_directory,
-                            os.path.basename(image))
-                    result = self.move_file(image, dest_path, checksum1)
-                    moved_imgs.add(image)
+                result = self.create_directory(dest_directory)
+                # Move the simlars file into the destination directory
+                if result:
+                    result = self.move_file(img_path, dest_path, checksum2)
+                    moved_imgs.add(img_path)
                     if not result:
                         has_errors = True
+                else:
+                    has_errors = True
 
-                # for moved_img in moved_imgs:
-                #     os.remove(moved_img)
+
+            if similar:
+                dest_path = os.path.join(dest_directory,
+                        os.path.basename(image))
+                result = self.move_file(image, dest_path, checksum1)
+                moved_imgs.add(image)
+                if not result:
+                    has_errors = True
+
+            # for moved_img in moved_imgs:
+            #     os.remove(moved_img)
 
         return self.summary, has_errors
 
