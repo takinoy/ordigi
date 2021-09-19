@@ -2,15 +2,19 @@
 Media :class:`Media` class to get file metadata
 """
 
+import inquirer
 import logging
 import mimetypes
 import os
+# import pprint
 
 # load modules
 from dateutil.parser import parse
 import re
 from ordigi.exiftool import ExifTool, ExifToolCaching
 from ordigi.utils import get_date_from_string
+from ordigi import request
+
 
 class Media():
 
@@ -48,6 +52,8 @@ class Media():
         self.interactive = interactive
         self.metadata = None
         self.logger = logger
+
+        self.theme = request.load_theme()
 
     def get_tags(self):
         tags_keys = {}
@@ -235,6 +241,30 @@ class Media():
         # Get metadata from exiftool.
         self.exif_metadata = ExifToolCaching(self.file_path, logger=self.logger).asdict()
 
+    def _set_album(self, album, folder):
+        print(f"Conflict for file: {self.file_path}")
+        choices_list = [
+            inquirer.List('album',
+                message=f"Exif album is already set to {album}, choices",
+                choices=[
+                    (f"album:'{album}'", f'{album}'),
+                    (f"folder:'{folder}'", f'{folder}'),
+                    ("custom", None),
+                    ],
+                default=f'{album}'
+            ),
+        ]
+        prompt = [
+            inquirer.Text('custom', message="album"),
+                ]
+
+        answers = inquirer.prompt(choices_list, theme=self.theme)
+        if not answers['album']:
+            answers = inquirer.prompt(prompt, theme=self.theme)
+            return answers['custom']
+        else:
+            return answers['album']
+
     def get_metadata(self, loc=None, db=None, cache=False):
         """Get a dictionary of metadata from exif.
         All keys will be present and have a value of None if not obtained.
@@ -276,10 +306,11 @@ class Media():
             folder = self.folder
             if  album and album != '':
                 if self.interactive:
-                    print(f"Conflict for file: {self.file_path}")
-                    print(f"Exif album is already set to '{album}'', folder='{folder}'")
-                    i = f"Choice for 'album': (a) '{album}', (f) '{folder}', (c) custom ?\n"
-                    answer = input(i)
+                    answer = self._set_album(album, folder)
+                    # print(f"Conflict for file: {self.file_path}")
+                    # print(f"Exif album is already set to '{album}'', folder='{folder}'")
+                    # i = f"Choice for 'album': (a) '{album}', (f) '{folder}', (c) custom ?\n"
+                    # answer = input(i)
                     if answer == 'c':
                         self.metadata['album'] = input('album=')
                         self.set_value('album', folder)

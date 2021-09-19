@@ -6,6 +6,7 @@ from builtins import object
 import filecmp
 from fnmatch import fnmatch
 import hashlib
+import inquirer
 import logging
 import os
 from pathlib import Path, PurePath
@@ -18,6 +19,7 @@ from ordigi import media
 from ordigi.database import Sqlite
 from ordigi.media import Media, get_all_subclasses
 from ordigi.images import Image, Images
+from ordigi import request
 from ordigi.summary import Summary
 from ordigi.utils import get_date_regex, camel2snake
 
@@ -61,6 +63,9 @@ class Collection(object):
 
         self.summary = Summary()
         self.whitespace_regex = '[ \t\n\r\f\v]+'
+
+        # Constants
+        self.theme = request.load_theme()
 
     def get_items(self):
         return {
@@ -477,8 +482,7 @@ class Collection(object):
         :returns: Path file_path, Path subdirs
         """
         for path0 in path.glob(glob):
-            if path0.is_dir():
-                continue
+            if path0.is_dir(): continue
             else:
                 file_path = path0
                 parts = file_path.parts
@@ -488,16 +492,18 @@ class Collection(object):
                 else:
                     level = len(subdirs.parts)
 
-                if file_path.parts[0] == '.ordigi':
-                    continue
+                if file_path.parts[0] == '.ordigi': continue
 
                 if maxlevel is not None:
-                    if level > maxlevel:
-                        continue
+                    if level > maxlevel: continue
 
+                matched = False
                 for exclude in self.exclude:
                     if fnmatch(file_path, exclude):
-                        continue
+                        matched = True
+                        break
+
+                if matched: continue
 
                 if (
                         extensions == set()
@@ -599,7 +605,8 @@ class Collection(object):
             ]
 
         conflict_file_list = []
-        for src_path in self._get_files_in_path(path, glob=self.glob):
+        file_list = [x for x in self._get_files_in_path(path, glob=self.glob)]
+        for src_path in file_list:
             src_checksum = self.checksum(src_path)
             path_parts = src_path.relative_to(self.root).parts
             dedup_path = []
@@ -638,6 +645,21 @@ class Collection(object):
 
         return self.summary, has_errors
 
+    def _modify_selection(self, file_list):
+        """
+        :params: list
+        :return: list
+        """
+        message="Bellow the file selection list, modify selection if needed"
+        questions = [
+            inquirer.Checkbox('selection',
+                            message=message,
+                            choices=file_list,
+                            default=file_list,
+                            ),
+        ]
+        return inquirer.prompt(questions, theme=self.theme)['selection']
+
     def sort_files(self, paths, loc, remove_duplicates=False,
             ignore_tags=set()):
         """
@@ -647,8 +669,12 @@ class Collection(object):
         for path in paths:
             path = self._check_path(path)
             conflict_file_list = []
-            for src_path in self._get_files_in_path(path, glob=self.glob,
-                    extensions=self.filter_by_ext):
+            file_list = [x for x in self._get_files_in_path(path,
+                glob=self.glob, extensions=self.filter_by_ext)]
+            if self.interactive:
+                file_list = self._modify_selection(file_list)
+                print('Processing...')
+            for src_path in file_list:
                 subdirs = src_path.relative_to(path).parent
                 # Process files
                 src_checksum = self.checksum(src_path)
