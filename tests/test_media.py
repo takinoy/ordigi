@@ -10,6 +10,7 @@ from ordigi import constants
 from ordigi.media import Media
 from ordigi.images import Images
 from ordigi.exiftool import ExifTool, ExifToolCaching
+from ordigi.utils import get_date_from_string
 
 ORDIGI_PATH = Path(__file__).parent.parent
 CACHING = True
@@ -69,6 +70,33 @@ class TestMetadata:
                         break
             if has_exif_data == False:
                 assert not media.has_exif_data()
+
+    def test_get_date_media(self):
+        # collection = Collection(tmp_path, self.path_format,
+        #         use_date_filename=True, use_file_dates=True)
+        for file_path in self.file_paths:
+            exif_data = ExifToolCaching(str(file_path)).asdict()
+            media = Media(file_path, self.src_path, use_date_filename=True,
+                    use_file_dates=True)
+            metadata = media.get_metadata()
+            date_media = media.get_date_media()
+
+            date_filename = None
+            for tag in media.tags_keys['original_name']:
+                if tag in exif_data:
+                    date_filename = get_date_from_string(exif_data[tag])
+                break
+            if not date_filename:
+                date_filename = get_date_from_string(file_path.name)
+
+            if media.metadata['date_original']:
+                assert date_media == media.metadata['date_original']
+            elif date_filename:
+                assert date_media == date_filename
+            elif media.metadata['date_created']:
+                assert date_media == media.metadata['date_created']
+            elif media.metadata['date_modified']:
+                assert date_media == media.metadata['date_modified']
 
         # Will be changed to get_metadata
         # check if metatadata type are correct

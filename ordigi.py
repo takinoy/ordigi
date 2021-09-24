@@ -84,6 +84,10 @@ def _get_exclude(opt, exclude):
                       and a file hash')
 @click.option('--reset-cache', '-r', default=False, is_flag=True,
               help='Regenerate the hash.json and location.json database ')
+@click.option('--use-date-filename', '-f', default=False, is_flag=True,
+              help="Use filename date for media original date.")
+@click.option('--use-file-dates', '-F', default=False, is_flag=True,
+              help="Use file date created or modified for media original date.")
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
 def sort(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
@@ -134,7 +138,8 @@ def sort(**kwargs):
     collection = Collection(destination, opt['path_format'],
             kwargs['album_from_folder'], cache, opt['day_begins'], kwargs['dry_run'],
             exclude, filter_by_ext, kwargs['glob'], kwargs['interactive'],
-            logger, max_deep, mode)
+            logger, max_deep, mode, kwargs['use_date_filename'],
+            kwargs['use_file_dates'])
 
     loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
             opt['timeout'])

@@ -30,7 +30,8 @@ class Collection(object):
     def __init__(self, root, path_format, album_from_folder=False,
             cache=False, day_begins=0, dry_run=False, exclude=set(),
             filter_by_ext=set(), glob='**/*', interactive=False,
-            logger=logging.getLogger(), max_deep=None, mode='copy'):
+            logger=logging.getLogger(), max_deep=None, mode='copy',
+            use_date_filename=False, use_file_dates=False):
 
         # Attributes
         self.root = Path(root).expanduser().absolute()
@@ -60,8 +61,9 @@ class Collection(object):
         self.logger = logger
         self.max_deep = max_deep
         self.mode = mode
-
         self.summary = Summary()
+        self.use_date_filename = use_date_filename
+        self.use_file_dates = use_file_dates
         self.whitespace_regex = '[ \t\n\r\f\v]+'
 
         # Constants
@@ -88,13 +90,12 @@ class Collection(object):
         'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}' # search for date format string
             }
 
-    def check_for_early_morning_photos(self, date):
+    def _check_for_early_morning_photos(self, date):
         """check for early hour photos to be grouped with previous day"""
-
         if date.hour < self.day_begins:
-            self.logger.info('moving this photo to the previous day for\
-                    classification purposes (day_begins=' + str(self.day_begins) + ')')
-            date = date - timedelta(hours=date.hour+1)  # push it to the day before for classificiation purposes
+            self.logger.info("moving this photo to the previous day for classification purposes")
+            # push it to the day before for classification purposes
+            date = date - timedelta(hours=date.hour+1)
 
         return date
 
@@ -162,10 +163,10 @@ class Collection(object):
             for i, rx in get_date_regex(basename):
                 part = re.sub(rx, '', part)
         elif item == 'date':
-            date = metadata['date_taken']
+            date = metadata['date_media']
             # early morning photos can be grouped with previous day
-            date = self.check_for_early_morning_photos(date)
             if date is not None:
+                date = self._check_for_early_morning_photos(date)
                 part = date.strftime(mask)
         elif item == 'folder':
             part = os.path.basename(subdirs)
@@ -577,12 +578,12 @@ class Collection(object):
 
         return path
 
-    def set_utime_from_metadata(self, date_taken, file_path):
+    def set_utime_from_metadata(self, date_media, file_path):
         """ Set the modification time on the file based on the file name.
         """
 
         # Initialize date taken to what's returned from the metadata function.
-        os.utime(file_path, (int(datetime.now().timestamp()), int(date_taken.timestamp())))
+        os.utime(file_path, (int(datetime.now().timestamp()), int(date_media.timestamp())))
 
     def dedup_regex(self, path, dedup_regex, logger, remove_duplicates=False):
         # cycle throught files
@@ -678,8 +679,9 @@ class Collection(object):
                 subdirs = src_path.relative_to(path).parent
                 # Process files
                 src_checksum = self.checksum(src_path)
-                media = Media(src_path, path, self.album_from_folder, ignore_tags,
-                        self.interactive, self.logger)
+                media = Media(src_path, path, self.album_from_folder,
+                        ignore_tags, self.interactive, self.logger,
+                        self.use_date_filename, self.use_file_dates)
                 if media:
                     metadata = media.get_metadata(loc, self.db, self.cache)
                     # Get the destination path according to metadata

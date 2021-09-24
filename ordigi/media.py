@@ -34,8 +34,9 @@ class Media():
 
     extensions = PHOTO + AUDIO + VIDEO
 
-    def __init__(self, file_path, root, album_from_folder=False, ignore_tags=set(),
-            interactive=False, logger=logging.getLogger()):
+    def __init__(self, file_path, root, album_from_folder=False,
+            ignore_tags=set(), interactive=False, logger=logging.getLogger(),
+            use_date_filename=False, use_file_dates=False):
         """
         :params: Path, Path, bool, set, bool, Logger
         """
@@ -46,12 +47,14 @@ class Media():
         self.filename = str(file_path.name)
 
         self.album_from_folder = album_from_folder
-        self.ignore_tags = ignore_tags
-        self.tags_keys = self.get_tags()
         self.exif_metadata = None
+        self.ignore_tags = ignore_tags
         self.interactive = interactive
-        self.metadata = None
         self.logger = logger
+        self.metadata = None
+        self.tags_keys = self.get_tags()
+        self.use_date_filename = use_date_filename
+        self.use_file_dates = use_file_dates
 
         self.theme = request.load_theme()
 
@@ -203,7 +206,27 @@ class Media():
 
         return None
 
-    def get_date_taken(self):
+    def _get_date_media_interactive(self, choices, default):
+        print(f"Date conflict for file: {self.file_path}")
+        choices_list = [
+            inquirer.List('date_list',
+                message=f"Choice appropriate original date",
+                choices=choices,
+                default=default
+            ),
+        ]
+        prompt = [
+            inquirer.Text('date_custom', message="date"),
+                ]
+
+        answers = inquirer.prompt(choices_list, theme=self.theme)
+        if not answers['date_list']:
+            answers = inquirer.prompt(prompt, theme=self.theme)
+            return get_date_from_string(answers['date_custom'])
+        else:
+            return answers['date_list']
+
+    def get_date_media(self):
         '''
         Get the date taken from self.metadata or filename
         :returns: datetime or None.
@@ -213,42 +236,78 @@ class Media():
 
         basename = os.path.splitext(self.metadata['filename'])[0]
         date_original = self.metadata['date_original']
-        if self.metadata['original_name'] is not  None:
+        if self.metadata['original_name']:
             date_filename = get_date_from_string(self.metadata['original_name'])
         else:
             date_filename = get_date_from_string(basename)
 
+        date_original = self.metadata['date_original']
         date_created = self.metadata['date_created']
-        if self.metadata['date_original'] is not None:
-            if (date_filename is not None and
-                    date_filename != date_original):
-                self.logger.warn(f"{basename} time mark is different from {date_original}")
-                # TODO ask for keep date taken, filename time, or neither
+        date_modified = self.metadata['date_modified']
+        if self.metadata['date_original']:
+            if (date_filename and date_filename != date_original):
+                self.logger.warning(f"{basename} time mark is different from {date_original}")
+                if self.interactive:
+                    # Ask for keep date taken, filename time, or neither
+                    choices = [
+                        (f"date original:'{date_original}'", date_original),
+                        (f"date filename:'{date_filename}'", date_filename),
+                        ("custom", None),
+                    ]
+                    default = f'{date_original}'
+                    return self._get_date_media_interactive(choices, default)
+
             return self.metadata['date_original']
-        elif True:
-            if date_filename is not  None:
-                if date_created is not None and date_filename > date_created:
-                    self.logger.warn(f"{basename} time mark is more recent than {date_created}")
-                return date_filename
-        if True:
-            # TODO warm and ask for confirmation
-            if date_created is not  None:
+
+        self.logger.warning(f"could not find original date for {self.file_path}")
+
+        if self.use_date_filename and date_filename:
+            self.logger.info(f"use date from filename:{date_filename} for {self.file_path}")
+            if date_created and date_filename > date_created:
+                self.logger.warning(f"{basename} time mark is more recent than {date_created}")
+                if self.interactive:
+                    choices = [
+                        (f"date filename:'{date_filename}'", date_filename),
+                        (f"date created:'{date_created}'", date_created),
+                        ("custom", None),
+                    ]
+                    default = date_filename
+                    return self._get_date_media_interactive(choices, default)
+
+            return date_filename
+
+        elif self.use_file_dates:
+            if date_created:
+                self.logger.warning(f"use date created:{date_created} for {self.file_path}")
                 return date_created
-            elif self.metadata['date_modified'] is not  None:
-                return self.metadata['date_modified']
+            elif date_modified:
+                self.logger.warning(f"use date modified:{date_modified} for {self.file_path}")
+                return date_modified
+        elif self.interactive:
+            choices = []
+            if date_filename:
+                choices.append((f"date filename:'{date_filename}'",
+                    date_filename))
+            if date_created:
+                choices.append((f"date created:'{date_created}'", date_created))
+            if date_modified:
+                choices.append((f"date modified:'{date_modified}'", date_modified))
+            choices.append(("custom", None))
+            default = date_filename
+            return self._get_date_media_interactive(choices, default)
 
     def get_exif_metadata(self):
         # Get metadata from exiftool.
         self.exif_metadata = ExifToolCaching(self.file_path, logger=self.logger).asdict()
 
     def _set_album(self, album, folder):
-        print(f"Conflict for file: {self.file_path}")
+        print(f"Metadata conflict for file: {self.file_path}")
         choices_list = [
             inquirer.List('album',
                 message=f"Exif album is already set to {album}, choices",
                 choices=[
-                    (f"album:'{album}'", f'{album}'),
-                    (f"folder:'{folder}'", f'{folder}'),
+                    (f"album:'{album}'", album),
+                    (f"folder:'{folder}'", folder),
                     ("custom", None),
                     ],
                 default=f'{album}'
@@ -299,7 +358,12 @@ class Media():
         self.metadata['src_path']  = self.root
         self.metadata['subdirs']  = self.subdirs
         self.metadata['filename']  = self.filename
-        self.metadata['date_taken']  = self.get_date_taken()
+
+        original_name = self.metadata['original_name']
+        if  not original_name or original_name == '':
+            self.set_value('original_name', self.filename)
+
+        self.metadata['date_media']  = self.get_date_media()
 
         if self.album_from_folder:
             album = self.metadata['album']
@@ -307,10 +371,6 @@ class Media():
             if  album and album != '':
                 if self.interactive:
                     answer = self._set_album(album, folder)
-                    # print(f"Conflict for file: {self.file_path}")
-                    # print(f"Exif album is already set to '{album}'', folder='{folder}'")
-                    # i = f"Choice for 'album': (a) '{album}', (f) '{folder}', (c) custom ?\n"
-                    # answer = input(i)
                     if answer == 'c':
                         self.metadata['album'] = input('album=')
                         self.set_value('album', folder)
@@ -321,6 +381,7 @@ class Media():
 
             if  not album or album == '':
                 self.metadata['album'] = folder
+                self.set_value('album', folder)
 
         loc_keys = ('latitude', 'longitude', 'city', 'state', 'country', 'default')
         location_id = None
@@ -388,7 +449,7 @@ class Media():
         """
         return ExifTool(self.file_path, logger=self.logger).setvalue(tag, value)
 
-    def set_date_taken(self, date_key, time):
+    def set_date_media(self, date_key, time):
         """Set the date/time a photo was taken.
 
         :param datetime time: datetime object of when the photo was taken

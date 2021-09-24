@@ -46,7 +46,7 @@ class Sqlite:
             'Checksum': 'text',
             'Album': 'text',
             'LocationId': 'integer',
-            'DateTaken': 'text',
+            'DateMedia': 'text',
             'DateOriginal': 'text',
             'DateCreated': 'text',
             'DateModified': 'text',

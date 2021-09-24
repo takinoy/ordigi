@@ -2,6 +2,7 @@
 from datetime import datetime
 import os
 import pytest
+import shutil
 import sqlite3
 from pathlib import Path
 import re
@@ -15,7 +16,7 @@ from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exif
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media
-from ordigi.utils import get_date_from_string, get_date_regex
+from ordigi.utils import get_date_regex
 
 
 class TestCollection:
@@ -34,7 +35,8 @@ class TestCollection:
         Test all parts
         """
         # Item to search for:
-        collection = Collection(tmp_path, self.path_format)
+        collection = Collection(tmp_path, self.path_format,
+                use_date_filename=True, use_file_dates=True)
         items = collection.get_items()
         masks = [
                 '{album}',
@@ -58,7 +60,8 @@ class TestCollection:
                 ]
 
         for file_path in self.file_paths:
-            media = Media(file_path, self.src_path)
+            media = Media(file_path, self.src_path, use_date_filename=True,
+                    use_file_dates=True)
             subdirs = file_path.relative_to(self.src_path).parent
             exif_tags = {}
             for key in ('album', 'camera_make', 'camera_model', 'latitude',
@@ -79,6 +82,8 @@ class TestCollection:
                         if item == 'basename':
                             assert part == file_path.stem, file_path
                         elif item == 'date':
+                            if part == '':
+                                media.get_date_media()
                             assert datetime.strptime(part, mask[1:-1])
                         elif item == 'folder':
                             assert part == subdirs.name, file_path
@@ -106,32 +111,6 @@ class TestCollection:
                                 assert part == '', file_path
                         else:
                             assert part == '', file_path
-
-
-    def test_get_date_taken(self, tmp_path):
-        collection = Collection(tmp_path, self.path_format)
-        for file_path in self.file_paths:
-            exif_data = ExifToolCaching(str(file_path)).asdict()
-            media = Media(file_path, self.src_path)
-            metadata = media.get_metadata()
-            date_taken = media.get_date_taken()
-
-            date_filename = None
-            for tag in media.tags_keys['original_name']:
-                if tag in exif_data:
-                    date_filename = get_date_from_string(exif_data[tag])
-                break
-            if not date_filename:
-                date_filename = get_date_from_string(file_path.name)
-
-            if media.metadata['date_original']:
-                assert date_taken == media.metadata['date_original']
-            elif date_filename:
-                assert date_taken == date_filename
-            elif media.metadata['date_created']:
-                assert date_taken == media.metadata['date_created']
-            elif media.metadata['date_modified']:
-                assert date_taken == media.metadata['date_modified']
 
     def test_sort_files(self, tmp_path):
         collection = Collection(tmp_path, self.path_format, album_from_folder=True)
@@ -182,6 +161,7 @@ class TestCollection:
                 assert src_path.exists()
             else:
                 assert not src_path.exists()
+                shutil.copyfile(dest_path, src_path)
 
         # TODO check for conflicts
 
@@ -189,7 +169,9 @@ class TestCollection:
         # TODO check date
 
     def test__get_files_in_path(self, tmp_path):
-        collection = Collection(tmp_path, self.path_format, exclude='**/*.dng')
+        collection = Collection(tmp_path, self.path_format,
+                exclude={'**/*.dng',},
+                use_date_filename=True, use_file_dates=True)
         paths = [x for x in collection._get_files_in_path(self.src_path,
             maxlevel=1, glob='**/photo*')]
         assert len(paths) == 6
