@@ -18,13 +18,15 @@ class TestSqlite:
             'FilePath': 'file_path',
             'Checksum': 'checksum',
             'Album': 'album',
+            'Title': 'title',
             'LocationId': 2,
-            'DateTaken': datetime(2012, 3, 27),
+            'DateMedia': datetime(2012, 3, 27),
             'DateOriginal': datetime(2013, 3, 27),
             'DateCreated': 'date_created',
             'DateModified': 'date_modified',
             'CameraMake': 'camera_make',
             'CameraModel': 'camera_model',
+            'OriginalName':'original_name',
             'SrcPath': 'src_path',
             'Subdirs': 'subdirs',
             'Filename': 'filename'
@@ -62,7 +64,7 @@ class TestSqlite:
     def test_add_metadata_data(self):
         result = tuple(self.sqlite.cur.execute("""select * from metadata where
             rowid=1""").fetchone())
-        assert result == ('file_path', 'checksum', 'album', 2, '2012-03-27 00:00:00', '2013-03-27 00:00:00', 'date_created', 'date_modified', 'camera_make', 'camera_model', 'src_path', 'subdirs', 'filename')
+        assert result == ('file_path', 'checksum', 'album', 'title', 2, '2012-03-27 00:00:00', '2013-03-27 00:00:00', 'date_created', 'date_modified', 'camera_make', 'camera_model', 'original_name', 'src_path', 'subdirs', 'filename')
 
     def test_get_checksum(self):
         assert not self.sqlite.get_checksum('invalid')

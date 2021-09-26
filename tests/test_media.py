@@ -28,48 +28,50 @@ class TestMetadata:
             self.exif_data = ExifTool(file_path).asdict()
             yield file_path, Media(file_path, self.src_path, album_from_folder=True, ignore_tags=self.ignore_tags)
 
-    def test_get_metadata(self):
+    def test_get_metadata(self, tmp_path):
         for file_path, media in self.get_media():
-            result = media.get_metadata()
-            assert result
-            assert isinstance(media.metadata, dict), media.metadata
-            #check if all tags key are present
-            for tags_key, tags in media.tags_keys.items():
-                assert tags_key in media.metadata
-                for tag in tags:
-                    for tag_regex in self.ignore_tags:
-                        assert not re.match(tag_regex, tag)
-            # Check for valid type
-            for key, value in media.metadata.items():
-                if value or value == '':
-                    if 'date' in key:
-                        assert isinstance(value, datetime)
-                    elif key in ('latitude', 'longitude'):
-                        assert isinstance(value, float)
+            # test get metadata from cache or exif
+            for root in self.src_path, tmp_path:
+                result = media.get_metadata(root)
+                assert result
+                assert isinstance(media.metadata, dict), media.metadata
+                #check if all tags key are present
+                for tags_key, tags in media.tags_keys.items():
+                    assert tags_key in media.metadata
+                    for tag in tags:
+                        for tag_regex in self.ignore_tags:
+                            assert not re.match(tag_regex, tag)
+                # Check for valid type
+                for key, value in media.metadata.items():
+                    if value or value == '':
+                        if 'date' in key:
+                            assert isinstance(value, datetime)
+                        elif key in ('latitude', 'longitude'):
+                            assert isinstance(value, float)
+                        else:
+                            assert isinstance(value, str)
                     else:
-                        assert isinstance(value, str)
-                else:
-                    assert value is None
+                        assert value is None
 
-                if key == 'album':
-                    for album in  media._get_key_values('album'):
-                        if album is not None and album != '':
-                            assert value == album
+                    if key == 'album':
+                        for album in  media._get_key_values('album'):
+                            if album is not None and album != '':
+                                assert value == album
+                                break
+                        else:
+                            assert value == file_path.parent.name
+
+                # Check if has_exif_data() is True if 'date_original' key is
+                # present, else check if it's false
+                has_exif_data = False
+                for tag in media.tags_keys['date_original']:
+                    if tag in media.exif_metadata:
+                        if media.get_date_format(media.exif_metadata[tag]):
+                            has_exif_data = True
+                            assert media.has_exif_data()
                             break
-                    else:
-                        assert value == file_path.parent.name
-
-            # Check if has_exif_data() is True if 'date_original' key is
-            # present, else check if it's false
-            has_exif_data = False
-            for tag in media.tags_keys['date_original']:
-                if tag in media.exif_metadata:
-                    if media.get_date_format(media.exif_metadata[tag]):
-                        has_exif_data = True
-                        assert media.has_exif_data()
-                        break
-            if has_exif_data == False:
-                assert not media.has_exif_data()
+                if has_exif_data == False:
+                    assert not media.has_exif_data()
 
     def test_get_date_media(self):
         # collection = Collection(tmp_path, self.path_format,
@@ -78,7 +80,7 @@ class TestMetadata:
             exif_data = ExifToolCaching(str(file_path)).asdict()
             media = Media(file_path, self.src_path, use_date_filename=True,
                     use_file_dates=True)
-            metadata = media.get_metadata()
+            metadata = media.get_metadata(self.src_path)
             date_media = media.get_date_media()
 
             date_filename = None

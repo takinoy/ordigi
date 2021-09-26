@@ -6,13 +6,14 @@ import inquirer
 import logging
 import mimetypes
 import os
+import re
+import sys
 # import pprint
 
 # load modules
 from dateutil.parser import parse
-import re
 from ordigi.exiftool import ExifTool, ExifToolCaching
-from ordigi.utils import get_date_from_string
+from ordigi import utils
 from ordigi import request
 
 
@@ -34,17 +35,14 @@ class Media():
 
     extensions = PHOTO + AUDIO + VIDEO
 
-    def __init__(self, file_path, root, album_from_folder=False,
+    def __init__(self, file_path, src_path, album_from_folder=False,
             ignore_tags=set(), interactive=False, logger=logging.getLogger(),
             use_date_filename=False, use_file_dates=False):
         """
         :params: Path, Path, bool, set, bool, Logger
         """
-        self.file_path = str(file_path)
-        self.root = str(root)
-        self.subdirs = str(file_path.relative_to(root).parent)
-        self.folder = str(file_path.parent.name)
-        self.filename = str(file_path.name)
+        self.file_path = file_path
+        self.src_path = src_path
 
         self.album_from_folder = album_from_folder
         self.exif_metadata = None
@@ -222,7 +220,7 @@ class Media():
         answers = inquirer.prompt(choices_list, theme=self.theme)
         if not answers['date_list']:
             answers = inquirer.prompt(prompt, theme=self.theme)
-            return get_date_from_string(answers['date_custom'])
+            return utils.get_date_from_string(answers['date_custom'])
         else:
             return answers['date_list']
 
@@ -237,9 +235,9 @@ class Media():
         basename = os.path.splitext(self.metadata['filename'])[0]
         date_original = self.metadata['date_original']
         if self.metadata['original_name']:
-            date_filename = get_date_from_string(self.metadata['original_name'])
+            date_filename = utils.get_date_from_string(self.metadata['original_name'])
         else:
-            date_filename = get_date_from_string(basename)
+            date_filename = utils.get_date_from_string(basename)
 
         date_original = self.metadata['date_original']
         date_created = self.metadata['date_created']
@@ -324,76 +322,99 @@ class Media():
         else:
             return answers['album']
 
-    def get_metadata(self, loc=None, db=None, cache=False):
+    def get_metadata(self, root, loc=None, db=None, cache=False):
         """Get a dictionary of metadata from exif.
         All keys will be present and have a value of None if not obtained.
 
         :returns: dict
         """
-        self.get_exif_metadata()
-
         self.metadata = {}
-        # Retrieve selected metadata to dict
-        if not self.exif_metadata:
-            return self.metadata
+        self.metadata['checksum'] = utils.checksum(self.file_path)
 
-        for key in self.tags_keys:
+        db_checksum = False
+        location_id = None
+
+        if cache and db:
+            # Check if file_path is a subpath of root
+            if str(self.file_path).startswith(str(root)):
+                relpath = os.path.relpath(self.file_path, root)
+                db_checksum = db.get_checksum(relpath)
+                file_checksum = self.metadata['checksum']
+                # Check if checksum match
+                if db_checksum and db_checksum != file_checksum:
+                    self.logger.error(f'{self.file_path} checksum has changed')
+                    self.logger.error('(modified or corrupted file).')
+                    self.logger.error(f'file_checksum={file_checksum},\ndb_checksum={db_checksum}')
+                    self.logger.info('Use --reset-cache, check database integrity or try to restore the file')
+                    # We d'ont want to silently ignore or correct this without
+                    # resetting the cache as is could be due to file corruption
+                    sys.exit(1)
+
+        if db_checksum:
+            # Get metadata from db
             formated_data = None
-            for value in self._get_key_values(key):
+            for key in self.tags_keys:
+                if key in ('latitude', 'longitude', 'latitude_ref',
+                'longitude_ref', 'file_path'):
+                    continue
+                label = utils.snake2camel(key)
+                value = db.get_metadata_data(relpath, label)
                 if 'date' in key:
                     formated_data = self.get_date_format(value)
-                elif key in ('latitude', 'longitude'):
-                    formated_data = self.get_coordinates(key, value)
                 else:
-                    if value is not None and value != '':
-                        formated_data = value
+                    formated_data = value
+                self.metadata[key] = formated_data
+            for key in 'src_path', 'subdirs', 'filename':
+                label = utils.snake2camel(key)
+                formated_data = db.get_metadata_data(relpath, label)
+                self.metadata[key] = formated_data
+
+            location_id = db.get_metadata_data(relpath, 'LocationId')
+        else:
+            self.metadata['src_path'] = str(self.src_path)
+            self.metadata['subdirs'] = str(self.file_path.relative_to(self.src_path).parent)
+            self.metadata['filename'] = self.file_path.name
+            # Get metadata from exif
+
+            self.get_exif_metadata()
+
+            # Retrieve selected metadata to dict
+            if not self.exif_metadata:
+                return self.metadata
+
+            for key in self.tags_keys:
+                formated_data = None
+                for value in self._get_key_values(key):
+                    if 'date' in key:
+                        formated_data = self.get_date_format(value)
+                    elif key in ('latitude', 'longitude'):
+                        formated_data = self.get_coordinates(key, value)
                     else:
-                        formated_data = None
-                if formated_data:
-                    # Use this data and break
-                    break
+                        if value is not None and value != '':
+                            formated_data = value
+                        else:
+                            formated_data = None
+                    if formated_data:
+                        # Use this data and break
+                        break
 
-            self.metadata[key] = formated_data
-
-        self.metadata['src_path']  = self.root
-        self.metadata['subdirs']  = self.subdirs
-        self.metadata['filename']  = self.filename
-
-        original_name = self.metadata['original_name']
-        if  not original_name or original_name == '':
-            self.set_value('original_name', self.filename)
+                self.metadata[key] = formated_data
 
         self.metadata['date_media']  = self.get_date_media()
+        self.metadata['location_id'] = location_id
 
-        if self.album_from_folder:
-            album = self.metadata['album']
-            folder = self.folder
-            if  album and album != '':
-                if self.interactive:
-                    answer = self._set_album(album, folder)
-                    if answer == 'c':
-                        self.metadata['album'] = input('album=')
-                        self.set_value('album', folder)
-                    if answer == 'a':
-                        self.metadata['album'] = album
-                    elif answer == 'f':
-                        self.metadata['album'] = folder
-
-            if  not album or album == '':
-                self.metadata['album'] = folder
-                self.set_value('album', folder)
-
-        loc_keys = ('latitude', 'longitude', 'city', 'state', 'country', 'default')
-        location_id = None
-        if cache and db:
-            location_id = db.get_metadata_data(self.file_path, 'LocationId')
+        loc_keys = ('latitude', 'longitude', 'latitude_ref', 'longitude_ref', 'city', 'state', 'country', 'default')
 
         if location_id:
             for key in loc_keys:
                 # use str to convert non string format data like latitude and
                 # longitude
-                self.metadata[key] = str(db.get_location(location_id, key.capitalize()))
+                self.metadata[key] = str(db.get_location_data(location_id,
+                    utils.snake2camel(key)))
         elif loc:
+            for key in 'latitude', 'longitude', 'latitude_ref', 'longitude_ref':
+                self.metadata[key] = None
+
             place_name = loc.place_name(
                 self.metadata['latitude'],
                 self.metadata['longitude'],
@@ -411,7 +432,22 @@ class Media():
             for key in loc_keys:
                 self.metadata[key] = None
 
-        self.metadata['location_id'] = location_id
+
+        if self.album_from_folder:
+            album = self.metadata['album']
+            folder = self.file_path.parent.name
+            if album and album != '':
+                if self.interactive:
+                    answer = self._set_album(album, folder)
+                    if answer == 'c':
+                        self.metadata['album'] = input('album=')
+                    if answer == 'a':
+                        self.metadata['album'] = album
+                    elif answer == 'f':
+                        self.metadata['album'] = folder
+
+            if not album or album == '':
+                self.metadata['album'] = folder
 
         return self.metadata
 
@@ -496,7 +532,7 @@ class Media():
 
         :returns: bool
         """
-        return self.set_value('album', self.folder)
+        return self.set_value('album', self.file_path.parent.name)
 
 
 def get_all_subclasses(cls=None):

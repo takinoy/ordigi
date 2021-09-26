@@ -1,6 +1,30 @@
 
 from math import radians, cos, sqrt
+from datetime import datetime
+import hashlib
 import re
+
+
+def checksum(file_path, blocksize=65536):
+    """Create a hash value for the given file.
+
+    See http://stackoverflow.com/a/3431835/1318758.
+
+    :param str file_path: Path to the file to create a hash for.
+    :param int blocksize: Read blocks of this size from the file when
+        creating the hash.
+    :returns: str or None
+    """
+    hasher = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        buf = f.read(blocksize)
+
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = f.read(blocksize)
+        return hasher.hexdigest()
+    return None
+
 
 def distance_between_two_points(lat1, lon1, lat2, lon2):
     # As threshold is quite small use simple math
@@ -36,6 +60,7 @@ def get_date_regex(string, user_regex=None):
 
         for i, rx in regex.items():
             yield i, rx
+
 
 def get_date_from_string(string, user_regex=None):
     # If missing datetime from EXIF data check if filename is in datetime format.
@@ -75,17 +100,14 @@ def get_date_from_string(string, user_regex=None):
 
         return date
 
+
 # Conversion functions
 # source:https://rodic.fr/blog/camelcase-and-snake_case-strings-conversion-with-python/
 
 def snake2camel(name):
     return re.sub(r'(?:^|_)([a-z])', lambda x: x.group(1).upper(), name)
 
-def snake2camelback(name):
-    return re.sub(r'_([a-z])', lambda x: x.group(1).upper(), name)
-
 def camel2snake(name):
     return name[0].lower() + re.sub(r'(?!^)[A-Z]', lambda x: '_' + x.group(0).lower(), name[1:])
 
-def camelback2snake(name):
-    return re.sub(r'[A-Z]', lambda x: '_' + x.group(0).lower(), name)
+

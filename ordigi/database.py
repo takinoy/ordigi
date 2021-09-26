@@ -45,6 +45,7 @@ class Sqlite:
             'FilePath': 'text not null',
             'Checksum': 'text',
             'Album': 'text',
+            'Title': 'text',
             'LocationId': 'integer',
             'DateMedia': 'text',
             'DateOriginal': 'text',
@@ -52,6 +53,7 @@ class Sqlite:
             'DateModified': 'text',
             'CameraMake': 'text',
             'CameraModel': 'text',
+            'OriginalName':'text',
             'SrcPath': 'text',
             'Subdirs': 'text',
             'Filename': 'text'
@@ -114,13 +116,13 @@ class Sqlite:
         return False
 
     def _run(self, query, n=0):
-        result = None
+        result = False
         result = self.cur.execute(query).fetchone()
 
         if result:
             return result[n]
         else:
-            return None
+            return False
 
     def _run_many(self, query):
         self.cur.executemany(query, table_list)
@@ -223,7 +225,7 @@ class Sqlite:
         return self._run(query)
 
     def get_location_data(self, LocationId, data):
-        query = f"select {data} from location where ROWID='{LocationId}'"
+        query = f"select '{data}' from location where ROWID='{LocationId}'"
         return self._run(query)
 
     def get_location(self, Latitude, Longitude, column):
@@ -277,3 +279,5 @@ class Sqlite:
         sql = f'delete from {table}'
         self.cur.execute(sql)
         self.con.commit()
+
+

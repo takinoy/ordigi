@@ -16,7 +16,7 @@ from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exif
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media
-from ordigi.utils import get_date_regex
+from ordigi import utils
 
 
 class TestCollection:
@@ -75,8 +75,7 @@ class TestCollection:
                 for mask in masks:
                     matched = re.search(regex, mask)
                     if matched:
-                        part = collection.get_part(item, mask[1:-1],
-                                metadata, subdirs)
+                        part = collection.get_part(item, mask[1:-1], metadata)
                         # check if part is correct
                         assert isinstance(part, str), file_path
                         if item == 'basename':
@@ -93,7 +92,7 @@ class TestCollection:
                             assert part == file_path.suffix[1:], file_path
                         elif item == 'name':
                             expected_part = file_path.stem
-                            for i, rx in get_date_regex(expected_part):
+                            for i, rx in utils.get_date_regex(expected_part):
                                 part = re.sub(rx, '', expected_part)
                             assert part == expected_part, file_path
                         elif item == 'custom':
@@ -151,11 +150,11 @@ class TestCollection:
             src_path = Path(self.src_path, 'test_exif', 'photo.png')
             name = 'photo_' + mode + '.png'
             dest_path = Path(tmp_path, name)
-            src_checksum = collection.checksum(src_path)
+            src_checksum = utils.checksum(src_path)
             result_copy = collection.sort_file(src_path, dest_path)
             assert result_copy
             # Ensure files remain the same
-            assert collection.checkcomp(dest_path, src_checksum)
+            assert collection._checkcomp(dest_path, src_checksum)
 
             if mode == 'copy':
                 assert src_path.exists()
