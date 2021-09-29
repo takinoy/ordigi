@@ -114,11 +114,11 @@ class TestCollection:
     def test_sort_files(self, tmp_path):
         collection = Collection(tmp_path, self.path_format, album_from_folder=True)
         loc = GeoLocation()
-        summary, has_errors = collection.sort_files([self.src_path], loc)
+        summary, result = collection.sort_files([self.src_path], loc)
 
         # Summary is created and there is no errors
         assert summary, summary
-        assert not has_errors, has_errors
+        assert result, result
 
         for file_path in tmp_path.glob('**/*'):
             if '.db' not in str(file_path):
@@ -129,10 +129,12 @@ class TestCollection:
 
         # test with populated dest dir
         randomize_files(tmp_path)
-        summary, has_errors = collection.sort_files([self.src_path], loc)
+        collection = Collection(tmp_path, self.path_format, album_from_folder=True)
+        loc = GeoLocation()
+        summary, result = collection.sort_files([self.src_path], loc)
 
         assert summary, summary
-        assert not has_errors, has_errors
+        assert result, result
         # TODO check if path follow path_format
 
     def test_sort_files_invalid_db(self, tmp_path):
@@ -140,7 +142,7 @@ class TestCollection:
         loc = GeoLocation()
         randomize_db(tmp_path)
         with pytest.raises(sqlite3.DatabaseError) as e:
-            summary, has_errors = collection.sort_files([self.src_path], loc)
+            summary, result = collection.sort_files([self.src_path], loc)
 
     def test_sort_file(self, tmp_path):
 

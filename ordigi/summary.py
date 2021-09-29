@@ -18,7 +18,7 @@ class Summary(object):
             self.error += 1
             self.error_items.append(id)
 
-    def write(self):
+    def print(self):
         if self.error > 0:
             error_headers = ["File"]
             error_result = []

@@ -144,16 +144,16 @@ def sort(**kwargs):
     loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
             opt['timeout'])
 
-    summary, has_errors = collection.sort_files(paths, loc,
+    summary, result = collection.sort_files(paths, loc,
             kwargs['remove_duplicates'], kwargs['ignore_tags'])
 
     if kwargs['clean']:
         remove_empty_folders(destination, logger)
 
     if verbose or debug:
-        summary.write()
+        summary.print()
 
-    if has_errors:
+    if not result:
         sys.exit(1)
 
 
@@ -225,15 +225,15 @@ def clean(**kwargs):
                 exclude=exclude, filter_by_ext=filter_by_ext, glob=kwargs['glob'],
                 logger=logger, max_deep=kwargs['max_deep'], mode='move')
         dedup_regex = list(kwargs['dedup_regex'])
-        summary, has_errors = collection.dedup_regex(path, dedup_regex, logger, kwargs['remove_duplicates'])
+        summary, result = collection.dedup_regex(path, dedup_regex, kwargs['remove_duplicates'])
 
     if clean_all or folders:
         remove_empty_folders(path, logger)
 
     if verbose or debug:
-        summary.write()
+        summary.print()
 
-    if has_errors:
+    if not result:
         sys.exit(1)
 
 
@@ -305,7 +305,7 @@ def compare(**kwargs):
         summary, has_errors = collection.sort_similar_images(path, kwargs['similarity'])
 
     if verbose or debug:
-        summary.write()
+        summary.print()
 
     if has_errors:
         sys.exit(1)
