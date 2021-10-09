@@ -74,8 +74,6 @@ class TestMetadata:
                     assert not media.has_exif_data()
 
     def test_get_date_media(self):
-        # collection = Collection(tmp_path, self.path_format,
-        #         use_date_filename=True, use_file_dates=True)
         for file_path in self.file_paths:
             exif_data = ExifToolCaching(str(file_path)).asdict()
             media = Media(file_path, self.src_path, use_date_filename=True,

@@ -300,14 +300,14 @@ def compare(**kwargs):
             mode='move', dry_run=dry_run, logger=logger)
 
     if kwargs['revert_compare']:
-        summary, has_errors = collection.revertcompare(path, dry_run)
+        summary, result = collection.revert_compare(path)
     else:
-        summary, has_errors = collection.sort_similar_images(path, kwargs['similarity'])
+        summary, result = collection.sort_similar_images(path, kwargs['similarity'])
 
     if verbose or debug:
         summary.print()
 
-    if has_errors:
+    if not result:
         sys.exit(1)
 
 

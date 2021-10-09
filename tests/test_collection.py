@@ -11,10 +11,11 @@ from time import sleep
 
 from .conftest import randomize_files, randomize_db
 from ordigi import constants
+from ordigi.collection import Collection
 from ordigi.database import Sqlite
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
-from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
+from ordigi import log
 from ordigi.media import Media
 from ordigi import utils
 
@@ -179,7 +180,21 @@ class TestCollection:
         for path in paths:
             assert isinstance(path, Path)
 
+    def test_sort_similar_images(self, tmp_path):
+        path = tmp_path / 'collection'
+        shutil.copytree(self.src_path, path)
+        logger = log.get_logger(True, True)
+        collection = Collection(path, None, mode='move', logger=logger)
+        summary, result = collection.sort_similar_images(path, similarity=60)
 
-# TODO Sort similar images into a directory
-#    collection.sort_similar
+        # Summary is created and there is no errors
+        assert summary, summary
+        assert result, result
+
+        summary, result = collection.revert_compare(path)
+
+        # Summary is created and there is no errors
+        assert summary, summary
+        assert result, result
+
 

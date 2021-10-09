@@ -61,8 +61,11 @@ class Image():
         return True
 
     def get_hash(self):
-        with img.open(self.img_path) as img_path:
-            return imagehash.average_hash(img_path, self.hash_size).hash
+        try:
+            with img.open(self.img_path) as image:
+                return imagehash.average_hash(image, self.hash_size).hash
+        except (OSError, UnidentifiedImageError):
+            return None
 
 
 class Images():
@@ -75,33 +78,31 @@ class Images():
     #: Valid extensions for image files.
     extensions = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
 
-    def __init__(self, img_paths=set(), hash_size=8, logger=logging.getLogger()):
+    def __init__(self, images=set(), hash_size=8, logger=logging.getLogger()):
 
-        self.img_paths = img_paths
+        self.images = images
         self.duplicates = []
         self.hash_size = hash_size
         self.logger = logger
 
     def add_images(self, file_paths):
-        ''':returns: img_path generator
-        '''
         for img_path in file_paths:
             image = Image(img_path)
             if image.is_image():
-                self.img_paths.add(img_path)
+                self.images.add(image)
 
     def get_images_hashes(self):
         """Get image hashes"""
         hashes = {}
         # Searching for duplicates.
-        for img_path in self.img_paths:
-            with img.open(img_path) as img:
+        for image in self.images:
+            with img.open(image.img_path) as img:
                 yield imagehash.average_hash(img, self.hash_size)
 
     def find_duplicates(self, img_path):
         """Find duplicates"""
         duplicates = []
-        for temp_hash in get_images_hashes(self.img_paths):
+        for temp_hash in get_images_hashes():
             if temp_hash in hashes:
                 self.logger.info("Duplicate {} \nfound for image {}\n".format(img_path, hashes[temp_hash]))
                 duplicates.append(img_path)
@@ -136,28 +137,34 @@ class Images():
         return similarity_img
 
     def find_similar(self, image, similarity=80):
-        '''
+        """
         Find similar images
         :returns: img_path generator
-        '''
-        hash1 = ''
-        image = Image(image)
-        if image.is_image():
-            hash1 = image.get_hash()
+        """
+        hash1 = image.get_hash()
 
-        self.logger.info(f'Finding similar images to {image}')
+        if hash1 is None:
+            return None
+
+        self.logger.info(f'Finding similar images to {image.img_path}')
 
         threshold = 1 - similarity/100
         diff_limit = int(threshold*(self.hash_size**2))
 
-        for img_path in self.img_paths:
-            if img_path == image:
+        for img in self.images:
+            if not img.img_path.is_file():
                 continue
-            hash2 = image.get_hash()
+            if img.img_path == image.img_path:
+                continue
+            hash2 = img.get_hash()
+            # Be sure that hash are not None
+            if hash2 is None:
+                continue
+
             img_diff = self.diff(hash1, hash2)
             if img_diff <= diff_limit:
                 similarity_img = self.similarity(img_diff)
-                self.logger.info(f'{img_path} image found {similarity_img}% similar to {image}')
-                yield img_path
+                self.logger.info(f'{img.img_path} image found {similarity_img}% similar to {image}')
+                yield img.img_path
 
 
