@@ -259,16 +259,19 @@ class Sqlite:
 
         return value
 
-    def delete_row(self, table, id):
+    def delete_row(self, table, column, value):
         """
         Delete a row by row id in table
         :param table: database table
         :param id: id of the row
         :return:
         """
-        sql = f'delete from {table} where id=?'
-        self.cur.execute(sql, (id,))
+        sql = f'delete from {table} where {column}=?'
+        self.cur.execute(sql, (value,))
         self.con.commit()
+
+    def delete_filepath(self, value):
+        self.delete_row('metadata', 'FilePath', value)
 
     def delete_all_rows(self, table):
         """

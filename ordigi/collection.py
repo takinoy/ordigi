@@ -287,7 +287,6 @@ class Collection(object):
         row_data = {}
         for title in self.db.tables[table]['header']:
             key = utils.camel2snake(title)
-            # Convert Path type to str
             row_data[title] = metadata[key]
 
         return row_data
@@ -336,6 +335,10 @@ class Collection(object):
                 media.metadata['file_path'] = os.path.relpath(dest_path,
                         self.root)
                 self._add_db_data(dest_path, media.metadata)
+                if self.mode == 'move':
+                    # Delete file path entry in db when file is moved inside collection
+                    if str(self.root) in str(src_path):
+                        self.db.delete_filepath(str(src_path.relative_to(self.root)))
 
             self.summary.append((src_path, dest_path))
             record = True
