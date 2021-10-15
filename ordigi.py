@@ -237,25 +237,63 @@ def clean(**kwargs):
         sys.exit(1)
 
 
-@click.command('generate-db')
+@click.command('init')
 @add_options(_logger_options)
-@click.option('--path', type=click.Path(file_okay=False),
-              required=True, help='Path of your photo library.')
-def generate_db(**kwargs):
+@click.argument('path', required=True, nargs=1, type=click.Path())
+def init(**kwargs):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files.
     """
-    # TODO
-    pass
+    config = Config(constants.CONFIG_FILE)
+    opt = config.get_options()
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
+            opt['timeout'])
+    debug = kwargs['debug']
+    verbose = kwargs['verbose']
+    logger = log.get_logger(debug, verbose)
+    collection = Collection(kwargs['path'], None, mode='move', logger=logger)
+    summary = collection.init(loc)
+    if verbose or debug:
+        summary.print()
 
 
-@click.command('verify')
+@click.command('update')
 @add_options(_logger_options)
-@click.option('--path', type=click.Path(file_okay=False),
-              required=True, help='Path of your photo library.')
-def verify(**kwargs):
-    """Verify hashes"""
-    # TODO
-    pass
+@click.argument('path', required=True, nargs=1, type=click.Path())
+def update(**kwargs):
+    """Regenerate the hash.json database which contains all of the sha256 signatures of media files.
+    """
+    config = Config(constants.CONFIG_FILE)
+    opt = config.get_options()
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
+            opt['timeout'])
+    debug = kwargs['debug']
+    verbose = kwargs['verbose']
+    logger = log.get_logger(debug, verbose)
+    collection = Collection(kwargs['path'], None, mode='move', logger=logger)
+    summary = collection.update(loc)
+    if verbose or debug:
+        summary.print()
+
+
+@click.command('check')
+@add_options(_logger_options)
+@click.argument('path', required=True, nargs=1, type=click.Path())
+def check(**kwargs):
+    """check db and verify hashes"""
+    debug = kwargs['debug']
+    verbose = kwargs['verbose']
+    logger = log.get_logger(debug, verbose)
+    collection = Collection(kwargs['path'], None, mode='move', logger=logger)
+    result = collection.check_db()
+    if result:
+        summary, result = collection.check_files()
+        if verbose or debug:
+            summary.print()
+        if not result:
+            sys.exit(1)
+    else:
+        self.logger.error('Db data is not accurate run `ordigi init`')
+        sys.exit(1)
 
 
 @click.command('compare')
@@ -317,10 +355,11 @@ def main(**kwargs):
 
 
 main.add_command(clean)
+main.add_command(check)
 main.add_command(compare)
+main.add_command(init)
 main.add_command(sort)
-main.add_command(generate_db)
-main.add_command(verify)
+main.add_command(update)
 
 
 if __name__ == '__main__':

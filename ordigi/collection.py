@@ -291,7 +291,7 @@ class Collection(object):
 
         return row_data
 
-    def _add_db_data(self, dest_path, metadata):
+    def _add_db_data(self, metadata):
         loc_values = self._format_row_data('location', metadata)
         metadata['location_id'] = self.db.add_row('location', loc_values)
 
@@ -334,7 +334,7 @@ class Collection(object):
 
                 media.metadata['file_path'] = os.path.relpath(dest_path,
                         self.root)
-                self._add_db_data(dest_path, media.metadata)
+                self._add_db_data(media.metadata)
                 if self.mode == 'move':
                     # Delete file path entry in db when file is moved inside collection
                     if str(self.root) in str(src_path):
@@ -655,6 +655,32 @@ class Collection(object):
         ]
         return inquirer.prompt(questions, theme=self.theme)['selection']
 
+    def _get_all_files(self):
+        return [x for x in self._get_files_in_path(self.root)]
+
+    def check_db(self):
+        """
+        Check if db FilePath match to collection filesystem
+        :returns: bool
+        """
+        file_paths = [x for x in self._get_all_files()]
+        db_rows = [row['FilePath'] for row in self.db.get_rows('metadata')]
+        for file_path in file_paths:
+            relpath = os.path.relpath(file_path, self.root)
+            # If file not in database
+            if relpath not in db_rows:
+                self.logger.error('Db data is not accurate')
+                self.logger.info(f'{file_path} not in db')
+                return False
+
+        nb_files = len(file_paths)
+        nb_row = len(db_rows)
+        if nb_row != nb_files:
+            self.logger.error('Db data is not accurate')
+            return False
+
+        return True
+
     def _check_processed(self):
         # Finally check if are files are successfully processed
         n_fail = len(self.src_list) - len(self.dest_list)
@@ -662,13 +688,86 @@ class Collection(object):
             self.logger.error("{n_fail} files have not be processed")
             return False
 
-        return True
+        return self.check_db()
+
+    def init(self, loc, ignore_tags=set()):
+        record = True
+        for file_path in self._get_all_files():
+            media = Media(file_path, self.root, ignore_tags=ignore_tags,
+                    logger=self.logger, use_date_filename=self.use_date_filename,
+                    use_file_dates=self.use_file_dates)
+            metadata = media.get_metadata(self.root, loc, self.db, self.cache)
+            media.metadata['file_path'] = os.path.relpath(file_path,
+                    self.root)
+            self._add_db_data(media.metadata)
+            self.summary.append((file_path, file_path))
+
+        return self.summary
+
+    def check_files(self):
+        result = True
+        for file_path in self._get_all_files():
+            checksum = utils.checksum(file_path)
+            relpath = file_path.relative_to(self.root)
+            if checksum == self.db.get_checksum(relpath):
+                self.summary.append((file_path, file_path))
+            else:
+                self.logger.error('{file_path} is corrupted')
+                self.summary.append((file_path, False))
+                result = False
+
+        return self.summary, result
+
+    def update(self, loc, ignore_tags=set()):
+        file_paths = [x for x in self._get_all_files()]
+        db_rows = [row for row in self.db.get_rows('metadata')]
+        invalid_db_rows = set()
+        for db_row in db_rows:
+            abspath = self.root / db_row['FilePath']
+            if abspath not in file_paths:
+                invalid_db_rows.add(db_row)
+
+        for file_path in file_paths:
+            relpath = os.path.relpath(file_path, self.root)
+            # If file not in database
+            if relpath not in db_rows:
+                media = Media(file_path, self.root, ignore_tags=ignore_tags,
+                        logger=self.logger, use_date_filename=self.use_date_filename,
+                        use_file_dates=self.use_file_dates)
+                metadata = media.get_metadata(self.root, loc, self.db, self.cache)
+                media.metadata['file_path'] = relpath
+                # Check if file checksum is in invalid rows
+                row = []
+                for row in invalid_db_rows:
+                    if row['Checksum'] == media.metadata['checksum']:
+                        # file have been moved without registering to db
+                        media.metadata['src_path'] = row['SrcPath']
+                        # Check if row FilePath is a subpath of relpath
+                        if relpath.startswith(row['FilePath']):
+                            d = os.path.relpath(relpath, row['FilePath'])
+                            media.metadata['subdirs'] = row['Subdirs'] + d
+                        media.metadata['Filename'] = row['Filename']
+                        break
+                # set row attribute to the file
+                self._add_db_data(media.metadata)
+                self.summary.append((file_path, file_path))
+
+        # Finally delete invalid rows
+        for row in invalid_db_rows:
+            self.db.delete_filepath(row['FilePath'])
+
+        return self.summary
 
     def sort_files(self, paths, loc, remove_duplicates=False,
             ignore_tags=set()):
         """
         Sort files into appropriate folder
         """
+        # Check db
+        if not self.check_db():
+            self.logger.error('Db data is not accurate run `ordigi init`')
+            sys.exit(1)
+
         result = False
         files_data = []
         for path in paths:
@@ -751,10 +850,16 @@ class Collection(object):
 
     def sort_similar_images(self, path, similarity=80):
 
+        # Check db
+        if not self.check_db():
+            self.logger.error('Db data is not accurate run `ordigi init`')
+            sys.exit(1)
+
         result = True
         path = self._check_path(path)
         images = set([ x for x in self._get_images(path) ])
         i = Images(images, logger=self.logger)
+        nb_row_ini = self.db.len('metadata')
         for image in images:
             if not image.img_path.is_file():
                 continue
@@ -794,14 +899,27 @@ class Collection(object):
                     self.summary.append((img_path, False))
                     result = False
 
+        nb_row_end = self.db.len('metadata')
+        if nb_row_ini and nb_row_ini != nb_row_end:
+            self.logger.error('Nb of row have changed unexpectedly')
+            result = False
+
+        if result:
+            result = self.check_db()
+
         return self.summary, result
 
     def revert_compare(self, path):
+
+        if not self.check_db():
+            self.logger.error('Db data is not accurate run `ordigi init`')
+            sys.exit(1)
 
         result = True
         path = self._check_path(path)
         dirnames = set()
         moved_files = set()
+        nb_row_ini = self.db.len('metadata')
         for src_path in self._get_files_in_path(path, glob=self.glob,
                 extensions=self.filter_by_ext):
             dirname = src_path.parent.name
@@ -826,6 +944,14 @@ class Collection(object):
                 dirname.rmdir()
             except OSError as error:
                 self.logger.error(error)
+
+        nb_row_end = self.db.len('metadata')
+        if nb_row_ini and nb_row_ini != nb_row_end:
+            self.logger.error('Nb of row have changed unexpectedly')
+            result = False
+
+        if result:
+            result = self.check_db()
 
         return self.summary, result
 

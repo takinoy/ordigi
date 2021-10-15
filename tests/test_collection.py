@@ -26,6 +26,7 @@ class TestCollection:
     def setup_class(cls, sample_files_paths):
         cls.src_path, cls.file_paths = sample_files_paths
         cls.path_format = constants.default_path + '/' + constants.default_name
+        cls.logger = log.get_logger(True, True)
 
     def teardown_class(self):
         terminate_exiftool()
@@ -113,11 +114,16 @@ class TestCollection:
                             assert part == '', file_path
 
     def test_sort_files(self, tmp_path):
-        collection = Collection(tmp_path, self.path_format, album_from_folder=True)
+        collection = Collection(tmp_path, self.path_format,
+                album_from_folder=True, logger=self.logger)
         loc = GeoLocation()
         summary, result = collection.sort_files([self.src_path], loc)
 
         # Summary is created and there is no errors
+        assert summary, summary
+        assert result, result
+
+        summary, result = collection.check_files()
         assert summary, summary
         assert result, result
 
@@ -130,12 +136,21 @@ class TestCollection:
 
         # test with populated dest dir
         randomize_files(tmp_path)
+        summary, result = collection.check_files()
+        assert summary, summary
+        assert not result, result
+
+        collection = Collection(tmp_path, None, mode='move', logger=self.logger)
+        summary = collection.update(loc)
+        assert summary, summary
+
         collection = Collection(tmp_path, self.path_format, album_from_folder=True)
         loc = GeoLocation()
         summary, result = collection.sort_files([self.src_path], loc)
 
         assert summary, summary
         assert result, result
+
         # TODO check if path follow path_format
 
     def test_sort_files_invalid_db(self, tmp_path):
@@ -183,8 +198,9 @@ class TestCollection:
     def test_sort_similar_images(self, tmp_path):
         path = tmp_path / 'collection'
         shutil.copytree(self.src_path, path)
-        logger = log.get_logger(True, True)
-        collection = Collection(path, None, mode='move', logger=logger)
+        collection = Collection(path, None, mode='move', logger=self.logger)
+        loc = GeoLocation()
+        summary = collection.init(loc)
         summary, result = collection.sort_similar_images(path, similarity=60)
 
         # Summary is created and there is no errors

@@ -211,26 +211,26 @@ class Sqlite:
 
         return self.add_row(table, row_data)
 
-    def get_checksum(self, FilePath):
-        query = f"select Checksum from metadata where FilePath='{FilePath}'"
+    def get_checksum(self, file_path):
+        query = f"select Checksum from metadata where FilePath='{file_path}'"
         return self._run(query)
 
-    def get_metadata_data(self, FilePath, data):
-        query = f"select {data} from metadata where FilePath='{FilePath}'"
+    def get_metadata_data(self, file_path, data):
+        query = f"select {data} from metadata where FilePath='{file_path}'"
         return self._run(query)
 
-    def match_location(self, Latitude, Longitude):
-        query = f"""select 1 from location where Latitude='{Latitude}'
-                and Longitude='{Longitude}'"""
+    def match_location(self, latitude, longitude):
+        query = f"""select 1 from location where Latitude='{latitude}'
+                and Longitude='{longitude}'"""
         return self._run(query)
 
-    def get_location_data(self, LocationId, data):
-        query = f"select '{data}' from location where ROWID='{LocationId}'"
+    def get_location_data(self, location_id, data):
+        query = f"select '{data}' from location where ROWID='{location_id}'"
         return self._run(query)
 
-    def get_location(self, Latitude, Longitude, column):
-        query = f"""select {column} from location where Latitude='{Latitude}'
-        and Longitude='{Longitude}'"""
+    def get_location(self, latitude, longitude, column):
+        query = f"""select {column} from location where Latitude='{latitude}'
+        and Longitude='{longitude}'"""
         return self._run(query)
 
     def _get_table(self, table):
@@ -283,4 +283,15 @@ class Sqlite:
         self.cur.execute(sql)
         self.con.commit()
 
+    def len(self, table):
+        sql = f'select count() from {table}'
+        return self._run(sql)
 
+    def get_rows(self, table):
+        """Cycle through rows in table
+        :params: str
+        :return: iter
+        """
+        self.cur.execute(f'select * from {table}')
+        for row in self.cur:
+            yield row
