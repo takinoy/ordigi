@@ -2,7 +2,6 @@ from tabulate import tabulate
 
 
 class Summary(object):
-
     def __init__(self):
         self.records = []
         self.success = 0
@@ -31,9 +30,9 @@ class Summary(object):
 
         headers = ["Metric", "Count"]
         result = [
-                    ["Success", self.success],
-                    ["Error", self.error],
-                 ]
+            ["Success", self.success],
+            ["Error", self.error],
+        ]
 
         print()
         print('Summary:')

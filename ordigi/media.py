@@ -8,6 +8,7 @@ import mimetypes
 import os
 import re
 import sys
+
 # import pprint
 
 # load modules
@@ -17,17 +18,14 @@ from ordigi import utils
 from ordigi import request
 
 
-class Media():
+class Media:
 
     """The media class for all media objects.
 
     :param str file_path: The fully qualified path to the media file.
     """
 
-    d_coordinates = {
-        'latitude': 'latitude_ref',
-        'longitude': 'longitude_ref'
-    }
+    d_coordinates = {'latitude': 'latitude_ref', 'longitude': 'longitude_ref'}
 
     PHOTO = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
     AUDIO = ('m4a',)
@@ -35,9 +33,17 @@ class Media():
 
     extensions = PHOTO + AUDIO + VIDEO
 
-    def __init__(self, file_path, src_path, album_from_folder=False,
-            ignore_tags=set(), interactive=False, logger=logging.getLogger(),
-            use_date_filename=False, use_file_dates=False):
+    def __init__(
+        self,
+        file_path,
+        src_path,
+        album_from_folder=False,
+        ignore_tags=set(),
+        interactive=False,
+        logger=logging.getLogger(),
+        use_date_filename=False,
+        use_file_dates=False,
+    ):
         """
         :params: Path, Path, bool, set, bool, Logger
         """
@@ -61,19 +67,16 @@ class Media():
         tags_keys['date_original'] = [
             'EXIF:DateTimeOriginal',
             'H264:DateTimeOriginal',
-            'QuickTime:ContentCreateDate'
+            'QuickTime:ContentCreateDate',
         ]
         tags_keys['date_created'] = [
             'EXIF:CreateDate',
             'QuickTime:CreationDate',
             'QuickTime:CreateDate',
             'QuickTime:CreationDate-und-US',
-            'QuickTime:MediaCreateDate'
+            'QuickTime:MediaCreateDate',
         ]
-        tags_keys['date_modified'] = [
-            'File:FileModifyDate',
-            'QuickTime:ModifyDate'
-        ]
+        tags_keys['date_modified'] = ['File:FileModifyDate', 'QuickTime:ModifyDate']
         tags_keys['camera_make'] = ['EXIF:Make', 'QuickTime:Make']
         tags_keys['camera_model'] = ['EXIF:Model', 'QuickTime:Model']
         tags_keys['album'] = ['XMP-xmpDM:Album', 'XMP:Album']
@@ -82,13 +85,13 @@ class Media():
             'EXIF:GPSLatitude',
             'XMP:GPSLatitude',
             # 'QuickTime:GPSLatitude',
-            'Composite:GPSLatitude'
+            'Composite:GPSLatitude',
         ]
         tags_keys['longitude'] = [
             'EXIF:GPSLongitude',
             'XMP:GPSLongitude',
             # 'QuickTime:GPSLongitude',
-            'Composite:GPSLongitude'
+            'Composite:GPSLongitude',
         ]
         tags_keys['latitude_ref'] = ['EXIF:GPSLatitudeRef']
         tags_keys['longitude_ref'] = ['EXIF:GPSLongitudeRef']
@@ -100,7 +103,7 @@ class Media():
             for key, tags in tags_keys.items():
                 for n, tag in enumerate(tags):
                     if re.match(tag_regex, tag):
-                        del(tags_keys[key][n])
+                        del tags_keys[key][n]
 
         return tags_keys
 
@@ -119,7 +122,7 @@ class Media():
         :returns: str or None
         """
         mimetype = mimetypes.guess_type(self.file_path)
-        if(mimetype is None):
+        if mimetype is None:
             return None
 
         return mimetype[0]
@@ -143,7 +146,7 @@ class Media():
         """
         if self.exif_metadata is None:
             return None
-        if(tag not in self.exif_metadata):
+        if tag not in self.exif_metadata:
             return None
 
         return self.exif_metadata[tag]
@@ -161,10 +164,10 @@ class Media():
         try:
             # correct nasty formated date
             regex = re.compile(r'(\d{4}):(\d{2}):(\d{2})')
-            if(re.match(regex , value) is not None):  # noqa
-                value = re.sub(regex , r'\g<1>-\g<2>-\g<3>', value)
+            if re.match(regex, value) is not None:  # noqa
+                value = re.sub(regex, r'\g<1>-\g<2>-\g<3>', value)
             return parse(value)
-        except BaseException  or dateutil.parser._parser.ParserError as e:
+        except BaseException or dateutil.parser._parser.ParserError as e:
             self.logger.warning(e.args, value)
             return None
 
@@ -207,15 +210,16 @@ class Media():
     def _get_date_media_interactive(self, choices, default):
         print(f"Date conflict for file: {self.file_path}")
         choices_list = [
-            inquirer.List('date_list',
+            inquirer.List(
+                'date_list',
                 message=f"Choice appropriate original date",
                 choices=choices,
-                default=default
+                default=default,
             ),
         ]
         prompt = [
             inquirer.Text('date_custom', message="date"),
-                ]
+        ]
 
         answers = inquirer.prompt(choices_list, theme=self.theme)
         if not answers['date_list']:
@@ -243,8 +247,10 @@ class Media():
         date_created = self.metadata['date_created']
         date_modified = self.metadata['date_modified']
         if self.metadata['date_original']:
-            if (date_filename and date_filename != date_original):
-                self.logger.warning(f"{basename} time mark is different from {date_original}")
+            if date_filename and date_filename != date_original:
+                self.logger.warning(
+                    f"{basename} time mark is different from {date_original}"
+                )
                 if self.interactive:
                     # Ask for keep date taken, filename time, or neither
                     choices = [
@@ -260,9 +266,13 @@ class Media():
         self.logger.warning(f"could not find original date for {self.file_path}")
 
         if self.use_date_filename and date_filename:
-            self.logger.info(f"use date from filename:{date_filename} for {self.file_path}")
+            self.logger.info(
+                f"use date from filename:{date_filename} for {self.file_path}"
+            )
             if date_created and date_filename > date_created:
-                self.logger.warning(f"{basename} time mark is more recent than {date_created}")
+                self.logger.warning(
+                    f"{basename} time mark is more recent than {date_created}"
+                )
                 if self.interactive:
                     choices = [
                         (f"date filename:'{date_filename}'", date_filename),
@@ -276,16 +286,19 @@ class Media():
 
         elif self.use_file_dates:
             if date_created:
-                self.logger.warning(f"use date created:{date_created} for {self.file_path}")
+                self.logger.warning(
+                    f"use date created:{date_created} for {self.file_path}"
+                )
                 return date_created
             elif date_modified:
-                self.logger.warning(f"use date modified:{date_modified} for {self.file_path}")
+                self.logger.warning(
+                    f"use date modified:{date_modified} for {self.file_path}"
+                )
                 return date_modified
         elif self.interactive:
             choices = []
             if date_filename:
-                choices.append((f"date filename:'{date_filename}'",
-                    date_filename))
+                choices.append((f"date filename:'{date_filename}'", date_filename))
             if date_created:
                 choices.append((f"date created:'{date_created}'", date_created))
             if date_modified:
@@ -296,24 +309,27 @@ class Media():
 
     def get_exif_metadata(self):
         # Get metadata from exiftool.
-        self.exif_metadata = ExifToolCaching(self.file_path, logger=self.logger).asdict()
+        self.exif_metadata = ExifToolCaching(
+            self.file_path, logger=self.logger
+        ).asdict()
 
     def _set_album(self, album, folder):
         print(f"Metadata conflict for file: {self.file_path}")
         choices_list = [
-            inquirer.List('album',
+            inquirer.List(
+                'album',
                 message=f"Exif album is already set to {album}, choices",
                 choices=[
                     (f"album:'{album}'", album),
                     (f"folder:'{folder}'", folder),
                     ("custom", None),
-                    ],
-                default=f'{album}'
+                ],
+                default=f'{album}',
             ),
         ]
         prompt = [
             inquirer.Text('custom', message="album"),
-                ]
+        ]
 
         answers = inquirer.prompt(choices_list, theme=self.theme)
         if not answers['album']:
@@ -344,8 +360,12 @@ class Media():
                 if db_checksum and db_checksum != file_checksum:
                     self.logger.error(f'{self.file_path} checksum has changed')
                     self.logger.error('(modified or corrupted file).')
-                    self.logger.error(f'file_checksum={file_checksum},\ndb_checksum={db_checksum}')
-                    self.logger.info('Use --reset-cache, check database integrity or try to restore the file')
+                    self.logger.error(
+                        f'file_checksum={file_checksum},\ndb_checksum={db_checksum}'
+                    )
+                    self.logger.info(
+                        'Use --reset-cache, check database integrity or try to restore the file'
+                    )
                     # We d'ont want to silently ignore or correct this without
                     # resetting the cache as is could be due to file corruption
                     sys.exit(1)
@@ -354,8 +374,13 @@ class Media():
             # Get metadata from db
             formated_data = None
             for key in self.tags_keys:
-                if key in ('latitude', 'longitude', 'latitude_ref',
-                'longitude_ref', 'file_path'):
+                if key in (
+                    'latitude',
+                    'longitude',
+                    'latitude_ref',
+                    'longitude_ref',
+                    'file_path',
+                ):
                     continue
                 label = utils.snake2camel(key)
                 value = db.get_metadata_data(relpath, label)
@@ -372,7 +397,9 @@ class Media():
             location_id = db.get_metadata_data(relpath, 'LocationId')
         else:
             self.metadata['src_path'] = str(self.src_path)
-            self.metadata['subdirs'] = str(self.file_path.relative_to(self.src_path).parent)
+            self.metadata['subdirs'] = str(
+                self.file_path.relative_to(self.src_path).parent
+            )
             self.metadata['filename'] = self.file_path.name
             # Get metadata from exif
 
@@ -400,30 +427,38 @@ class Media():
 
                 self.metadata[key] = formated_data
 
-        self.metadata['date_media']  = self.get_date_media()
+        self.metadata['date_media'] = self.get_date_media()
         self.metadata['location_id'] = location_id
 
-        loc_keys = ('latitude', 'longitude', 'latitude_ref', 'longitude_ref', 'city', 'state', 'country', 'default')
+        loc_keys = (
+            'latitude',
+            'longitude',
+            'latitude_ref',
+            'longitude_ref',
+            'city',
+            'state',
+            'country',
+            'default',
+        )
 
         if location_id:
             for key in loc_keys:
                 # use str to convert non string format data like latitude and
                 # longitude
-                self.metadata[key] = str(db.get_location_data(location_id,
-                    utils.snake2camel(key)))
+                self.metadata[key] = str(
+                    db.get_location_data(location_id, utils.snake2camel(key))
+                )
         elif loc:
             for key in 'latitude', 'longitude', 'latitude_ref', 'longitude_ref':
                 self.metadata[key] = None
 
             place_name = loc.place_name(
-                self.metadata['latitude'],
-                self.metadata['longitude'],
-                self.logger
+                self.metadata['latitude'], self.metadata['longitude'], self.logger
             )
             for key in ('city', 'state', 'country', 'default'):
                 # mask = 'city'
                 # place_name = {'default': u'Sunnyvale', 'city-random': u'Sunnyvale'}
-                if(key in place_name):
+                if key in place_name:
                     self.metadata[key] = place_name[key]
                 else:
                     self.metadata[key] = None
@@ -431,7 +466,6 @@ class Media():
         else:
             for key in loc_keys:
                 self.metadata[key] = None
-
 
         if self.album_from_folder:
             album = self.metadata['album']
@@ -463,9 +497,10 @@ class Media():
         return False
 
     @classmethod
-    def get_class_by_file(cls, _file, classes, ignore_tags=set(), logger=logging.getLogger()):
-        """Static method to get a media object by file.
-        """
+    def get_class_by_file(
+        cls, _file, classes, ignore_tags=set(), logger=logging.getLogger()
+    ):
+        """Static method to get a media object by file."""
         if not os.path.isfile(_file):
             return None
 
@@ -473,7 +508,7 @@ class Media():
 
         if len(extension) > 0:
             for i in classes:
-                if(extension in i.extensions):
+                if extension in i.extensions:
                     return i(_file, ignore_tags=ignore_tags, logger=logger)
 
         return Media(_file, logger, ignore_tags=ignore_tags, logger=logger)
@@ -491,7 +526,7 @@ class Media():
         :param datetime time: datetime object of when the photo was taken
         :returns: bool
         """
-        if(time is None):
+        if time is None:
             return False
 
         formatted_time = time.strftime('%Y:%m:%d %H:%M:%S')
@@ -513,7 +548,7 @@ class Media():
 
         status.append(self.set_value('latitude', latitude))
 
-        if  self.metadata['longitude_ref']:
+        if self.metadata['longitude_ref']:
             longitude = abs(longitude)
             if longitude > 0:
                 status.append(self.set_value('latitude_ref', 'E'))
@@ -536,8 +571,7 @@ class Media():
 
 
 def get_all_subclasses(cls=None):
-    """Module method to get all subclasses of Media.
-    """
+    """Module method to get all subclasses of Media."""
     subclasses = set()
 
     this_class = Media
@@ -559,12 +593,12 @@ def get_media_class(_file, ignore_tags=set(), logger=logging.getLogger()):
         logger.error(f'Could not find {_file}')
         return False
 
-    media = Media.get_class_by_file(_file, get_all_subclasses(),
-            ignore_tags=set(), logger=logger)
+    media = Media.get_class_by_file(
+        _file, get_all_subclasses(), ignore_tags=set(), logger=logger
+    )
     if not media:
         logger.warning(f'File{_file} is not supported')
         logger.error(f'File {_file} can\'t be imported')
         return False
 
     return media
-

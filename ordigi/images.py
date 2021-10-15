@@ -18,6 +18,7 @@ import time
 PYHEIF = False
 try:
     from pyheif_pillow_opener import register_heif_opener
+
     PYHEIF = True
     # Allow to open HEIF/HEIC image from pillow
     register_heif_opener()
@@ -25,8 +26,7 @@ except ImportError as e:
     logging.info(e)
 
 
-class Image():
-
+class Image:
     def __init__(self, img_path, hash_size=8):
 
         self.img_path = img_path
@@ -55,7 +55,7 @@ class Image():
             except (IOError, UnidentifiedImageError):
                 return False
 
-            if(im.format is None):
+            if im.format is None:
                 return False
 
         return True
@@ -68,7 +68,7 @@ class Image():
             return None
 
 
-class Images():
+class Images:
 
     """A image object.
 
@@ -76,7 +76,18 @@ class Images():
     """
 
     #: Valid extensions for image files.
-    extensions = ('arw', 'cr2', 'dng', 'gif', 'heic', 'jpeg', 'jpg', 'nef', 'png', 'rw2')
+    extensions = (
+        'arw',
+        'cr2',
+        'dng',
+        'gif',
+        'heic',
+        'jpeg',
+        'jpg',
+        'nef',
+        'png',
+        'rw2',
+    )
 
     def __init__(self, images=set(), hash_size=8, logger=logging.getLogger()):
 
@@ -104,7 +115,11 @@ class Images():
         duplicates = []
         for temp_hash in get_images_hashes():
             if temp_hash in hashes:
-                self.logger.info("Duplicate {} \nfound for image {}\n".format(img_path, hashes[temp_hash]))
+                self.logger.info(
+                    "Duplicate {} \nfound for image {}\n".format(
+                        img_path, hashes[temp_hash]
+                    )
+                )
                 duplicates.append(img_path)
             else:
                 hashes[temp_hash] = img_path
@@ -121,7 +136,7 @@ class Images():
     def remove_duplicates_interactive(self, duplicates):
         if len(duplicates) != 0:
             answer = input(f"Do you want to delete these {duplicates} images? Y/n: ")
-            if(answer.strip().lower() == 'y'):
+            if answer.strip().lower() == 'y':
                 self.remove_duplicates(duplicates)
                 self.logger.info(f'{duplicate} deleted successfully!')
         else:
@@ -131,7 +146,7 @@ class Images():
         return np.count_nonzero(hash1 != hash2)
 
     def similarity(self, img_diff):
-        threshold_img = img_diff / (self.hash_size**2)
+        threshold_img = img_diff / (self.hash_size ** 2)
         similarity_img = round((1 - threshold_img) * 100)
 
         return similarity_img
@@ -148,8 +163,8 @@ class Images():
 
         self.logger.info(f'Finding similar images to {image.img_path}')
 
-        threshold = 1 - similarity/100
-        diff_limit = int(threshold*(self.hash_size**2))
+        threshold = 1 - similarity / 100
+        diff_limit = int(threshold * (self.hash_size ** 2))
 
         for img in self.images:
             if not img.img_path.is_file():
@@ -164,7 +179,7 @@ class Images():
             img_diff = self.diff(hash1, hash2)
             if img_diff <= diff_limit:
                 similarity_img = self.similarity(img_diff)
-                self.logger.info(f'{img.img_path} image found {similarity_img}% similar to {image}')
+                self.logger.info(
+                    f'{img.img_path} image found {similarity_img}% similar to {image}'
+                )
                 yield img.img_path
-
-

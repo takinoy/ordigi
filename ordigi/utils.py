@@ -1,4 +1,3 @@
-
 from math import radians, cos, sqrt
 from datetime import datetime
 import hashlib
@@ -30,15 +29,13 @@ def distance_between_two_points(lat1, lon1, lat2, lon2):
     # As threshold is quite small use simple math
     # From http://stackoverflow.com/questions/15736995/how-can-i-quickly-estimate-the-distance-between-two-latitude-longitude-points  # noqa
     # convert decimal degrees to radians
-    lat1, lon1, lat2, lon2 = list(map(
-        radians,
-        [lat1, lon1, lat2, lon2]
-    ))
+    lat1, lon1, lat2, lon2 = list(map(radians, [lat1, lon1, lat2, lon2]))
 
     r = 6371000  # radius of the earth in m
     x = (lon2 - lon1) * cos(0.5 * (lat2 + lat1))
     y = lat2 - lat1
     return r * sqrt(x * x + y * y)
+
 
 def get_date_regex(string, user_regex=None):
     if user_regex is not None:
@@ -48,15 +45,19 @@ def get_date_regex(string, user_regex=None):
             # regex to match date format type %Y%m%d, %y%m%d, %d%m%Y,
             # etc...
             'a': re.compile(
-                r'.*[_-]?(?P<year>\d{4})[_-]?(?P<month>\d{2})[_-]?(?P<day>\d{2})[_-]?(?P<hour>\d{2})[_-]?(?P<minute>\d{2})[_-]?(?P<second>\d{2})'),
-            'b': re.compile (
-                r'[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
+                r'.*[_-]?(?P<year>\d{4})[_-]?(?P<month>\d{2})[_-]?(?P<day>\d{2})[_-]?(?P<hour>\d{2})[_-]?(?P<minute>\d{2})[_-]?(?P<second>\d{2})'
+            ),
+            'b': re.compile(
+                r'[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'
+            ),
             # not very accurate
-            'c': re.compile (
-                r'[-_./](?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'),
-            'd': re.compile (
-            r'[-_./](?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})[-_./]')
-            }
+            'c': re.compile(
+                r'[-_./](?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'
+            ),
+            'd': re.compile(
+                r'[-_./](?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})[-_./]'
+            ),
+        }
 
         for i, rx in regex.items():
             yield i, rx
@@ -104,10 +105,12 @@ def get_date_from_string(string, user_regex=None):
 # Conversion functions
 # source:https://rodic.fr/blog/camelcase-and-snake_case-strings-conversion-with-python/
 
+
 def snake2camel(name):
     return re.sub(r'(?:^|_)([a-z])', lambda x: x.group(1).upper(), name)
 
+
 def camel2snake(name):
-    return name[0].lower() + re.sub(r'(?!^)[A-Z]', lambda x: '_' + x.group(0).lower(), name[1:])
-
-
+    return name[0].lower() + re.sub(
+        r'(?!^)[A-Z]', lambda x: '_' + x.group(0).lower(), name[1:]
+    )

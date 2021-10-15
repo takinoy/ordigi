@@ -1,4 +1,3 @@
-
 from datetime import datetime
 import json
 import os
@@ -29,11 +28,7 @@ class Sqlite:
                 pass
 
         self.db_type = 'SQLite format 3'
-        self.types = {
-            'text': (str, datetime),
-            'integer': (int,),
-            'real': (float,)
-            }
+        self.types = {'text': (str, datetime), 'integer': (int,), 'real': (float,)}
 
         self.filename = Path(db_dir, target_dir.name + '.db')
         self.con = sqlite3.connect(self.filename)
@@ -53,10 +48,10 @@ class Sqlite:
             'DateModified': 'text',
             'CameraMake': 'text',
             'CameraModel': 'text',
-            'OriginalName':'text',
+            'OriginalName': 'text',
             'SrcPath': 'text',
             'Subdirs': 'text',
-            'Filename': 'text'
+            'Filename': 'text',
         }
 
         location_header = {
@@ -67,18 +62,15 @@ class Sqlite:
             'City': 'text',
             'State': 'text',
             'Country': 'text',
-            'Default': 'text'
+            'Default': 'text',
         }
 
         self.tables = {
-            'metadata': {
-                'header': metadata_header,
-                'primary_keys': ('FilePath',)
-            },
+            'metadata': {'header': metadata_header, 'primary_keys': ('FilePath',)},
             'location': {
                 'header': location_header,
-                'primary_keys': ('Latitude', 'Longitude')
-            }
+                'primary_keys': ('Latitude', 'Longitude'),
+            },
         }
 
         self.primary_metadata_keys = self.tables['metadata']['primary_keys']
@@ -91,7 +83,7 @@ class Sqlite:
     def is_Sqlite3(self, filename):
         if not os.path.isfile(filename):
             return False
-        if os.path.getsize(filename) < 100: # SQLite database file header is 100 bytes
+        if os.path.getsize(filename) < 100:  # SQLite database file header is 100 bytes
             return False
 
         with open(filename, 'rb') as fd:
@@ -104,7 +96,9 @@ class Sqlite:
 
         try:
             # get the count of tables with the name
-            self.cur.execute(f"select count(name) from sqlite_master where type='table' and name='{table}'")
+            self.cur.execute(
+                f"select count(name) from sqlite_master where type='table' and name='{table}'"
+            )
         except sqlite3.DatabaseError as e:
             # raise type(e)(e.message + ' :{self.filename} %s' % arg1)
             raise sqlite3.DatabaseError(f"{self.filename} is not valid database")
@@ -156,8 +150,10 @@ class Sqlite:
         """
         header = self.tables[table]['header']
         if len(row_data) != len(header):
-            raise ValueError(f'''Table {table} length mismatch: row_data
-            {row_data}, header {header}''')
+            raise ValueError(
+                f'''Table {table} length mismatch: row_data
+            {row_data}, header {header}'''
+            )
 
         columns = ', '.join(row_data.keys())
         placeholders = ', '.join('?' * len(row_data))
@@ -204,8 +200,9 @@ class Sqlite:
         :returns: bool
         """
         if not self.tables[table]['header']:
-            result = self.build_table(table, row_data,
-                    self.tables[table]['primary_keys'])
+            result = self.build_table(
+                table, row_data, self.tables[table]['primary_keys']
+            )
             if not result:
                 return False
 
@@ -236,8 +233,7 @@ class Sqlite:
     def _get_table(self, table):
         self.cur.execute(f'SELECT * FROM {table}').fetchall()
 
-    def get_location_nearby(self, latitude, longitude, Column,
-            threshold_m=3000):
+    def get_location_nearby(self, latitude, longitude, Column, threshold_m=3000):
         """Find a name for a location in the database.
 
         :param float latitude: Latitude of the location.
@@ -250,10 +246,9 @@ class Sqlite:
         value = None
         self.cur.execute('SELECT * FROM location')
         for row in self.cur:
-            distance = distance_between_two_points(latitude, longitude,
-                    row[0], row[1])
+            distance = distance_between_two_points(latitude, longitude, row[0], row[1])
             # Use if closer then threshold_km reuse lookup
-            if(distance < shorter_distance and distance <= threshold_m):
+            if distance < shorter_distance and distance <= threshold_m:
                 shorter_distance = distance
                 value = row[Column]
 

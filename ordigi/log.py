@@ -1,5 +1,6 @@
 import logging
 
+
 def get_logger(verbose, debug):
     if debug:
         level = logging.DEBUG
@@ -13,4 +14,3 @@ def get_logger(verbose, debug):
     logger = logging.getLogger('ordigi')
     logger.level = level
     return logger
-

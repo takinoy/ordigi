@@ -60,7 +60,7 @@ class Config:
 
         options = {}
         geocoder = self.get_option('geocoder', 'Geolocation')
-        if geocoder and geocoder in ('Nominatim', ):
+        if geocoder and geocoder in ('Nominatim',):
             options['geocoder'] = geocoder
         else:
             options['geocoder'] = constants.default_geocoder
@@ -89,4 +89,3 @@ class Config:
             options['exclude'] = [value for key, value in self.conf.items('Exclusions')]
 
         return options
-

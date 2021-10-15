@@ -28,14 +28,14 @@ def exiftool_is_running():
 
 @atexit.register
 def terminate_exiftool():
-    """Terminate any running ExifTool subprocesses; call this to cleanup when done using ExifTool """
+    """Terminate any running ExifTool subprocesses; call this to cleanup when done using ExifTool"""
     for proc in EXIFTOOL_PROCESSES:
         proc._stop_proc()
 
 
 @lru_cache(maxsize=1)
 def get_exiftool_path():
-    """ return path of exiftool, cache result """
+    """return path of exiftool, cache result"""
     exiftool_path = shutil.which("exiftool")
     if exiftool_path:
         return exiftool_path.rstrip()
@@ -51,7 +51,7 @@ class _ExifToolProc:
     Creates a singleton object"""
 
     def __new__(cls, *args, **kwargs):
-        """ create new object or return instance of already created singleton """
+        """create new object or return instance of already created singleton"""
         if not hasattr(cls, "instance") or not cls.instance:
             cls.instance = super().__new__(cls)
 
@@ -77,7 +77,7 @@ class _ExifToolProc:
 
     @property
     def process(self):
-        """ return the exiftool subprocess """
+        """return the exiftool subprocess"""
         if self._process_running:
             return self._process
         else:
@@ -86,16 +86,16 @@ class _ExifToolProc:
 
     @property
     def pid(self):
-        """ return process id (PID) of the exiftool process """
+        """return process id (PID) of the exiftool process"""
         return self._process.pid
 
     @property
     def exiftool(self):
-        """ return path to exiftool process """
+        """return path to exiftool process"""
         return self._exiftool
 
     def _start_proc(self):
-        """ start exiftool in batch mode """
+        """start exiftool in batch mode"""
 
         if self._process_running:
             self.logger.warning("exiftool already running: {self._process}")
@@ -123,7 +123,7 @@ class _ExifToolProc:
         EXIFTOOL_PROCESSES.append(self)
 
     def _stop_proc(self):
-        """ stop the exiftool process if it's running, otherwise, do nothing """
+        """stop the exiftool process if it's running, otherwise, do nothing"""
 
         if not self._process_running:
             return
@@ -146,9 +146,16 @@ class _ExifToolProc:
 
 
 class ExifTool:
-    """ Basic exiftool interface for reading and writing EXIF tags """
+    """Basic exiftool interface for reading and writing EXIF tags"""
 
-    def __init__(self, filepath, exiftool=None, overwrite=True, flags=None, logger=logging.getLogger()):
+    def __init__(
+        self,
+        filepath,
+        exiftool=None,
+        overwrite=True,
+        flags=None,
+        logger=logging.getLogger(),
+    ):
         """Create ExifTool object
 
         Args:
@@ -318,12 +325,12 @@ class ExifTool:
 
     @property
     def pid(self):
-        """ return process id (PID) of the exiftool process """
+        """return process id (PID) of the exiftool process"""
         return self._process.pid
 
     @property
     def version(self):
-        """ returns exiftool version """
+        """returns exiftool version"""
         ver, _, _ = self.run_commands("-ver", no_file=True)
         return ver.decode("utf-8")
 
@@ -361,12 +368,12 @@ class ExifTool:
         return exifdict
 
     def json(self):
-        """ returns JSON string containing all EXIF tags and values from exiftool """
+        """returns JSON string containing all EXIF tags and values from exiftool"""
         json, _, _ = self.run_commands("-json")
         return json
 
     def _read_exif(self):
-        """ read exif data from file """
+        """read exif data from file"""
         data = self.asdict()
         self.data = {k: v for k, v in data.items()}
 
@@ -387,18 +394,19 @@ class ExifTool:
 
 
 class ExifToolCaching(ExifTool):
-    """ Basic exiftool interface for reading and writing EXIF tags, with caching. 
-        Use this only when you know the file's EXIF data will not be changed by any external process.
+    """Basic exiftool interface for reading and writing EXIF tags, with caching.
+    Use this only when you know the file's EXIF data will not be changed by any external process.
 
-        Creates a singleton cached ExifTool instance """
+    Creates a singleton cached ExifTool instance"""
 
     _singletons = {}
 
     def __new__(cls, filepath, exiftool=None, logger=logging.getLogger()):
-        """ create new object or return instance of already created singleton """
+        """create new object or return instance of already created singleton"""
         if filepath not in cls._singletons:
-            cls._singletons[filepath] = _ExifToolCaching(filepath,
-                    exiftool=exiftool, logger=logger)
+            cls._singletons[filepath] = _ExifToolCaching(
+                filepath, exiftool=exiftool, logger=logger
+            )
         return cls._singletons[filepath]
 
 
@@ -415,8 +423,9 @@ class _ExifToolCaching(ExifTool):
         """
         self._json_cache = None
         self._asdict_cache = {}
-        super().__init__(filepath, exiftool=exiftool, overwrite=False,
-                flags=None, logger=logger)
+        super().__init__(
+            filepath, exiftool=exiftool, overwrite=False, flags=None, logger=logger
+        )
 
     def run_commands(self, *commands, no_file=False):
         if commands[0] not in ["-json", "-ver"]:
@@ -453,7 +462,6 @@ class _ExifToolCaching(ExifTool):
             return self._asdict_cache[tag_groups][normalized]
 
     def flush_cache(self):
-        """ Clear cached data so that calls to json or asdict return fresh data """
+        """Clear cached data so that calls to json or asdict return fresh data"""
         self._json_cache = None
         self._asdict_cache = {}
-

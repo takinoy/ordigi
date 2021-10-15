@@ -7,7 +7,7 @@ from os import environ, path
 #: If True, debug messages will be printed.
 debug = False
 
-#Ordigi settings directory.
+# Ordigi settings directory.
 if 'XDG_CONFIG_HOME' in environ:
     confighome = environ['XDG_CONFIG_HOME']
 elif 'APPDATA' in environ:

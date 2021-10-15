@@ -24,14 +24,27 @@ from ordigi.summary import Summary
 from ordigi import utils
 
 
-class Collection(object):
+class Collection:
     """Class of the media collection."""
 
-    def __init__(self, root, path_format, album_from_folder=False,
-            cache=False, day_begins=0, dry_run=False, exclude=set(),
-            filter_by_ext=set(), glob='**/*', interactive=False,
-            logger=logging.getLogger(), max_deep=None, mode='copy',
-            use_date_filename=False, use_file_dates=False):
+    def __init__(
+        self,
+        root,
+        path_format,
+        album_from_folder=False,
+        cache=False,
+        day_begins=0,
+        dry_run=False,
+        exclude=set(),
+        filter_by_ext=set(),
+        glob='**/*',
+        interactive=False,
+        logger=logging.getLogger(),
+        max_deep=None,
+        mode='copy',
+        use_date_filename=False,
+        use_file_dates=False,
+    ):
 
         # Attributes
         self.root = Path(root).expanduser().absolute()
@@ -76,31 +89,33 @@ class Collection(object):
 
     def get_items(self):
         return {
-        'album': '{album}',
-        'basename': '{basename}',
-        'camera_make': '{camera_make}',
-        'camera_model': '{camera_model}',
-        'city': '{city}',
-        'custom': '{".*"}',
-        'country': '{country}',
-        # 'folder': '{folder[<>]?[-+]?[1-9]?}',
-        'ext': '{ext}',
-        'folder': '{folder}',
-        'folders': r'{folders(\[[0-9:]{0,3}\])?}',
-        'location': '{location}',
-        'name': '{name}',
-        'original_name': '{original_name}',
-        'state': '{state}',
-        'title': '{title}',
-        'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}' # search for date format string
-            }
+            'album': '{album}',
+            'basename': '{basename}',
+            'camera_make': '{camera_make}',
+            'camera_model': '{camera_model}',
+            'city': '{city}',
+            'custom': '{".*"}',
+            'country': '{country}',
+            # 'folder': '{folder[<>]?[-+]?[1-9]?}',
+            'ext': '{ext}',
+            'folder': '{folder}',
+            'folders': r'{folders(\[[0-9:]{0,3}\])?}',
+            'location': '{location}',
+            'name': '{name}',
+            'original_name': '{original_name}',
+            'state': '{state}',
+            'title': '{title}',
+            'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}',  # search for date format string
+        }
 
     def _check_for_early_morning_photos(self, date):
         """check for early hour photos to be grouped with previous day"""
         if date.hour < self.day_begins:
-            self.logger.info("moving this photo to the previous day for classification purposes")
+            self.logger.info(
+                "moving this photo to the previous day for classification purposes"
+            )
             # push it to the day before for classification purposes
-            date = date - timedelta(hours=date.hour+1)
+            date = date - timedelta(hours=date.hour + 1)
 
         return date
 
@@ -181,8 +196,17 @@ class Collection(object):
             folders = self._get_folders(folders, mask)
             part = os.path.join(*folders)
 
-        elif item in ('album','camera_make', 'camera_model', 'city', 'country',
-                 'location', 'original_name', 'state', 'title'):
+        elif item in (
+            'album',
+            'camera_make',
+            'camera_model',
+            'city',
+            'country',
+            'location',
+            'original_name',
+            'state',
+            'title',
+        ):
             if item == 'location':
                 mask = 'default'
 
@@ -245,8 +269,10 @@ class Collection(object):
                 if this_part:
                     # Check if all masks are substituted
                     if True in [c in this_part for c in '{}']:
-                        self.logger.error(f'Format path part invalid: \
-                                {this_part}')
+                        self.logger.error(
+                            f'Format path part invalid: \
+                                {this_part}'
+                        )
                         sys.exit(1)
 
                     path.append(this_part.strip())
@@ -255,7 +281,7 @@ class Collection(object):
                 # Else we continue for fallbacks
 
         if path == []:
-            path = [ metadata['filename'] ]
+            path = [metadata['filename']]
         elif len(path[-1]) == 0 or re.match(r'^\..*', path[-1]):
             path[-1] = metadata['filename']
 
@@ -270,15 +296,16 @@ class Collection(object):
         return None
 
     def _checkcomp(self, dest_path, src_checksum):
-        """Check file.
-        """
+        """Check file."""
         if self.dry_run:
             return True
 
         dest_checksum = utils.checksum(dest_path)
 
         if dest_checksum != src_checksum:
-            self.logger.info(f'Source checksum and destination checksum are not the same')
+            self.logger.info(
+                f'Source checksum and destination checksum are not the same'
+            )
             return False
 
         return True
@@ -303,7 +330,7 @@ class Collection(object):
         if self.album_from_folder:
             media.set_album_from_folder()
             updated = True
-        if  media.metadata['original_name'] in (False, ''):
+        if media.metadata['original_name'] in (False, ''):
             media.set_value('original_name', self.filename)
             updated = True
         if self.album_from_folder:
@@ -332,8 +359,7 @@ class Collection(object):
                     checksum = utils.checksum(dest_path)
                     media.metadata['checksum'] = checksum
 
-                media.metadata['file_path'] = os.path.relpath(dest_path,
-                        self.root)
+                media.metadata['file_path'] = os.path.relpath(dest_path, self.root)
                 self._add_db_data(media.metadata)
                 if self.mode == 'move':
                     # Delete file path entry in db when file is moved inside collection
@@ -367,7 +393,7 @@ class Collection(object):
         dry_run = self.dry_run
 
         # check for collisions
-        if(src_path == dest_path):
+        if src_path == dest_path:
             self.logger.info(f'File {dest_path} already sorted')
             return None
         elif dest_path.is_dir():
@@ -377,17 +403,21 @@ class Collection(object):
             self.logger.warning(f'File {dest_path} already exist')
             if remove_duplicates:
                 if filecmp.cmp(src_path, dest_path):
-                    self.logger.info(f'File in source and destination are identical. Duplicate will be ignored.')
-                    if(mode == 'move'):
+                    self.logger.info(
+                        f'File in source and destination are identical. Duplicate will be ignored.'
+                    )
+                    if mode == 'move':
                         self.remove(src_path)
                     return None
                 else:  # name is same, but file is different
-                    self.logger.warning(f'File in source and destination are different.')
+                    self.logger.warning(
+                        f'File in source and destination are different.'
+                    )
                     return False
             else:
                 return False
         else:
-            if(mode == 'move'):
+            if mode == 'move':
                 if not dry_run:
                     # Move the processed file into the destination directory
                     shutil.move(src_path, dest_path)
@@ -411,7 +441,7 @@ class Collection(object):
                 # Add appendix to the name
                 suffix = dest_path.suffix
                 if n > 1:
-                    stem = dest_path.stem.rsplit('_' + str(n-1))[0]
+                    stem = dest_path.stem.rsplit('_' + str(n - 1))[0]
                 else:
                     stem = dest_path.stem
                 dest_path = dest_path.parent / (stem + '_' + str(n) + suffix)
@@ -447,7 +477,7 @@ class Collection(object):
                 if part[0] in '-_ .':
                     if n > 0:
                         # move the separator to previous item
-                        parts[n-1] = parts[n-1] + part[0]
+                        parts[n - 1] = parts[n - 1] + part[0]
                     items.append(part[1:])
                 else:
                     items.append(part)
@@ -490,7 +520,8 @@ class Collection(object):
         :returns: Path file_path, Path subdirs
         """
         for path0 in path.glob(glob):
-            if path0.is_dir(): continue
+            if path0.is_dir():
+                continue
             else:
                 file_path = path0
                 parts = file_path.parts
@@ -501,10 +532,12 @@ class Collection(object):
                     level = len(subdirs.parts)
 
                 if subdirs.parts != ():
-                    if subdirs.parts[0] == '.ordigi': continue
+                    if subdirs.parts[0] == '.ordigi':
+                        continue
 
                 if maxlevel is not None:
-                    if level > maxlevel: continue
+                    if level > maxlevel:
+                        continue
 
                 matched = False
                 for exclude in self.exclude:
@@ -512,12 +545,13 @@ class Collection(object):
                         matched = True
                         break
 
-                if matched: continue
+                if matched:
+                    continue
 
                 if (
-                        extensions == set()
-                        or PurePath(file_path).suffix.lower() in extensions
-                    ):
+                    extensions == set()
+                    or PurePath(file_path).suffix.lower() in extensions
+                ):
                     # return file_path and subdir
                     yield file_path
 
@@ -529,15 +563,17 @@ class Collection(object):
         """
         parts = directory_path.relative_to(self.root).parts
         for i, part in enumerate(parts):
-            dir_path = self.root / Path(*parts[0:i+1])
+            dir_path = self.root / Path(*parts[0 : i + 1])
             if dir_path.is_file():
                 self.logger.warning(f'Target directory {dir_path} is a file')
                 # Rename the src_file
                 if self.interactive:
                     prompt = [
-                            inquirer.Text('file_path', message="New name for"\
-                                f"'{dir_path.name}' file"),
-                            ]
+                        inquirer.Text(
+                            'file_path',
+                            message="New name for" f"'{dir_path.name}' file",
+                        ),
+                    ]
                     answers = inquirer.prompt(prompt, theme=self.theme)
                     file_path = dir_path.parent / answers['file_path']
                 else:
@@ -569,11 +605,12 @@ class Collection(object):
         return path
 
     def set_utime_from_metadata(self, date_media, file_path):
-        """ Set the modification time on the file based on the file name.
-        """
+        """Set the modification time on the file based on the file name."""
 
         # Initialize date taken to what's returned from the metadata function.
-        os.utime(file_path, (int(datetime.now().timestamp()), int(date_media.timestamp())))
+        os.utime(
+            file_path, (int(datetime.now().timestamp()), int(date_media.timestamp()))
+        )
 
     def dedup_regex(self, path, dedup_regex, remove_duplicates=False):
         # cycle throught files
@@ -586,14 +623,14 @@ class Collection(object):
         # Numeric date regex
 
         if len(dedup_regex) == 0:
-            date_num2 = re.compile(fr'([^0-9]{d}{delim}{d}{delim}|{delim}{d}{delim}{d}[^0-9])')
-            date_num3 = re.compile(fr'([^0-9]{d}{delim}{d}{delim}{d}{delim}|{delim}{d}{delim}{d}{delim}{d}[^0-9])')
+            date_num2 = re.compile(
+                fr'([^0-9]{d}{delim}{d}{delim}|{delim}{d}{delim}{d}[^0-9])'
+            )
+            date_num3 = re.compile(
+                fr'([^0-9]{d}{delim}{d}{delim}{d}{delim}|{delim}{d}{delim}{d}{delim}{d}[^0-9])'
+            )
             default = re.compile(r'([^-_ .]+[-_ .])')
-            dedup_regex = [
-                date_num3,
-                date_num2,
-                default
-            ]
+            dedup_regex = [date_num3, date_num2, default]
 
         conflict_file_list = []
         self.src_list = [x for x in self._get_files_in_path(path, glob=self.glob)]
@@ -645,13 +682,14 @@ class Collection(object):
         :params: list
         :return: list
         """
-        message="Bellow the file selection list, modify selection if needed"
+        message = "Bellow the file selection list, modify selection if needed"
         questions = [
-            inquirer.Checkbox('selection',
-                            message=message,
-                            choices=self.src_list,
-                            default=self.src_list,
-                            ),
+            inquirer.Checkbox(
+                'selection',
+                message=message,
+                choices=self.src_list,
+                default=self.src_list,
+            ),
         ]
         return inquirer.prompt(questions, theme=self.theme)['selection']
 
@@ -693,12 +731,16 @@ class Collection(object):
     def init(self, loc, ignore_tags=set()):
         record = True
         for file_path in self._get_all_files():
-            media = Media(file_path, self.root, ignore_tags=ignore_tags,
-                    logger=self.logger, use_date_filename=self.use_date_filename,
-                    use_file_dates=self.use_file_dates)
+            media = Media(
+                file_path,
+                self.root,
+                ignore_tags=ignore_tags,
+                logger=self.logger,
+                use_date_filename=self.use_date_filename,
+                use_file_dates=self.use_file_dates,
+            )
             metadata = media.get_metadata(self.root, loc, self.db, self.cache)
-            media.metadata['file_path'] = os.path.relpath(file_path,
-                    self.root)
+            media.metadata['file_path'] = os.path.relpath(file_path, self.root)
             self._add_db_data(media.metadata)
             self.summary.append((file_path, file_path))
 
@@ -731,9 +773,14 @@ class Collection(object):
             relpath = os.path.relpath(file_path, self.root)
             # If file not in database
             if relpath not in db_rows:
-                media = Media(file_path, self.root, ignore_tags=ignore_tags,
-                        logger=self.logger, use_date_filename=self.use_date_filename,
-                        use_file_dates=self.use_file_dates)
+                media = Media(
+                    file_path,
+                    self.root,
+                    ignore_tags=ignore_tags,
+                    logger=self.logger,
+                    use_date_filename=self.use_date_filename,
+                    use_file_dates=self.use_file_dates,
+                )
                 metadata = media.get_metadata(self.root, loc, self.db, self.cache)
                 media.metadata['file_path'] = relpath
                 # Check if file checksum is in invalid rows
@@ -758,8 +805,7 @@ class Collection(object):
 
         return self.summary
 
-    def sort_files(self, paths, loc, remove_duplicates=False,
-            ignore_tags=set()):
+    def sort_files(self, paths, loc, remove_duplicates=False, ignore_tags=set()):
         """
         Sort files into appropriate folder
         """
@@ -774,8 +820,12 @@ class Collection(object):
             self.dest_list = []
             path = self._check_path(path)
             conflict_file_list = []
-            self.src_list = [x for x in self._get_files_in_path(path,
-                glob=self.glob, extensions=self.filter_by_ext)]
+            self.src_list = [
+                x
+                for x in self._get_files_in_path(
+                    path, glob=self.glob, extensions=self.filter_by_ext
+                )
+            ]
             if self.interactive:
                 self.src_list = self._modify_selection()
                 print('Processing...')
@@ -783,9 +833,16 @@ class Collection(object):
             # Get medias and paths
             for src_path in self.src_list:
                 # Process files
-                media = Media(src_path, path, self.album_from_folder,
-                        ignore_tags, self.interactive, self.logger,
-                        self.use_date_filename, self.use_file_dates)
+                media = Media(
+                    src_path,
+                    path,
+                    self.album_from_folder,
+                    ignore_tags,
+                    self.interactive,
+                    self.logger,
+                    self.use_date_filename,
+                    self.use_file_dates,
+                )
                 metadata = media.get_metadata(self.root, loc, self.db, self.cache)
                 # Get the destination path according to metadata
                 relpath = Path(self.get_path(metadata))
@@ -804,7 +861,6 @@ class Collection(object):
                 dest_path = self.root / relpath
 
                 result = self.sort_file(src_path, dest_path, remove_duplicates)
-
 
                 record = False
                 if result is True:
@@ -836,8 +892,9 @@ class Collection(object):
         """
         :returns: iter
         """
-        for src_path in self._get_files_in_path(path, glob=self.glob,
-                extensions=self.filter_by_ext):
+        for src_path in self._get_files_in_path(
+            path, glob=self.glob, extensions=self.filter_by_ext
+        ):
             dirname = src_path.parent.name
 
             if dirname.find('similar_to') == 0:
@@ -857,7 +914,7 @@ class Collection(object):
 
         result = True
         path = self._check_path(path)
-        images = set([ x for x in self._get_images(path) ])
+        images = set([x for x in self._get_images(path)])
         i = Images(images, logger=self.logger)
         nb_row_ini = self.db.len('metadata')
         for image in images:
@@ -920,8 +977,9 @@ class Collection(object):
         dirnames = set()
         moved_files = set()
         nb_row_ini = self.db.len('metadata')
-        for src_path in self._get_files_in_path(path, glob=self.glob,
-                extensions=self.filter_by_ext):
+        for src_path in self._get_files_in_path(
+            path, glob=self.glob, extensions=self.filter_by_ext
+        ):
             dirname = src_path.parent.name
             if dirname.find('similar_to') == 0:
                 dirnames.add(src_path.parent)
@@ -954,5 +1012,3 @@ class Collection(object):
             result = self.check_db()
 
         return self.summary, result
-
-

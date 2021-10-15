@@ -16,27 +16,49 @@ from ordigi.summary import Summary
 
 
 _logger_options = [
-    click.option('--debug', default=False, is_flag=True,
-                  help='Override the value in constants.py with True.'),
-    click.option('--verbose', '-v', default=False, is_flag=True,
-                  help='True if you want to see details of file processing')
+    click.option(
+        '--debug',
+        default=False,
+        is_flag=True,
+        help='Override the value in constants.py with True.',
+    ),
+    click.option(
+        '--verbose',
+        '-v',
+        default=False,
+        is_flag=True,
+        help='True if you want to see details of file processing',
+    ),
 ]
 
 _dry_run_options = [
-    click.option('--dry-run', default=False, is_flag=True,
-              help='Dry run only, no change made to the filesystem.')
+    click.option(
+        '--dry-run',
+        default=False,
+        is_flag=True,
+        help='Dry run only, no change made to the filesystem.',
+    )
 ]
 
 _filter_option = [
-    click.option('--exclude', '-e', default=set(), multiple=True,
-                  help='Directories or files to exclude.'),
-    click.option('--filter-by-ext', '-f', default=set(), multiple=True,
-    help="""Use filename
+    click.option(
+        '--exclude',
+        '-e',
+        default=set(),
+        multiple=True,
+        help='Directories or files to exclude.',
+    ),
+    click.option(
+        '--filter-by-ext',
+        '-f',
+        default=set(),
+        multiple=True,
+        help="""Use filename
             extension to filter files for sorting. If value is '*', use
             common media file extension for filtering. Ignored files remain in
-            the same directory structure""" ),
-    click.option('--glob', '-g', default='**/*',
-                  help='Glob file selection')
+            the same directory structure""",
+    ),
+    click.option('--glob', '-g', default='**/*', help='Glob file selection'),
 ]
 
 
@@ -49,6 +71,7 @@ def add_options(options):
         for option in reversed(options):
             func = option(func)
         return func
+
     return _add_options
 
 
@@ -63,31 +86,74 @@ def _get_exclude(opt, exclude):
 @add_options(_logger_options)
 @add_options(_dry_run_options)
 @add_options(_filter_option)
-@click.option('--album-from-folder', default=False, is_flag=True,
-              help="Use images' folders as their album names.")
-@click.option('--destination', '-d', type=click.Path(file_okay=False),
-              default=None, help='Sort files into this directory.')
-@click.option('--clean', '-C', default=False, is_flag=True,
-              help='Clean empty folders')
-@click.option('--copy', '-c', default=False, is_flag=True,
-              help='True if you want files to be copied over from src_dir to\
-              dest_dir rather than moved')
-@click.option('--ignore-tags', '-I', default=set(), multiple=True,
-              help='Specific tags or group that will be ignored when\
-              searching for file data. Example \'File:FileModifyDate\' or \'Filename\'' )
-@click.option('--interactive', '-i', default=False, is_flag=True,
-              help="Interactive mode")
-@click.option('--max-deep', '-m', default=None,
-              help='Maximum level to proceed. Number from 0 to desired level.')
-@click.option('--remove-duplicates', '-R', default=False, is_flag=True,
-              help='True to remove files that are exactly the same in name\
-                      and a file hash')
-@click.option('--reset-cache', '-r', default=False, is_flag=True,
-              help='Regenerate the hash.json and location.json database ')
-@click.option('--use-date-filename', '-f', default=False, is_flag=True,
-              help="Use filename date for media original date.")
-@click.option('--use-file-dates', '-F', default=False, is_flag=True,
-              help="Use file date created or modified for media original date.")
+@click.option(
+    '--album-from-folder',
+    default=False,
+    is_flag=True,
+    help="Use images' folders as their album names.",
+)
+@click.option(
+    '--destination',
+    '-d',
+    type=click.Path(file_okay=False),
+    default=None,
+    help='Sort files into this directory.',
+)
+@click.option('--clean', '-C', default=False, is_flag=True, help='Clean empty folders')
+@click.option(
+    '--copy',
+    '-c',
+    default=False,
+    is_flag=True,
+    help='True if you want files to be copied over from src_dir to\
+              dest_dir rather than moved',
+)
+@click.option(
+    '--ignore-tags',
+    '-I',
+    default=set(),
+    multiple=True,
+    help='Specific tags or group that will be ignored when\
+              searching for file data. Example \'File:FileModifyDate\' or \'Filename\'',
+)
+@click.option(
+    '--interactive', '-i', default=False, is_flag=True, help="Interactive mode"
+)
+@click.option(
+    '--max-deep',
+    '-m',
+    default=None,
+    help='Maximum level to proceed. Number from 0 to desired level.',
+)
+@click.option(
+    '--remove-duplicates',
+    '-R',
+    default=False,
+    is_flag=True,
+    help='True to remove files that are exactly the same in name\
+                      and a file hash',
+)
+@click.option(
+    '--reset-cache',
+    '-r',
+    default=False,
+    is_flag=True,
+    help='Regenerate the hash.json and location.json database ',
+)
+@click.option(
+    '--use-date-filename',
+    '-f',
+    default=False,
+    is_flag=True,
+    help="Use filename date for media original date.",
+)
+@click.option(
+    '--use-file-dates',
+    '-F',
+    default=False,
+    is_flag=True,
+    help="Use file date created or modified for media original date.",
+)
 @click.argument('paths', required=True, nargs=-1, type=click.Path())
 def sort(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
@@ -135,17 +201,29 @@ def sort(**kwargs):
     exclude = _get_exclude(opt, kwargs['exclude'])
     filter_by_ext = set(kwargs['filter_by_ext'])
 
-    collection = Collection(destination, opt['path_format'],
-            kwargs['album_from_folder'], cache, opt['day_begins'], kwargs['dry_run'],
-            exclude, filter_by_ext, kwargs['glob'], kwargs['interactive'],
-            logger, max_deep, mode, kwargs['use_date_filename'],
-            kwargs['use_file_dates'])
+    collection = Collection(
+        destination,
+        opt['path_format'],
+        kwargs['album_from_folder'],
+        cache,
+        opt['day_begins'],
+        kwargs['dry_run'],
+        exclude,
+        filter_by_ext,
+        kwargs['glob'],
+        kwargs['interactive'],
+        logger,
+        max_deep,
+        mode,
+        kwargs['use_date_filename'],
+        kwargs['use_file_dates'],
+    )
 
-    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
-            opt['timeout'])
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
 
-    summary, result = collection.sort_files(paths, loc,
-            kwargs['remove_duplicates'], kwargs['ignore_tags'])
+    summary, result = collection.sort_files(
+        paths, loc, kwargs['remove_duplicates'], kwargs['ignore_tags']
+    )
 
     if kwargs['clean']:
         remove_empty_folders(destination, logger)
@@ -158,42 +236,62 @@ def sort(**kwargs):
 
 
 def remove_empty_folders(path, logger, remove_root=True):
-  'Function to remove empty folders'
-  if not os.path.isdir(path):
-    return
+    'Function to remove empty folders'
+    if not os.path.isdir(path):
+        return
 
-  # remove empty subfolders
-  files = os.listdir(path)
-  if len(files):
-    for f in files:
-      fullpath = os.path.join(path, f)
-      if os.path.isdir(fullpath):
-        remove_empty_folders(fullpath, logger)
+    # remove empty subfolders
+    files = os.listdir(path)
+    if len(files):
+        for f in files:
+            fullpath = os.path.join(path, f)
+            if os.path.isdir(fullpath):
+                remove_empty_folders(fullpath, logger)
 
-  # if folder empty, delete it
-  files = os.listdir(path)
-  if len(files) == 0 and remove_root:
-    logger.info(f"Removing empty folder: {path}")
-    os.rmdir(path)
+    # if folder empty, delete it
+    files = os.listdir(path)
+    if len(files) == 0 and remove_root:
+        logger.info(f"Removing empty folder: {path}")
+        os.rmdir(path)
 
 
 @click.command('clean')
 @add_options(_logger_options)
 @add_options(_dry_run_options)
 @add_options(_filter_option)
-@click.option('--dedup-regex', '-d', default=set(), multiple=True,
-              help='Regex to match duplicate strings parts')
-@click.option('--folders', '-f', default=False, is_flag=True,
-              help='Remove empty folders')
-@click.option('--max-deep', '-m', default=None,
-              help='Maximum level to proceed. Number from 0 to desired level.')
-@click.option('--path-string', '-p', default=False, is_flag=True,
-              help='Deduplicate path string')
-@click.option('--remove-duplicates', '-R', default=False, is_flag=True,
-              help='True to remove files that are exactly the same in name\
-                      and a file hash')
-@click.option('--root', '-r', type=click.Path(file_okay=False),
-              default=None, help='Root dir of media collection. If not set, use path')
+@click.option(
+    '--dedup-regex',
+    '-d',
+    default=set(),
+    multiple=True,
+    help='Regex to match duplicate strings parts',
+)
+@click.option(
+    '--folders', '-f', default=False, is_flag=True, help='Remove empty folders'
+)
+@click.option(
+    '--max-deep',
+    '-m',
+    default=None,
+    help='Maximum level to proceed. Number from 0 to desired level.',
+)
+@click.option(
+    '--path-string', '-p', default=False, is_flag=True, help='Deduplicate path string'
+)
+@click.option(
+    '--remove-duplicates',
+    '-R',
+    default=False,
+    is_flag=True,
+    help='True to remove files that are exactly the same in name and a file hash',
+)
+@click.option(
+    '--root',
+    '-r',
+    type=click.Path(file_okay=False),
+    default=None,
+    help='Root dir of media collection. If not set, use path',
+)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def clean(**kwargs):
     """Remove empty folders
@@ -221,11 +319,21 @@ def clean(**kwargs):
     filter_by_ext = set(kwargs['filter_by_ext'])
 
     if kwargs['path_string']:
-        collection = Collection(root, opt['path_format'], dry_run=dry_run,
-                exclude=exclude, filter_by_ext=filter_by_ext, glob=kwargs['glob'],
-                logger=logger, max_deep=kwargs['max_deep'], mode='move')
+        collection = Collection(
+            root,
+            opt['path_format'],
+            dry_run=dry_run,
+            exclude=exclude,
+            filter_by_ext=filter_by_ext,
+            glob=kwargs['glob'],
+            logger=logger,
+            max_deep=kwargs['max_deep'],
+            mode='move',
+        )
         dedup_regex = list(kwargs['dedup_regex'])
-        summary, result = collection.dedup_regex(path, dedup_regex, kwargs['remove_duplicates'])
+        summary, result = collection.dedup_regex(
+            path, dedup_regex, kwargs['remove_duplicates']
+        )
 
     if clean_all or folders:
         remove_empty_folders(path, logger)
@@ -241,12 +349,10 @@ def clean(**kwargs):
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def init(**kwargs):
-    """Regenerate the hash.json database which contains all of the sha256 signatures of media files.
-    """
+    """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
-    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
-            opt['timeout'])
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
     debug = kwargs['debug']
     verbose = kwargs['verbose']
     logger = log.get_logger(debug, verbose)
@@ -260,12 +366,10 @@ def init(**kwargs):
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def update(**kwargs):
-    """Regenerate the hash.json database which contains all of the sha256 signatures of media files.
-    """
+    """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
-    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'],
-            opt['timeout'])
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
     debug = kwargs['debug']
     verbose = kwargs['verbose']
     logger = log.get_logger(debug, verbose)
@@ -301,17 +405,40 @@ def check(**kwargs):
 @add_options(_dry_run_options)
 @add_options(_filter_option)
 @click.option('--find-duplicates', '-f', default=False, is_flag=True)
-@click.option('--output-dir', '-o', default=False, is_flag=True, help='output\
-        dir')
+@click.option(
+    '--output-dir',
+    '-o',
+    default=False,
+    is_flag=True,
+    help='output dir',
+)
 @click.option('--remove-duplicates', '-r', default=False, is_flag=True)
-@click.option('--revert-compare', '-R', default=False, is_flag=True, help='Revert\
-        compare')
-@click.option('--root', '-r', type=click.Path(file_okay=False),
-              default=None, help='Root dir of media collection. If not set, use path')
-@click.option('--similar-to', '-s', default=False, help='Similar to given\
-        image')
-@click.option('--similarity', '-S', default=80, help='Similarity level for\
-        images')
+@click.option(
+    '--revert-compare',
+    '-R',
+    default=False,
+    is_flag=True,
+    help='Revert compare',
+)
+@click.option(
+    '--root',
+    '-r',
+    type=click.Path(file_okay=False),
+    default=None,
+    help='Root dir of media collection. If not set, use path',
+)
+@click.option(
+    '--similar-to',
+    '-s',
+    default=False,
+    help='Similar to given image',
+)
+@click.option(
+    '--similarity',
+    '-S',
+    default=80,
+    help='Similarity level for images',
+)
 @click.argument('path', nargs=1, required=True)
 def compare(**kwargs):
     '''Compare files in directories'''
@@ -333,9 +460,16 @@ def compare(**kwargs):
     exclude = _get_exclude(opt, kwargs['exclude'])
     filter_by_ext = set(kwargs['filter_by_ext'])
 
-    collection = Collection(root, None, exclude=exclude,
-            filter_by_ext=filter_by_ext, glob=kwargs['glob'],
-            mode='move', dry_run=dry_run, logger=logger)
+    collection = Collection(
+        root,
+        None,
+        exclude=exclude,
+        filter_by_ext=filter_by_ext,
+        glob=kwargs['glob'],
+        mode='move',
+        dry_run=dry_run,
+        logger=logger,
+    )
 
     if kwargs['revert_compare']:
         summary, result = collection.revert_compare(path)
@@ -364,4 +498,3 @@ main.add_command(update)
 
 if __name__ == '__main__':
     main()
-
