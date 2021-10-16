@@ -26,7 +26,7 @@ class TestCollection:
     def setup_class(cls, sample_files_paths):
         cls.src_path, cls.file_paths = sample_files_paths
         cls.path_format = constants.default_path + '/' + constants.default_name
-        cls.logger = log.get_logger(True, True)
+        cls.logger = log.get_logger(level=10)
 
     def teardown_class(self):
         terminate_exiftool()

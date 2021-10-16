@@ -15,10 +15,12 @@ class GeoLocation:
     def __init__(
         self,
         geocoder='Nominatim',
+        logger=logging.getLogger(),
         prefer_english_names=False,
         timeout=options.default_timeout,
     ):
         self.geocoder = geocoder
+        self.logger = logger.getChild(self.__class__.__name__)
         self.prefer_english_names = prefer_english_names
         self.timeout = timeout
 
@@ -46,9 +48,7 @@ class GeoLocation:
 
         return None
 
-    def place_name(
-        self, lat, lon, logger=logging.getLogger(), timeout=options.default_timeout
-    ):
+    def place_name(self, lat, lon, timeout=options.default_timeout):
         lookup_place_name_default = {'default': None}
         if lat is None or lon is None:
             return lookup_place_name_default
@@ -62,7 +62,7 @@ class GeoLocation:
         lookup_place_name = {}
         geocoder = self.geocoder
         if geocoder == 'Nominatim':
-            geolocation_info = self.lookup_osm(lat, lon, logger, timeout)
+            geolocation_info = self.lookup_osm(lat, lon, timeout)
         else:
             raise NameError(geocoder)
 
@@ -83,9 +83,7 @@ class GeoLocation:
 
         return lookup_place_name
 
-    def lookup_osm(
-        self, lat, lon, logger=logging.getLogger(), timeout=options.default_timeout
-    ):
+    def lookup_osm( self, lat, lon, timeout=options.default_timeout):
 
         try:
             locator = Nominatim(user_agent='myGeocoder', timeout=timeout)
@@ -100,9 +98,9 @@ class GeoLocation:
             else:
                 return None
         except geopy.exc.GeocoderUnavailable or geopy.exc.GeocoderServiceError as e:
-            logger.error(e)
+            self.logger.error(e)
             return None
         # Fix *** TypeError: `address` must not be None
         except (TypeError, ValueError) as e:
-            logger.error(e)
+            self.logger.error(e)
             return None

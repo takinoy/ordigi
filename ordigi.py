@@ -11,8 +11,8 @@ from ordigi import constants
 from ordigi import log
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
-from ordigi.media import Media, get_all_subclasses
-from ordigi.summary import Summary
+# from ordigi.media import Media, get_all_subclasses
+# from ordigi.summary import Summary
 
 
 _logger_options = [
@@ -160,9 +160,8 @@ def sort(**kwargs):
     according to ordigi.conf preferences.
     """
 
-    debug = kwargs['debug']
     destination = kwargs['destination']
-    verbose = kwargs['verbose']
+    log_level = log.level(kwargs['verbose'], kwargs['debug'])
 
     paths = kwargs['paths']
 
@@ -171,7 +170,7 @@ def sort(**kwargs):
     else:
         mode = 'move'
 
-    logger = log.get_logger(verbose, debug)
+    logger = log.get_logger(level=log_level)
 
     max_deep = kwargs['max_deep']
     if max_deep is not None:
@@ -219,40 +218,20 @@ def sort(**kwargs):
         kwargs['use_file_dates'],
     )
 
-    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
+    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
 
     summary, result = collection.sort_files(
         paths, loc, kwargs['remove_duplicates'], kwargs['ignore_tags']
     )
 
     if kwargs['clean']:
-        remove_empty_folders(destination, logger)
+        collection.remove_empty_folders(destination)
 
-    if verbose or debug:
+    if log_level < 30:
         summary.print()
 
     if not result:
         sys.exit(1)
-
-
-def remove_empty_folders(path, logger, remove_root=True):
-    'Function to remove empty folders'
-    if not os.path.isdir(path):
-        return
-
-    # remove empty subfolders
-    files = os.listdir(path)
-    if len(files):
-        for f in files:
-            fullpath = os.path.join(path, f)
-            if os.path.isdir(fullpath):
-                remove_empty_folders(fullpath, logger)
-
-    # if folder empty, delete it
-    files = os.listdir(path)
-    if len(files) == 0 and remove_root:
-        logger.info(f"Removing empty folder: {path}")
-        os.rmdir(path)
 
 
 @click.command('clean')
@@ -297,15 +276,14 @@ def clean(**kwargs):
     """Remove empty folders
     Usage: clean [--verbose|--debug] directory [removeRoot]"""
 
-    debug = kwargs['debug']
     dry_run = kwargs['dry_run']
     folders = kwargs['folders']
+    log_level = log.level(kwargs['verbose'], kwargs['debug'])
     root = kwargs['root']
-    verbose = kwargs['verbose']
 
     path = kwargs['path']
 
-    logger = log.get_logger(verbose, debug)
+    logger = log.get_logger(level=log_level)
     clean_all = False
     if not folders:
         clean_all = True
@@ -318,27 +296,28 @@ def clean(**kwargs):
     exclude = _get_exclude(opt, kwargs['exclude'])
     filter_by_ext = set(kwargs['filter_by_ext'])
 
+    collection = Collection(
+        root,
+        opt['path_format'],
+        dry_run=dry_run,
+        exclude=exclude,
+        filter_by_ext=filter_by_ext,
+        glob=kwargs['glob'],
+        logger=logger,
+        max_deep=kwargs['max_deep'],
+        mode='move',
+    )
+
     if kwargs['path_string']:
-        collection = Collection(
-            root,
-            opt['path_format'],
-            dry_run=dry_run,
-            exclude=exclude,
-            filter_by_ext=filter_by_ext,
-            glob=kwargs['glob'],
-            logger=logger,
-            max_deep=kwargs['max_deep'],
-            mode='move',
-        )
         dedup_regex = list(kwargs['dedup_regex'])
         summary, result = collection.dedup_regex(
             path, dedup_regex, kwargs['remove_duplicates']
         )
 
     if clean_all or folders:
-        remove_empty_folders(path, logger)
+        collection.remove_empty_folders(path)
 
-    if verbose or debug:
+    if log_level < 30:
         summary.print()
 
     if not result:
@@ -352,13 +331,14 @@ def init(**kwargs):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
-    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
-    debug = kwargs['debug']
-    verbose = kwargs['verbose']
-    logger = log.get_logger(debug, verbose)
+    log_level = log.level(kwargs['verbose'], kwargs['debug'])
+
+    logger = log.get_logger(level=log_level)
+    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
     collection = Collection(kwargs['path'], None, mode='move', logger=logger)
     summary = collection.init(loc)
-    if verbose or debug:
+
+    if log_level < 30:
         summary.print()
 
 
@@ -369,13 +349,14 @@ def update(**kwargs):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
-    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
-    debug = kwargs['debug']
-    verbose = kwargs['verbose']
-    logger = log.get_logger(debug, verbose)
+    log_level = log.level(kwargs['verbose'], kwargs['debug'])
+
+    logger = log.get_logger(level=log_level)
+    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
     collection = Collection(kwargs['path'], None, mode='move', logger=logger)
     summary = collection.update(loc)
-    if verbose or debug:
+
+    if log_level < 30:
         summary.print()
 
 
@@ -384,14 +365,13 @@ def update(**kwargs):
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def check(**kwargs):
     """check db and verify hashes"""
-    debug = kwargs['debug']
-    verbose = kwargs['verbose']
-    logger = log.get_logger(debug, verbose)
+    log_level = log.level(kwargs['verbose'], kwargs['debug'])
+    logger = log.get_logger(level=log_level)
     collection = Collection(kwargs['path'], None, mode='move', logger=logger)
     result = collection.check_db()
     if result:
         summary, result = collection.check_files()
-        if verbose or debug:
+        if log_level < 30:
             summary.print()
         if not result:
             sys.exit(1)
@@ -443,14 +423,13 @@ def check(**kwargs):
 def compare(**kwargs):
     '''Compare files in directories'''
 
-    debug = kwargs['debug']
     dry_run = kwargs['dry_run']
+    log_level = log.level(kwargs['verbose'], kwargs['debug'])
     root = kwargs['root']
-    verbose = kwargs['verbose']
 
     path = kwargs['path']
 
-    logger = log.get_logger(verbose, debug)
+    logger = log.get_logger(level=log_level)
     if not root:
         root = kwargs['path']
 
@@ -476,7 +455,7 @@ def compare(**kwargs):
     else:
         summary, result = collection.sort_similar_images(path, kwargs['similarity'])
 
-    if verbose or debug:
+    if log_level < 30:
         summary.print()
 
     if not result:

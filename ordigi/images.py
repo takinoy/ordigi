@@ -23,7 +23,7 @@ try:
     # Allow to open HEIF/HEIC image from pillow
     register_heif_opener()
 except ImportError as e:
-    logging.info(e)
+    pass
 
 
 class Image:
@@ -94,7 +94,9 @@ class Images:
         self.images = images
         self.duplicates = []
         self.hash_size = hash_size
-        self.logger = logger
+        self.logger = logger.getChild(self.__class__.__name__)
+        if PYHEIF == False:
+            self.logger.info("No module named 'pyheif_pillow_opener'")
 
     def add_images(self, file_paths):
         for img_path in file_paths:

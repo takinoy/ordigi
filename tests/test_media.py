@@ -8,7 +8,6 @@ import tempfile
 
 from ordigi import constants
 from ordigi.media import Media
-from ordigi.images import Images
 from ordigi.exiftool import ExifTool, ExifToolCaching
 from ordigi.utils import get_date_from_string
 

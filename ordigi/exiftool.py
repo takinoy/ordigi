@@ -61,7 +61,7 @@ class _ExifToolProc:
         """construct _ExifToolProc singleton object or return instance of already created object
         exiftool: optional path to exiftool binary (if not provided, will search path to find it)"""
 
-        self.logger = logger
+        self.logger = logger.getChild(self.__class__.__name__)
         if hasattr(self, "_process_running") and self._process_running:
             # already running
             if exiftool is not None and exiftool != self._exiftool:

@@ -2,6 +2,7 @@
 Media :class:`Media` class to get file metadata
 """
 
+from dateutil.parser import parse
 import inquirer
 import logging
 import mimetypes
@@ -9,10 +10,6 @@ import os
 import re
 import sys
 
-# import pprint
-
-# load modules
-from dateutil.parser import parse
 from ordigi.exiftool import ExifTool, ExifToolCaching
 from ordigi import utils
 from ordigi import request
@@ -54,7 +51,7 @@ class Media:
         self.exif_metadata = None
         self.ignore_tags = ignore_tags
         self.interactive = interactive
-        self.logger = logger
+        self.logger = logger.getChild(self.__class__.__name__)
         self.metadata = None
         self.tags_keys = self.get_tags()
         self.use_date_filename = use_date_filename
@@ -453,7 +450,7 @@ class Media:
                 self.metadata[key] = None
 
             place_name = loc.place_name(
-                self.metadata['latitude'], self.metadata['longitude'], self.logger
+                self.metadata['latitude'], self.metadata['longitude']
             )
             for key in ('city', 'state', 'country', 'default'):
                 # mask = 'city'
@@ -496,23 +493,6 @@ class Media:
 
         return False
 
-    @classmethod
-    def get_class_by_file(
-        cls, _file, classes, ignore_tags=set(), logger=logging.getLogger()
-    ):
-        """Static method to get a media object by file."""
-        if not os.path.isfile(_file):
-            return None
-
-        extension = os.path.splitext(_file)[1][1:].lower()
-
-        if len(extension) > 0:
-            for i in classes:
-                if extension in i.extensions:
-                    return i(_file, ignore_tags=ignore_tags, logger=logger)
-
-        return Media(_file, logger, ignore_tags=ignore_tags, logger=logger)
-
     def set_value(self, tag, value):
         """Set value of a tag.
 
@@ -520,7 +500,7 @@ class Media:
         """
         return ExifTool(self.file_path, logger=self.logger).setvalue(tag, value)
 
-    def set_date_media(self, date_key, time):
+    def set_date_media(self, time):
         """Set the date/time a photo was taken.
 
         :param datetime time: datetime object of when the photo was taken
@@ -570,35 +550,3 @@ class Media:
         return self.set_value('album', self.file_path.parent.name)
 
 
-def get_all_subclasses(cls=None):
-    """Module method to get all subclasses of Media."""
-    subclasses = set()
-
-    this_class = Media
-    if cls is not None:
-        this_class = cls
-
-    subclasses.add(this_class)
-
-    this_class_subclasses = this_class.__subclasses__()
-    for child_class in this_class_subclasses:
-        subclasses.update(get_all_subclasses(child_class))
-
-    return subclasses
-
-
-def get_media_class(_file, ignore_tags=set(), logger=logging.getLogger()):
-    if not os.path.exists(_file):
-        logger.warning(f'Could not find {_file}')
-        logger.error(f'Could not find {_file}')
-        return False
-
-    media = Media.get_class_by_file(
-        _file, get_all_subclasses(), ignore_tags=set(), logger=logger
-    )
-    if not media:
-        logger.warning(f'File{_file} is not supported')
-        logger.error(f'File {_file} can\'t be imported')
-        return False
-
-    return media

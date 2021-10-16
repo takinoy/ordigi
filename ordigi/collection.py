@@ -17,7 +17,7 @@ import shutil
 
 from ordigi import media
 from ordigi.database import Sqlite
-from ordigi.media import Media, get_all_subclasses
+from ordigi.media import Media
 from ordigi.images import Image, Images
 from ordigi import request
 from ordigi.summary import Summary
@@ -71,7 +71,7 @@ class Collection:
         self.glob = glob
         self.items = self.get_items()
         self.interactive = interactive
-        self.logger = logger
+        self.logger = logger.getChild(self.__class__.__name__)
         self.max_deep = max_deep
         self.mode = mode
         # List to store media metadata
@@ -881,6 +881,25 @@ class Collection:
                 record = False
 
         return self.summary, record
+
+    def remove_empty_folders(path, remove_root=True):
+        'Function to remove empty folders'
+        if not os.path.isdir(path):
+            return
+
+        # remove empty subfolders
+        files = os.listdir(path)
+        if len(files):
+            for f in files:
+                fullpath = os.path.join(path, f)
+                if os.path.isdir(fullpath):
+                    self.remove_empty_folders(fullpath)
+
+        # if folder empty, delete it
+        files = os.listdir(path)
+        if len(files) == 0 and remove_root:
+            self.logger.info(f"Removing empty folder: {path}")
+            os.rmdir(path)
 
     def move_file(self, img_path, dest_path):
         if not self.dry_run:
