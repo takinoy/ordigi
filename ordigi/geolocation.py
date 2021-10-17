@@ -24,15 +24,7 @@ class GeoLocation:
         self.prefer_english_names = prefer_english_names
         self.timeout = timeout
 
-    def coordinates_by_name(self, name, db, timeout=options.default_timeout):
-        # Try to get cached location first
-        cached_coordinates = db.get_location_coordinates(name)
-        if cached_coordinates is not None:
-            return {
-                'latitude': cached_coordinates[0],
-                'longitude': cached_coordinates[1],
-            }
-
+    def coordinates_by_name(self, name, timeout=options.default_timeout):
         # If the name is not cached then we go ahead with an API lookup
         geocoder = self.geocoder
         if geocoder == 'Nominatim':
