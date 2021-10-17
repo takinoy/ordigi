@@ -79,11 +79,13 @@ class Config:
 
         options['path_format'] = self.get_path_definition()
 
-        if 'Path' in self.conf and 'day_begins' in self.conf['Path']:
-            config_directory = self.conf['Path']
-            options['day_begins'] = int(config_directory['day_begins'])
-        else:
-            options['day_begins'] = 0
+        options['day_begins'] = 0
+        options['max_deep'] = None
+        if 'Path' in self.conf:
+            if 'day_begins' in self.conf['Path']:
+                options['day_begins'] = int(self.conf['Path']['day_begins'])
+            if 'max_deep' in self.conf['Path']:
+                options['max_deep'] = int(self.conf['Path']['max_deep'])
 
         if 'Exclusions' in self.conf:
             options['exclude'] = [value for key, value in self.conf.items('Exclusions')]

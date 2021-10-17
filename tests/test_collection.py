@@ -201,10 +201,10 @@ class TestCollection:
 
     def test__get_files_in_path(self, tmp_path):
         collection = Collection(tmp_path, self.path_format,
-                exclude={'**/*.dng',},
+                exclude={'**/*.dng',}, max_deep=1,
                 use_date_filename=True, use_file_dates=True)
         paths = [x for x in collection._get_files_in_path(self.src_path,
-            maxlevel=1, glob='**/photo*')]
+            glob='**/photo*')]
         assert len(paths) == 6
         for path in paths:
             assert isinstance(path, Path)

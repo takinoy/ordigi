@@ -11,8 +11,6 @@ from ordigi import constants
 from ordigi import log
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
-# from ordigi.media import Media, get_all_subclasses
-# from ordigi.summary import Summary
 
 
 _logger_options = [
@@ -120,10 +118,10 @@ def _get_exclude(opt, exclude):
     '--interactive', '-i', default=False, is_flag=True, help="Interactive mode"
 )
 @click.option(
-    '--max-deep',
-    '-m',
+    '--path-format',
+    '-p',
     default=None,
-    help='Maximum level to proceed. Number from 0 to desired level.',
+    help='set custom featured path format',
 )
 @click.option(
     '--remove-duplicates',
@@ -172,10 +170,6 @@ def sort(**kwargs):
 
     logger = log.get_logger(level=log_level)
 
-    max_deep = kwargs['max_deep']
-    if max_deep is not None:
-        max_deep = int(max_deep)
-
     cache = True
     if kwargs['reset_cache']:
         cache = False
@@ -197,12 +191,16 @@ def sort(**kwargs):
     config = Config(constants.CONFIG_FILE)
     opt = config.get_options()
 
+    path_format = opt['path_format']
+    if kwargs['path_format']:
+        path_format = kwargs['path_format']
+
     exclude = _get_exclude(opt, kwargs['exclude'])
     filter_by_ext = set(kwargs['filter_by_ext'])
 
     collection = Collection(
         destination,
-        opt['path_format'],
+        path_format,
         kwargs['album_from_folder'],
         cache,
         opt['day_begins'],
@@ -212,7 +210,7 @@ def sort(**kwargs):
         kwargs['glob'],
         kwargs['interactive'],
         logger,
-        max_deep,
+        opt['max_deep'],
         mode,
         kwargs['use_date_filename'],
         kwargs['use_file_dates'],
@@ -246,13 +244,10 @@ def sort(**kwargs):
     help='Regex to match duplicate strings parts',
 )
 @click.option(
-    '--folders', '-f', default=False, is_flag=True, help='Remove empty folders'
+    '--delete-excluded', '-d', default=False, is_flag=True, help='Remove excluded files'
 )
 @click.option(
-    '--max-deep',
-    '-m',
-    default=None,
-    help='Maximum level to proceed. Number from 0 to desired level.',
+    '--folders', '-f', default=False, is_flag=True, help='Remove empty folders'
 )
 @click.option(
     '--path-string', '-p', default=False, is_flag=True, help='Deduplicate path string'
@@ -276,6 +271,8 @@ def clean(**kwargs):
     """Remove empty folders
     Usage: clean [--verbose|--debug] directory [removeRoot]"""
 
+    import ipdb; ipdb.set_trace()
+    result = True
     dry_run = kwargs['dry_run']
     folders = kwargs['folders']
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
@@ -304,7 +301,7 @@ def clean(**kwargs):
         filter_by_ext=filter_by_ext,
         glob=kwargs['glob'],
         logger=logger,
-        max_deep=kwargs['max_deep'],
+        max_deep=opt['max_deep'],
         mode='move',
     )
 
@@ -316,6 +313,9 @@ def clean(**kwargs):
 
     if clean_all or folders:
         collection.remove_empty_folders(path)
+
+    if kwargs['delete_excluded']:
+        collection.remove_excluded_files()
 
     if log_level < 30:
         summary.print()
@@ -335,7 +335,7 @@ def init(**kwargs):
 
     logger = log.get_logger(level=log_level)
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(kwargs['path'], None, mode='move', logger=logger)
+    collection = Collection(kwargs['path'], None, exclude=opt['exclude'], mode='move', logger=logger)
     summary = collection.init(loc)
 
     if log_level < 30:
@@ -353,7 +353,7 @@ def update(**kwargs):
 
     logger = log.get_logger(level=log_level)
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(kwargs['path'], None, mode='move', logger=logger)
+    collection = Collection(kwargs['path'], None, exclude=opt['exclude'], mode='move', logger=logger)
     summary = collection.update(loc)
 
     if log_level < 30:
@@ -367,7 +367,9 @@ def check(**kwargs):
     """check db and verify hashes"""
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
     logger = log.get_logger(level=log_level)
-    collection = Collection(kwargs['path'], None, mode='move', logger=logger)
+    config = Config(constants.CONFIG_FILE)
+    opt = config.get_options()
+    collection = Collection(kwargs['path'], None, exclude=opt['exclude'], mode='move', logger=logger)
     result = collection.check_db()
     if result:
         summary, result = collection.check_files()
@@ -376,7 +378,7 @@ def check(**kwargs):
         if not result:
             sys.exit(1)
     else:
-        self.logger.error('Db data is not accurate run `ordigi init`')
+        logger.error('Db data is not accurate run `ordigi update`')
         sys.exit(1)
 
 

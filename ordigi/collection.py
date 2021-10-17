@@ -377,7 +377,7 @@ class Collection:
                 self._add_db_data(media.metadata)
                 if self.mode == 'move':
                     # Delete file path entry in db when file is moved inside collection
-                    if str(self.root) in str(src_path):
+                    if self.root in src_path.parents:
                         self.db.delete_filepath(str(src_path.relative_to(self.root)))
 
             self.summary.append((src_path, dest_path))
@@ -393,6 +393,20 @@ class Collection:
         if not self.dry_run:
             os.remove(file_path)
         self.logger.info(f'remove: {file_path}')
+
+    def remove_excluded_files(self):
+        result = True
+        for file_path in self.root.glob(self.glob):
+            if file_path.is_dir():
+                continue
+            else:
+                if self.root / '.ordigi' in file_path.parents:
+                    continue
+
+                for exclude in self.exclude:
+                    if fnmatch(file_path, exclude):
+                        self.remove(file_path)
+                        break
 
     def sort_file(self, src_path, dest_path, remove_duplicates=False):
         '''
@@ -526,7 +540,7 @@ class Collection:
         """
         return len(path.parts) - 1
 
-    def _get_files_in_path(self, path, glob='**/*', maxlevel=None, extensions=set()):
+    def _get_files_in_path(self, path, glob='**/*', extensions=set()):
         """Recursively get files which match a path and extension.
 
         :param str path string: Path to start recursive file listing
@@ -545,12 +559,11 @@ class Collection:
                 else:
                     level = len(subdirs.parts)
 
-                if subdirs.parts != ():
-                    if subdirs.parts[0] == '.ordigi':
-                        continue
+                if self.root / '.ordigi' in file_path.parents:
+                    continue
 
-                if maxlevel is not None:
-                    if level > maxlevel:
+                if self.max_deep is not None:
+                    if level > self.max_deep:
                         continue
 
                 matched = False
@@ -558,7 +571,6 @@ class Collection:
                     if fnmatch(file_path, exclude):
                         matched = True
                         break
-
                 if matched:
                     continue
 
@@ -647,7 +659,13 @@ class Collection:
             dedup_regex = [date_num3, date_num2, default]
 
         conflict_file_list = []
-        self.src_list = [x for x in self._get_files_in_path(path, glob=self.glob)]
+        self.src_list = [
+            x
+            for x in self._get_files_in_path(
+                path, glob=self.glob,
+                extensions=self.filter_by_ext,
+            )
+        ]
         for src_path in self.src_list:
             # TODO to test it
             media = Media(src_path, path, logger=self.logger)
@@ -819,17 +837,35 @@ class Collection:
 
         return self.summary
 
+    def remove_empty_subdirs(self, directories):
+        parents = set()
+        for directory in directories:
+            # if folder empty, delete it
+            files = os.listdir(directory)
+            if len(files) == 0:
+                self.logger.info(f"Removing empty folder: {directory}")
+                directory.rmdir()
+
+            if self.root in directory.parent.parents:
+                parents.add(directory.parent)
+
+        if parents != set():
+            self.remove_empty_subdirs(parents)
+
     def sort_files(self, paths, loc, remove_duplicates=False, ignore_tags=set()):
         """
         Sort files into appropriate folder
         """
         # Check db
-        if not self.check_db():
-            self.logger.error('Db data is not accurate run `ordigi init`')
+        if [x for x in self.db.get_rows('metadata')] == []:
+            self.init(loc, ignore_tags)
+        elif not self.check_db():
+            self.logger.error('Db data is not accurate run `ordigi update`')
             sys.exit(1)
 
         result = False
         files_data = []
+        src_dirs_in_collection = set()
         for path in paths:
             self.dest_list = []
             path = self._check_path(path)
@@ -837,7 +873,8 @@ class Collection:
             self.src_list = [
                 x
                 for x in self._get_files_in_path(
-                    path, glob=self.glob, extensions=self.filter_by_ext
+                    path, glob=self.glob,
+                    extensions=self.filter_by_ext,
                 )
             ]
             if self.interactive:
@@ -846,6 +883,9 @@ class Collection:
 
             # Get medias and paths
             for src_path in self.src_list:
+                # List all src_dirs in collection
+                if self.root in src_path.parents:
+                    src_dirs_in_collection.add(src_path.parent)
                 # Process files
                 media = Media(
                     src_path,
@@ -892,12 +932,14 @@ class Collection:
             if conflict_file_list != []:
                 record = self._solve_conflicts(conflict_file_list, remove_duplicates)
 
+            self.remove_empty_subdirs(src_dirs_in_collection)
+
             if not self._check_processed():
                 record = False
 
         return self.summary, record
 
-    def remove_empty_folders(path, remove_root=True):
+    def remove_empty_folders(self, path, remove_root=True):
         'Function to remove empty folders'
         if not os.path.isdir(path):
             return
@@ -927,7 +969,8 @@ class Collection:
         :returns: iter
         """
         for src_path in self._get_files_in_path(
-            path, glob=self.glob, extensions=self.filter_by_ext
+            path, glob=self.glob,
+            extensions=self.filter_by_ext,
         ):
             dirname = src_path.parent.name
 
@@ -1012,7 +1055,8 @@ class Collection:
         moved_files = set()
         nb_row_ini = self.db.len('metadata')
         for src_path in self._get_files_in_path(
-            path, glob=self.glob, extensions=self.filter_by_ext
+            path, glob=self.glob,
+            extensions=self.filter_by_ext,
         ):
             dirname = src_path.parent.name
             if dirname.find('similar_to') == 0:
