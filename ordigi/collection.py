@@ -24,68 +24,15 @@ from ordigi.summary import Summary
 from ordigi import utils
 
 
-class Collection:
-    """Class of the media collection."""
+class FPath:
+    """Featured path object"""
 
-    def __init__(
-        self,
-        root,
-        path_format,
-        album_from_folder=False,
-        cache=False,
-        day_begins=0,
-        dry_run=False,
-        exclude=set(),
-        filter_by_ext=set(),
-        glob='**/*',
-        interactive=False,
-        logger=logging.getLogger(),
-        max_deep=None,
-        mode='copy',
-        use_date_filename=False,
-        use_file_dates=False,
-    ):
-
-        # Attributes
-        self.root = Path(root).expanduser().absolute()
-        if not self.root.exists():
-            logger.error(f'Directory {self.root} does not exist')
-            sys.exit(1)
-
-        self.path_format = path_format
-        self.db = Sqlite(self.root)
-
-        # Options
-        self.album_from_folder = album_from_folder
-        self.cache = cache
+    def __init__(self, path_format, day_begins=0, logger=logging.getLogger()):
         self.day_begins = day_begins
-        self.dry_run = dry_run
-        self.exclude = exclude
-
-        if '%media' in filter_by_ext:
-            filter_by_ext.remove('%media')
-            self.filter_by_ext = filter_by_ext.union(media.extensions)
-        else:
-            self.filter_by_ext = filter_by_ext
-
-        self.glob = glob
         self.items = self.get_items()
-        self.interactive = interactive
-        self.logger = logger.getChild(self.__class__.__name__)
-        self.max_deep = max_deep
-        self.mode = mode
-        # List to store media metadata
-        self.medias = []
-        self.summary = Summary()
-        self.use_date_filename = use_date_filename
-        self.use_file_dates = use_file_dates
+        self.logger = logger
+        self.path_format = path_format
         self.whitespace_regex = '[ \t\n\r\f\v]+'
-
-        self.src_list = []
-        self.dest_list = []
-
-        # Constants
-        self.theme = request.load_theme()
 
     def get_items(self):
         return {
@@ -96,7 +43,7 @@ class Collection:
             'city': '{city}',
             'custom': '{".*"}',
             'country': '{country}',
-            # 'folder': '{folder[<>]?[-+]?[1-9]?}',
+            'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}',  # search for date format string
             'ext': '{ext}',
             'folder': '{folder}',
             'folders': r'{folders(\[[0-9:]{0,3}\])?}',
@@ -105,19 +52,25 @@ class Collection:
             'original_name': '{original_name}',
             'state': '{state}',
             'title': '{title}',
-            'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}',  # search for date format string
         }
 
-    def _check_for_early_morning_photos(self, date):
+    def get_early_morning_photos_date(self, date, mask):
         """check for early hour photos to be grouped with previous day"""
+
+        for m in '%H', '%M', '%S','%I', '%p', '%f':
+            if m in mask:
+                # D'ont change date format if datestring contain hour, minutes or seconds...
+                return date.strftime(mask)
+
         if date.hour < self.day_begins:
             self.logger.info(
                 "moving this photo to the previous day for classification purposes"
             )
+
             # push it to the day before for classification purposes
             date = date - timedelta(hours=date.hour + 1)
 
-        return date
+        return date.strftime(mask)
 
     def _get_folders(self, folders, mask):
         """
@@ -186,8 +139,7 @@ class Collection:
             date = metadata['date_media']
             # early morning photos can be grouped with previous day
             if date is not None:
-                date = self._check_for_early_morning_photos(date)
-                part = date.strftime(mask)
+                part = self.get_early_morning_photos_date(date, mask)
         elif item == 'folder':
             part = os.path.basename(metadata['subdirs'])
 
@@ -294,6 +246,68 @@ class Collection:
         return path_string
 
         return None
+
+
+class Collection:
+    """Class of the media collection."""
+
+    def __init__(
+        self,
+        root,
+        path_format,
+        album_from_folder=False,
+        cache=False,
+        day_begins=0,
+        dry_run=False,
+        exclude=set(),
+        filter_by_ext=set(),
+        glob='**/*',
+        interactive=False,
+        logger=logging.getLogger(),
+        max_deep=None,
+        mode='copy',
+        use_date_filename=False,
+        use_file_dates=False,
+    ):
+
+        # Attributes
+        self.root = Path(root).expanduser().absolute()
+        if not self.root.exists():
+            logger.error(f'Directory {self.root} does not exist')
+            sys.exit(1)
+
+        self.path_format = path_format
+        self.db = Sqlite(self.root)
+
+        # Options
+        self.album_from_folder = album_from_folder
+        self.cache = cache
+        self.day_begins = day_begins
+        self.dry_run = dry_run
+        self.exclude = exclude
+
+        if '%media' in filter_by_ext:
+            filter_by_ext.remove('%media')
+            self.filter_by_ext = filter_by_ext.union(media.extensions)
+        else:
+            self.filter_by_ext = filter_by_ext
+
+        self.glob = glob
+        self.interactive = interactive
+        self.logger = logger.getChild(self.__class__.__name__)
+        self.max_deep = max_deep
+        self.mode = mode
+        # List to store media metadata
+        self.medias = []
+        self.summary = Summary()
+        self.use_date_filename = use_date_filename
+        self.use_file_dates = use_file_dates
+
+        self.src_list = []
+        self.dest_list = []
+
+        # Constants
+        self.theme = request.load_theme()
 
     def _checkcomp(self, dest_path, src_checksum):
         """Check file."""
@@ -845,7 +859,8 @@ class Collection:
                 )
                 metadata = media.get_metadata(self.root, loc, self.db, self.cache)
                 # Get the destination path according to metadata
-                relpath = Path(self.get_path(metadata))
+                fpath = FPath(self.path_format, self.day_begins, self.logger)
+                relpath = Path(fpath.get_path(metadata))
 
                 files_data.append((copy(media), relpath))
 
@@ -1031,3 +1046,5 @@ class Collection:
             result = self.check_db()
 
         return self.summary, result
+
+

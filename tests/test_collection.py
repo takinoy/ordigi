@@ -11,7 +11,7 @@ from time import sleep
 
 from .conftest import randomize_files, randomize_db
 from ordigi import constants
-from ordigi.collection import Collection
+from ordigi.collection import Collection, FPath
 from ordigi.database import Sqlite
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
 from ordigi.geolocation import GeoLocation
@@ -20,7 +20,7 @@ from ordigi.media import Media
 from ordigi import utils
 
 
-class TestCollection:
+class TestFPath:
 
     @pytest.fixture(autouse=True)
     def setup_class(cls, sample_files_paths):
@@ -28,18 +28,13 @@ class TestCollection:
         cls.path_format = constants.default_path + '/' + constants.default_name
         cls.logger = log.get_logger(level=10)
 
-    def teardown_class(self):
-        terminate_exiftool()
-        assert not exiftool_is_running()
-
     def test_get_part(self, tmp_path):
         """
         Test all parts
         """
+        fpath = FPath(self.path_format, 4, self.logger)
         # Item to search for:
-        collection = Collection(tmp_path, self.path_format,
-                use_date_filename=True, use_file_dates=True)
-        items = collection.get_items()
+        items = fpath.get_items()
         masks = [
                 '{album}',
                 '{basename}',
@@ -77,7 +72,7 @@ class TestCollection:
                 for mask in masks:
                     matched = re.search(regex, mask)
                     if matched:
-                        part = collection.get_part(item, mask[1:-1], metadata)
+                        part = fpath.get_part(item, mask[1:-1], metadata)
                         # check if part is correct
                         assert isinstance(part, str), file_path
                         if item == 'basename':
@@ -112,6 +107,28 @@ class TestCollection:
                                 assert part == '', file_path
                         else:
                             assert part == '', file_path
+
+    def test_get_early_morning_photos_date(self):
+        date = datetime(2021, 10, 16, 2, 20, 40)
+        fpath = FPath(self.path_format, 4, self.logger)
+        part = fpath.get_early_morning_photos_date(date, '%Y-%m-%d')
+        assert part == '2021-10-15'
+
+        part = fpath.get_early_morning_photos_date(date, '%Y%m%d-%H%M%S')
+        assert part == '20211016-022040'
+
+
+class TestCollection:
+
+    @pytest.fixture(autouse=True)
+    def setup_class(cls, sample_files_paths):
+        cls.src_path, cls.file_paths = sample_files_paths
+        cls.path_format = constants.default_path + '/' + constants.default_name
+        cls.logger = log.get_logger(level=10)
+
+    def teardown_class(self):
+        terminate_exiftool()
+        assert not exiftool_is_running()
 
     def test_sort_files(self, tmp_path):
         collection = Collection(tmp_path, self.path_format,
@@ -181,9 +198,6 @@ class TestCollection:
                 shutil.copyfile(dest_path, src_path)
 
         # TODO check for conflicts
-
-
-        # TODO check date
 
     def test__get_files_in_path(self, tmp_path):
         collection = Collection(tmp_path, self.path_format,
