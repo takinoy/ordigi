@@ -79,6 +79,8 @@ def _get_exclude(opt, exclude):
         exclude = opt['exclude']
     return set(exclude)
 
+def get_collection_config(root):
+    return Config(os.path.join(root, '.ordigi', 'ordigi.conf'))
 
 @click.command('sort')
 @add_options(_logger_options)
@@ -158,7 +160,7 @@ def sort(**kwargs):
     according to ordigi.conf preferences.
     """
 
-    destination = kwargs['destination']
+    root = kwargs['destination']
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
 
     paths = kwargs['paths']
@@ -175,20 +177,20 @@ def sort(**kwargs):
         cache = False
 
     if len(paths) > 1:
-        if not destination:
+        if not root:
             # Use last path argument as destination
-            destination = paths[-1]
+            root = paths[-1]
             paths = paths[0:-1]
     elif paths:
         # Source and destination are the same
-        destination = paths[0]
+        root = paths[0]
     else:
         logger.error(f'`ordigi sort` need at least one path argument')
         sys.exit(1)
 
     paths = set(paths)
 
-    config = Config(constants.CONFIG_FILE)
+    config = get_collection_config(root)
     opt = config.get_options()
 
     path_format = opt['path_format']
@@ -199,7 +201,7 @@ def sort(**kwargs):
     filter_by_ext = set(kwargs['filter_by_ext'])
 
     collection = Collection(
-        destination,
+        root,
         path_format,
         kwargs['album_from_folder'],
         cache,
@@ -223,7 +225,7 @@ def sort(**kwargs):
     )
 
     if kwargs['clean']:
-        collection.remove_empty_folders(destination)
+        collection.remove_empty_folders(root)
 
     if log_level < 30:
         summary.print()
@@ -271,7 +273,6 @@ def clean(**kwargs):
     """Remove empty folders
     Usage: clean [--verbose|--debug] directory [removeRoot]"""
 
-    import ipdb; ipdb.set_trace()
     result = True
     dry_run = kwargs['dry_run']
     folders = kwargs['folders']
@@ -287,7 +288,7 @@ def clean(**kwargs):
     if not root:
         root = path
 
-    config = Config(constants.CONFIG_FILE)
+    config = get_collection_config(root)
     opt = config.get_options()
 
     exclude = _get_exclude(opt, kwargs['exclude'])
@@ -329,13 +330,14 @@ def clean(**kwargs):
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def init(**kwargs):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
-    config = Config(constants.CONFIG_FILE)
+    root = kwargs['path']
+    config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
 
     logger = log.get_logger(level=log_level)
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(kwargs['path'], None, exclude=opt['exclude'], mode='move', logger=logger)
+    collection = Collection(root, None, exclude=opt['exclude'], mode='move', logger=logger)
     summary = collection.init(loc)
 
     if log_level < 30:
@@ -347,13 +349,14 @@ def init(**kwargs):
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def update(**kwargs):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
-    config = Config(constants.CONFIG_FILE)
+    root = kwargs['path']
+    config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
 
     logger = log.get_logger(level=log_level)
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(kwargs['path'], None, exclude=opt['exclude'], mode='move', logger=logger)
+    collection = Collection(root, None, exclude=opt['exclude'], mode='move', logger=logger)
     summary = collection.update(loc)
 
     if log_level < 30:
@@ -367,9 +370,10 @@ def check(**kwargs):
     """check db and verify hashes"""
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
     logger = log.get_logger(level=log_level)
-    config = Config(constants.CONFIG_FILE)
+    root = kwargs['path']
+    config = get_collection_config(root)
     opt = config.get_options()
-    collection = Collection(kwargs['path'], None, exclude=opt['exclude'], mode='move', logger=logger)
+    collection = Collection(root, None, exclude=opt['exclude'], mode='move', logger=logger)
     result = collection.check_db()
     if result:
         summary, result = collection.check_files()
@@ -435,7 +439,7 @@ def compare(**kwargs):
     if not root:
         root = kwargs['path']
 
-    config = Config(constants.CONFIG_FILE)
+    config = get_collection_config(root)
     opt = config.get_options()
 
     exclude = _get_exclude(opt, kwargs['exclude'])

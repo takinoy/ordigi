@@ -20,4 +20,4 @@ default_path = '{%Y-%m-%b}/{album}|{city}'
 default_name = '{%Y-%m-%d_%H-%M-%S}-{name}-{title}.%l{ext}'
 default_geocoder = 'Nominatim'
 
-CONFIG_FILE = f'{application_directory}/ordigi.conf'
+CONFIG_FILE = path.join(application_directory, 'ordigi.conf')

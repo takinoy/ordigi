@@ -7,16 +7,20 @@ from geopy.geocoders import options as gopt
 class Config:
     """Manage config file"""
 
-    def __init__(self, conf_path=None, conf={}):
+    def __init__(self, conf_path=constants.CONFIG_FILE, conf={}):
         self.conf_path = conf_path
-        if conf_path == None:
-            self.conf = conf
-        else:
+        if conf == {}:
             self.conf = self.load_config()
+            if self.conf == {}:
+                # Fallback to default config
+                self.conf_path = constants.CONFIG_FILE
+                self.conf = self.load_config()
+        else:
+            self.conf = conf
 
     def write(self, conf):
-        with open(self.conf_path, 'w') as conf_path:
-            conf.write(conf_path)
+        with open(self.conf_path, 'w') as conf_file:
+            conf.write(conf_file)
             return True
 
         return False
@@ -87,6 +91,7 @@ class Config:
             if 'max_deep' in self.conf['Path']:
                 options['max_deep'] = int(self.conf['Path']['max_deep'])
 
+        options['exclude'] = []
         if 'Exclusions' in self.conf:
             options['exclude'] = [value for key, value in self.conf.items('Exclusions')]
 

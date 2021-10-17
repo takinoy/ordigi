@@ -68,8 +68,8 @@ def conf_path():
             'geocoder': 'Nominatium'
             }
     conf_path = Path(conf_dir, "ordigi.conf")
-    config = Config(conf_path)
-    config.write(conf)
+    with open(conf_path, 'w') as conf_file:
+        conf.write(conf_file)
 
     yield conf_path
 

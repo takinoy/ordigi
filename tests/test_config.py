@@ -39,8 +39,9 @@ class TestConfig:
 
     def test_load_config_no_exist(self):
         # test file not exist
-        config = Config('filename')
-        assert config.conf == {}
+        config = Config()
+        config.conf_path = 'filename'
+        assert config.load_config() == {}
 
     def test_load_config_invalid(self, conf_path):
         # test invalid config
