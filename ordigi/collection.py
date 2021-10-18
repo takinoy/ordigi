@@ -380,7 +380,7 @@ class Collection:
                     if self.root in src_path.parents:
                         self.db.delete_filepath(str(src_path.relative_to(self.root)))
 
-            self.summary.append((src_path, dest_path))
+            self.summary.append((src_path, self.mode))
             record = True
 
         else:
@@ -405,8 +405,12 @@ class Collection:
 
                 for exclude in self.exclude:
                     if fnmatch(file_path, exclude):
-                        self.remove(file_path)
+                        if not self.dry_run:
+                            self.remove(file_path)
+                        self.summary.append((file_path, 'delete'))
                         break
+
+        return self.summary
 
     def sort_file(self, src_path, dest_path, remove_duplicates=False):
         '''
@@ -435,7 +439,9 @@ class Collection:
                         f'File in source and destination are identical. Duplicate will be ignored.'
                     )
                     if mode == 'move':
-                        self.remove(src_path)
+                        if not dry_run:
+                            self.remove(src_path)
+                        self.summary.append((src_path, 'delete'))
                     return None
                 else:  # name is same, but file is different
                     self.logger.warning(
@@ -774,7 +780,7 @@ class Collection:
             metadata = media.get_metadata(self.root, loc, self.db, self.cache)
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
             self._add_db_data(media.metadata)
-            self.summary.append((file_path, file_path))
+            self.summary.append((file_path, 'record'))
 
         return self.summary
 
@@ -784,7 +790,7 @@ class Collection:
             checksum = utils.checksum(file_path)
             relpath = file_path.relative_to(self.root)
             if checksum == self.db.get_checksum(relpath):
-                self.summary.append((file_path, file_path))
+                self.summary.append((file_path, 'record'))
             else:
                 self.logger.error('{file_path} is corrupted')
                 self.summary.append((file_path, False))
@@ -829,7 +835,7 @@ class Collection:
                         break
                 # set row attribute to the file
                 self._add_db_data(media.metadata)
-                self.summary.append((file_path, file_path))
+                self.summary.append((file_path, 'record'))
 
         # Finally delete invalid rows
         for row in invalid_db_rows:
@@ -843,8 +849,8 @@ class Collection:
             # if folder empty, delete it
             files = os.listdir(directory)
             if len(files) == 0:
-                self.logger.info(f"Removing empty folder: {directory}")
-                directory.rmdir()
+                if not self.dry_run:
+                    directory.rmdir()
 
             if self.root in directory.parent.parents:
                 parents.add(directory.parent)
@@ -939,24 +945,29 @@ class Collection:
 
         return self.summary, record
 
-    def remove_empty_folders(self, path, remove_root=True):
+    def remove_empty_folders(self, directory, remove_root=True):
         'Function to remove empty folders'
-        if not os.path.isdir(path):
-            return
+        if not os.path.isdir(directory):
+            self.summary.append((directory, False))
+            return self.summary
 
         # remove empty subfolders
-        files = os.listdir(path)
+        files = os.listdir(directory)
         if len(files):
             for f in files:
-                fullpath = os.path.join(path, f)
+                fullpath = os.path.join(directory, f)
                 if os.path.isdir(fullpath):
                     self.remove_empty_folders(fullpath)
 
         # if folder empty, delete it
-        files = os.listdir(path)
+        files = os.listdir(directory)
         if len(files) == 0 and remove_root:
-            self.logger.info(f"Removing empty folder: {path}")
-            os.rmdir(path)
+            self.logger.info(f"Removing empty folder: {directory}")
+            if not self.dry_run:
+                os.rmdir(directory)
+            self.summary.append((directory, 'delete'))
+
+        return self.summary
 
     def move_file(self, img_path, dest_path):
         if not self.dry_run:
@@ -1017,7 +1028,7 @@ class Collection:
                 self.move_file(img_path, dest_path)
                 moved_imgs.add(img_path)
                 if self._record_file(img_path, dest_path, media):
-                    self.summary.append((img_path, dest_path))
+                    self.summary.append((img_path, self.mode))
                 else:
                     self.summary.append((img_path, False))
                     result = False
@@ -1028,7 +1039,7 @@ class Collection:
                 self.move_file(img_path, dest_path)
                 moved_imgs.add(img_path)
                 if self._record_file(img_path, dest_path, media_ref):
-                    self.summary.append((img_path, dest_path))
+                    self.summary.append((img_path, self.mode))
                 else:
                     self.summary.append((img_path, False))
                     result = False
@@ -1069,7 +1080,7 @@ class Collection:
                 self.move_file(src_path, dest_path)
                 moved_files.add(src_path)
                 if self._record_file(src_path, dest_path, media):
-                    self.summary.append((src_path, dest_path))
+                    self.summary.append((src_path, self.mode))
                 else:
                     self.summary.append((src_path, False))
                     result = False

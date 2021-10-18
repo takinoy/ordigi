@@ -313,10 +313,10 @@ def clean(**kwargs):
         )
 
     if clean_all or folders:
-        collection.remove_empty_folders(path)
+        summary = collection.remove_empty_folders(path)
 
     if kwargs['delete_excluded']:
-        collection.remove_excluded_files()
+        summary = collection.remove_excluded_files()
 
     if log_level < 30:
         summary.print()
