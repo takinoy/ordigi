@@ -11,7 +11,12 @@ def level(verbose, debug):
 
 
 def get_logger(name='ordigi', level=30):
-    logging.basicConfig(format='%(levelname)s:%(message)s', level=level)
+    if level > 10:
+        format='%(levelname)s:%(message)s'
+    else:
+        format='%(levelname)s:%(name)s:%(message)s'
+
+    logging.basicConfig(format=format, level=level)
     logging.getLogger('asyncio').setLevel(level)
     logger = logging.getLogger(name)
     return logger

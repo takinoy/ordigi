@@ -428,10 +428,10 @@ class Collection:
             self.logger.info(f'File {dest_path} already sorted')
             return None
         elif dest_path.is_dir():
-            self.logger.warning(f'File {dest_path} is a existing directory')
+            self.logger.info(f'File {dest_path} is a existing directory')
             return False
         elif dest_path.is_file():
-            self.logger.warning(f'File {dest_path} already exist')
+            self.logger.info(f'File {dest_path} already exist')
             if remove_duplicates:
                 if filecmp.cmp(src_path, dest_path):
                     self.logger.info(
