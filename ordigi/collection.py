@@ -201,7 +201,7 @@ class FPath:
             if re.match(regex, this_part[0]):
                 this_part = this_part[1:]
 
-        return this_part
+        return this_part.strip()
 
     def get_path(self, metadata, whitespace_sub='_'):
         """path_format: {%Y-%d-%m}/%u{city}/{album}
@@ -216,26 +216,25 @@ class FPath:
         for path_part in path_parts:
             this_parts = path_part.split('|')
             for this_part in this_parts:
-                this_part = self.get_path_part(this_part, metadata)
+                part = self.get_path_part(this_part, metadata)
 
-                if this_part:
+                if part != '':
                     # Check if all masks are substituted
-                    if True in [c in this_part for c in '{}']:
+                    if True in [c in part for c in '{}']:
                         self.logger.error(
                             f'Format path part invalid: \
                                 {this_part}'
                         )
                         sys.exit(1)
 
-                    path.append(this_part.strip())
+                    path.append(part)
                     # We break as soon as we have a value to append
                     break
                 # Else we continue for fallbacks
 
-        if path == []:
-            path = [metadata['filename']]
-        elif len(path[-1]) == 0 or re.match(r'^\..*', path[-1]):
-            path[-1] = metadata['filename']
+        # If last path is empty or start with dot
+        if part == '' or re.match(r'^\..*', part):
+            path.append(metadata['filename'])
 
         path_string = os.path.join(*path)
 
