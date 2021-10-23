@@ -33,7 +33,7 @@ class Media:
     def __init__(
         self,
         file_path,
-        src_path,
+        src_dir,
         album_from_folder=False,
         ignore_tags=set(),
         interactive=False,
@@ -45,7 +45,7 @@ class Media:
         :params: Path, Path, bool, set, bool, Logger
         """
         self.file_path = file_path
-        self.src_path = src_path
+        self.src_dir = src_dir
 
         self.album_from_folder = album_from_folder
         self.exif_metadata = None
@@ -214,14 +214,14 @@ class Media:
                 default=default,
             ),
         ]
-        prompt = [
-            inquirer.Text('date_custom', message="date"),
-        ]
-
         answers = inquirer.prompt(choices_list, theme=self.theme)
+
         if not answers['date_list']:
+            prompt = [
+                inquirer.Text('date_custom', message="date"),
+            ]
             answers = inquirer.prompt(prompt, theme=self.theme)
-            return utils.get_date_from_string(answers['date_custom'])
+            return self.get_date_format(answers['date_custom'])
         else:
             return answers['date_list']
 
@@ -236,9 +236,9 @@ class Media:
         basename = os.path.splitext(self.metadata['filename'])[0]
         date_original = self.metadata['date_original']
         if self.metadata['original_name']:
-            date_filename = utils.get_date_from_string(self.metadata['original_name'])
+            date_filename = self.get_date_format(self.metadata['original_name'])
         else:
-            date_filename = utils.get_date_from_string(basename)
+            date_filename = self.get_date_format(basename)
 
         date_original = self.metadata['date_original']
         date_created = self.metadata['date_created']
@@ -386,16 +386,16 @@ class Media:
                 else:
                     formated_data = value
                 self.metadata[key] = formated_data
-            for key in 'src_path', 'subdirs', 'filename':
+            for key in 'src_dir', 'subdirs', 'filename':
                 label = utils.snake2camel(key)
                 formated_data = db.get_metadata_data(relpath, label)
                 self.metadata[key] = formated_data
 
             location_id = db.get_metadata_data(relpath, 'LocationId')
         else:
-            self.metadata['src_path'] = str(self.src_path)
+            self.metadata['src_dir'] = str(self.src_dir)
             self.metadata['subdirs'] = str(
-                self.file_path.relative_to(self.src_path).parent
+                self.file_path.relative_to(self.src_dir).parent
             )
             self.metadata['filename'] = self.file_path.name
             # Get metadata from exif
@@ -499,6 +499,19 @@ class Media:
         :returns: value (str)
         """
         return ExifTool(self.file_path, logger=self.logger).setvalue(tag, value)
+
+    def set_key_values(self, key, value):
+        """Set tags values for given key"""
+        status = True
+        if self.exif_metadata is None:
+            return False
+
+        for tag in self.tags_keys[key]:
+            if tag in self.exif_metadata:
+                if not self.set_value(tag, value):
+                    status = False
+
+        return status
 
     def set_date_media(self, time):
         """Set the date/time a photo was taken.

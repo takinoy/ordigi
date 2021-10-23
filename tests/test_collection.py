@@ -1,5 +1,6 @@
 # TODO to be removed later
 from datetime import datetime
+import inquirer
 import os
 import pytest
 import shutil
@@ -131,10 +132,11 @@ class TestCollection:
         assert not exiftool_is_running()
 
     def test_sort_files(self, tmp_path):
-        collection = Collection(tmp_path, self.path_format,
-                album_from_folder=True, logger=self.logger)
+        collection = Collection(tmp_path, album_from_folder=True,
+                logger=self.logger, mode='copy')
         loc = GeoLocation()
-        summary, result = collection.sort_files([self.src_path], loc)
+        summary, result = collection.sort_files([self.src_path],
+                self.path_format, loc)
 
         # Summary is created and there is no errors
         assert summary, summary
@@ -157,13 +159,13 @@ class TestCollection:
         assert summary, summary
         assert not result, result
 
-        collection = Collection(tmp_path, None, mode='move', logger=self.logger)
+        collection = Collection(tmp_path, logger=self.logger)
         summary = collection.update(loc)
         assert summary, summary
 
-        collection = Collection(tmp_path, self.path_format, album_from_folder=True)
+        collection = Collection(tmp_path, mode='copy', album_from_folder=True)
         loc = GeoLocation()
-        summary, result = collection.sort_files([self.src_path], loc)
+        summary, result = collection.sort_files([self.src_path], self.path_format, loc)
 
         assert summary, summary
         assert result, result
@@ -171,16 +173,17 @@ class TestCollection:
         # TODO check if path follow path_format
 
     def test_sort_files_invalid_db(self, tmp_path):
-        collection = Collection(tmp_path, self.path_format)
+        collection = Collection(tmp_path, mode='copy')
         loc = GeoLocation()
         randomize_db(tmp_path)
         with pytest.raises(sqlite3.DatabaseError) as e:
-            summary, result = collection.sort_files([self.src_path], loc)
+            summary, result = collection.sort_files([self.src_path],
+                    self.path_format, loc)
 
     def test_sort_file(self, tmp_path):
 
         for mode in 'copy', 'move':
-            collection = Collection(tmp_path, self.path_format, mode=mode)
+            collection = Collection(tmp_path, mode=mode)
             # copy mode
             src_path = Path(self.src_path, 'test_exif', 'photo.png')
             name = 'photo_' + mode + '.png'
@@ -200,8 +203,7 @@ class TestCollection:
         # TODO check for conflicts
 
     def test__get_files_in_path(self, tmp_path):
-        collection = Collection(tmp_path, self.path_format,
-                exclude={'**/*.dng',}, max_deep=1,
+        collection = Collection(tmp_path, exclude={'**/*.dng',}, max_deep=1,
                 use_date_filename=True, use_file_dates=True)
         paths = [x for x in collection._get_files_in_path(self.src_path,
             glob='**/photo*')]
@@ -212,7 +214,7 @@ class TestCollection:
     def test_sort_similar_images(self, tmp_path):
         path = tmp_path / 'collection'
         shutil.copytree(self.src_path, path)
-        collection = Collection(path, None, mode='move', logger=self.logger)
+        collection = Collection(path, logger=self.logger)
         loc = GeoLocation()
         summary = collection.init(loc)
         summary, result = collection.sort_similar_images(path, similarity=60)

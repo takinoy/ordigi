@@ -253,7 +253,6 @@ class Collection:
     def __init__(
         self,
         root,
-        path_format,
         album_from_folder=False,
         cache=False,
         day_begins=0,
@@ -264,7 +263,7 @@ class Collection:
         interactive=False,
         logger=logging.getLogger(),
         max_deep=None,
-        mode='copy',
+        mode='move',
         use_date_filename=False,
         use_file_dates=False,
     ):
@@ -275,7 +274,6 @@ class Collection:
             logger.error(f'Directory {self.root} does not exist')
             sys.exit(1)
 
-        self.path_format = path_format
         self.db = Sqlite(self.root)
 
         # Options
@@ -522,17 +520,17 @@ class Collection:
 
         return items
 
-    def walklevel(self, src_path, maxlevel=None):
+    def walklevel(self, src_dir, maxlevel=None):
         """
         Walk into input directory recursively until desired maxlevel
         source: https://stackoverflow.com/questions/229186/os-walk-without-digging-into-directories-below
         """
-        src_path = str(src_path)
-        if not os.path.isdir(src_path):
+        src_dir = str(src_dir)
+        if not os.path.isdir(src_dir):
             return None
 
-        num_sep = src_path.count(os.path.sep)
-        for root, dirs, files in os.walk(src_path):
+        num_sep = src_dir.count(os.path.sep)
+        for root, dirs, files in os.walk(src_dir):
             level = root.count(os.path.sep) - num_sep
             yield root, dirs, files, level
             if maxlevel is not None and level >= maxlevel:
@@ -765,8 +763,7 @@ class Collection:
 
         return self.check_db()
 
-    def init(self, loc, ignore_tags=set()):
-        record = True
+    def get_medias(self, loc, ignore_tags=set()):
         for file_path in self._get_all_files():
             media = Media(
                 file_path,
@@ -778,10 +775,21 @@ class Collection:
             )
             metadata = media.get_metadata(self.root, loc, self.db, self.cache)
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
+            yield media, file_path
+
+    def init(self, loc, ignore_tags=set()):
+        for media, file_path in self.get_medias(loc):
             self._add_db_data(media.metadata)
             self.summary.append((file_path, 'record'))
 
         return self.summary
+
+    def _init_check_db(self, loc=None, ignore_tags=set()):
+        if self.db.is_empty('metadata'):
+            self.init(loc, ignore_tags)
+        elif not self.check_db():
+            self.logger.error('Db data is not accurate run `ordigi update`')
+            sys.exit(1)
 
     def check_files(self):
         result = True
@@ -857,44 +865,45 @@ class Collection:
         if parents != set():
             self.remove_empty_subdirs(parents)
 
-    def sort_files(self, paths, loc, remove_duplicates=False, ignore_tags=set()):
+    def _get_path_list(self, path):
+        src_list = [
+            x
+            for x in self._get_files_in_path(
+                path, glob=self.glob,
+                extensions=self.filter_by_ext,
+            )
+        ]
+        if self.interactive:
+            src_list = self._modify_selection()
+            print('Processing...')
+
+        return src_list
+
+    def sort_files(self, src_dirs, path_format, loc, remove_duplicates=False, ignore_tags=set()):
         """
         Sort files into appropriate folder
         """
         # Check db
-        if [x for x in self.db.get_rows('metadata')] == []:
-            self.init(loc, ignore_tags)
-        elif not self.check_db():
-            self.logger.error('Db data is not accurate run `ordigi update`')
-            sys.exit(1)
+        self._init_check_db(loc, ignore_tags)
 
         result = False
         files_data = []
         src_dirs_in_collection = set()
-        for path in paths:
+        for src_dir in src_dirs:
             self.dest_list = []
-            path = self._check_path(path)
+            src_dir = self._check_path(src_dir)
             conflict_file_list = []
-            self.src_list = [
-                x
-                for x in self._get_files_in_path(
-                    path, glob=self.glob,
-                    extensions=self.filter_by_ext,
-                )
-            ]
-            if self.interactive:
-                self.src_list = self._modify_selection()
-                print('Processing...')
+            self.src_list = self._get_path_list(src_dir)
 
-            # Get medias and paths
+            # Get medias and src_dirs
             for src_path in self.src_list:
-                # List all src_dirs in collection
+                # List all src dirs in collection
                 if self.root in src_path.parents:
                     src_dirs_in_collection.add(src_path.parent)
-                # Process files
+                # Get file metadata
                 media = Media(
                     src_path,
-                    path,
+                    src_dir,
                     self.album_from_folder,
                     ignore_tags,
                     self.interactive,
@@ -904,7 +913,7 @@ class Collection:
                 )
                 metadata = media.get_metadata(self.root, loc, self.db, self.cache)
                 # Get the destination path according to metadata
-                fpath = FPath(self.path_format, self.day_begins, self.logger)
+                fpath = FPath(path_format, self.day_begins, self.logger)
                 relpath = Path(fpath.get_path(metadata))
 
                 files_data.append((copy(media), relpath))
@@ -916,7 +925,6 @@ class Collection:
 
             # sort files and solve conflicts
             for media, relpath in files_data:
-                # Convert paths to string
                 src_path = media.file_path
                 dest_path = self.root / relpath
 
@@ -1101,4 +1109,70 @@ class Collection:
 
         return self.summary, result
 
+
+    def fill_data(self, path, key, loc=None, edit=False):
+        """Fill metadata and exif data for given key"""
+        self._init_check_db()
+
+        if key in (
+                'latitude',
+                'longitude',
+                'latitude_ref',
+                'longitude_ref',
+                ):
+            print(f"Set {key} alone is not allowed")
+            return None
+
+        if edit:
+            print(f"Edit {key} values:")
+        else:
+            print(f"Fill empty {key} values:")
+
+        self.src_list = self._get_path_list(path)
+
+        for file_path in self.src_list:
+            media = Media(
+                file_path,
+                self.root,
+                self.album_from_folder,
+                ignore_tags,
+                self.interactive,
+                self.logger,
+                self.use_date_filename,
+                self.use_file_dates,
+            )
+            metadata = media.get_metadata(self.root, loc, self.db, self.cache)
+            print()
+            value = media.metadata[key]
+            if edit or not value:
+                print(f"FILE: '{file_path}'")
+            if edit:
+                print(f"{key}: '{value}'")
+            if edit or not value:
+                # Prompt value for given key for file_path
+                # utils.open_file()
+                prompt = [
+                    inquirer.Text('value', message=key),
+                ]
+                answer = inquirer.prompt(prompt, theme=self.theme)
+                # Validate value
+                if key in ('date_original', 'date_created', 'date_modified'):
+                    # Check date format
+                    value = str(media.get_date_format(answer['value']))
+                else:
+                    if not answer[key].isalnum():
+                        print("Invalid entry, use alphanumeric chars")
+                        value = inquirer.prompt(prompt, theme=self.theme)
+
+                # print(f"{key}='{value}'")
+
+                media.metadata[key] = value
+                # Update database
+                self._add_db_data(media.metadata)
+                # Update exif data
+                media.set_key_values(key, value)
+
+                self.summary.append((file_path, 'record'))
+
+        return self.summary
 

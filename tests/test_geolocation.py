@@ -1,3 +1,4 @@
+from ordigi.utils import distance_between_two_points
 from ordigi.geolocation import GeoLocation
 import pytest
 
@@ -8,8 +9,11 @@ class TestGeoLocation:
 
     def test_coordinates_by_name(self):
         coordinates = self.loc.coordinates_by_name('Sunnyvale, CA')
-        assert coordinates['latitude'] == 37.3688301
-        assert coordinates['longitude'] == -122.036349
+        latitude = coordinates['latitude']
+        longitude = coordinates['longitude']
+        distance = distance_between_two_points(latitude, longitude, 37.3745086, -122.0581602)
+
+        assert distance <= 3000
 
     def test_place_name(self):
         place_name = self.loc.place_name(lat=37.368, lon=-122.03)

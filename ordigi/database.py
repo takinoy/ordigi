@@ -49,7 +49,7 @@ class Sqlite:
             'CameraMake': 'text',
             'CameraModel': 'text',
             'OriginalName': 'text',
-            'SrcPath': 'text',
+            'SrcDir': 'text',
             'Subdirs': 'text',
             'Filename': 'text',
         }
@@ -105,6 +105,21 @@ class Sqlite:
 
         # if the count is 1, then table exists
         if self.cur.fetchone()[0] == 1:
+            return True
+
+        return False
+
+    def get_rows(self, table):
+        """Cycle through rows in table
+        :params: str
+        :return: iter
+        """
+        self.cur.execute(f'select * from {table}')
+        for row in self.cur:
+            yield row
+
+    def is_empty(self, table):
+        if [x for x in self.get_rows(table)] == []:
             return True
 
         return False
@@ -234,8 +249,8 @@ class Sqlite:
         self.cur.execute(f'SELECT * FROM {table}').fetchall()
 
     def get_location_nearby(self, latitude, longitude, Column, threshold_m=3000):
-        """Find a name for a location in the database.
-
+        """
+        Find a name for a location in the database.
         :param float latitude: Latitude of the location.
         :param float longitude: Longitude of the location.
         :param int threshold_m: Location in the database must be this close to
@@ -282,11 +297,3 @@ class Sqlite:
         sql = f'select count() from {table}'
         return self._run(sql)
 
-    def get_rows(self, table):
-        """Cycle through rows in table
-        :params: str
-        :return: iter
-        """
-        self.cur.execute(f'select * from {table}')
-        for row in self.cur:
-            yield row

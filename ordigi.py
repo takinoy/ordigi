@@ -202,7 +202,6 @@ def sort(**kwargs):
 
     collection = Collection(
         root,
-        path_format,
         kwargs['album_from_folder'],
         cache,
         opt['day_begins'],
@@ -296,14 +295,12 @@ def clean(**kwargs):
 
     collection = Collection(
         root,
-        opt['path_format'],
         dry_run=dry_run,
         exclude=exclude,
         filter_by_ext=filter_by_ext,
         glob=kwargs['glob'],
         logger=logger,
         max_deep=opt['max_deep'],
-        mode='move',
     )
 
     if kwargs['path_string']:
@@ -337,7 +334,7 @@ def init(**kwargs):
 
     logger = log.get_logger(level=log_level)
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(root, None, exclude=opt['exclude'], mode='move', logger=logger)
+    collection = Collection(root, exclude=opt['exclude'], logger=logger)
     summary = collection.init(loc)
 
     if log_level < 30:
@@ -356,7 +353,7 @@ def update(**kwargs):
 
     logger = log.get_logger(level=log_level)
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(root, None, exclude=opt['exclude'], mode='move', logger=logger)
+    collection = Collection(root, exclude=opt['exclude'], logger=logger)
     summary = collection.update(loc)
 
     if log_level < 30:
@@ -373,7 +370,7 @@ def check(**kwargs):
     root = kwargs['path']
     config = get_collection_config(root)
     opt = config.get_options()
-    collection = Collection(root, None, exclude=opt['exclude'], mode='move', logger=logger)
+    collection = Collection(root, exclude=opt['exclude'], logger=logger)
     result = collection.check_db()
     if result:
         summary, result = collection.check_files()
@@ -447,11 +444,9 @@ def compare(**kwargs):
 
     collection = Collection(
         root,
-        None,
         exclude=exclude,
         filter_by_ext=filter_by_ext,
         glob=kwargs['glob'],
-        mode='move',
         dry_run=dry_run,
         logger=logger,
     )
