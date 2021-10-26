@@ -2,43 +2,56 @@ from tabulate import tabulate
 
 
 class Summary:
-
-    def __init__(self):
-        self.modes = ('record', 'copy', 'move', 'delete')
+    def __init__(self, path):
+        self.actions = (
+            'check',
+            'import',
+            'remove_empty_folders',
+            'remove_excluded',
+            'sort',
+            'update',
+        )
+        self.path = path
         self.result = {}
-        for mode in self.modes:
-            self.result[mode] = 0
+        for action in self.actions:
+            self.result[action] = 0
 
         self.errors = 0
         self.errors_items = []
 
     def append(self, row):
-        file_path, mode = row
+        file_path, action = row
 
-        if mode:
-            for m in self.modes:
-                if mode == m:
-                    self.result[mode] += 1
+        if action:
+            for m in self.actions:
+                if action == m:
+                    self.result[action] += 1
         else:
             self.errors += 1
-            self.errors_items.append(file_path)
+            if file_path:
+                self.errors_items.append(file_path)
 
     def print(self):
 
         print()
-        for mode in self.result:
-            nb = self.result[mode]
-            if self.result[mode] != 0:
-                if mode == 'record':
-                    print(f"SUMMARY: {nb} files recorded.")
-                elif mode == 'copy':
-                    print(f"SUMMARY: {nb} files copied.")
-                elif mode == 'move':
-                    print(f"SUMMARY: {nb} files moved.")
-                else:
-                    print(f"SUMMARY: {nb} files deleted.")
+        for action in self.result:
+            nb = self.result[action]
+            if self.result[action] != 0:
+                if action == 'check':
+                    print(f"SUMMARY: {nb} files checked in {self.path}.")
+                elif action == 'import':
+                    print(f"SUMMARY: {nb} files imported into {self.path}.")
+                elif action == 'sort':
+                    print(f"SUMMARY: {nb} files sorted inside {self.path}.")
+                elif action == 'remove_excluded':
+                    print(f"SUMMARY: {nb} files deleted in {self.path}.")
+                elif action == 'remove_empty_folders':
+                    print(f"SUMMARY: {nb} empty folders removed in {self.path}.")
+                elif action == 'update':
+                    print(f"SUMMARY: {nb} files updated in {self.path} database.")
+
         if sum(self.result.values()) == 0 and not self.errors:
-            print(f"OK !!")
+            print(f"SUMMARY: no file imported, sorted or deleted from {self.path}.")
 
         if self.errors > 0:
             print()
@@ -49,4 +62,3 @@ class Summary:
 
             print(tabulate(errors_result, headers=errors_headers))
             print()
-

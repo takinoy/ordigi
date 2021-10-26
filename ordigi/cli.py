@@ -29,6 +29,12 @@ _logger_options = [
     ),
 ]
 
+_input_options = [
+    click.option(
+        '--interactive', '-i', default=False, is_flag=True, help="Interactive mode"
+    ),
+]
+
 _dry_run_options = [
     click.option(
         '--dry-run',
@@ -38,7 +44,7 @@ _dry_run_options = [
     )
 ]
 
-_filter_option = [
+_filter_options = [
     click.option(
         '--exclude',
         '-e',
@@ -59,6 +65,50 @@ _filter_option = [
     click.option('--glob', '-g', default='**/*', help='Glob file selection'),
 ]
 
+_sort_options = [
+    click.option(
+        '--album-from-folder',
+        default=False,
+        is_flag=True,
+        help="Use images' folders as their album names.",
+    ),
+    click.option(
+        '--ignore-tags',
+        '-I',
+        default=set(),
+        multiple=True,
+        help='Specific tags or group that will be ignored when\
+                  searching for file data. Example \'File:FileModifyDate\' or \'Filename\'',
+    ),
+    click.option(
+        '--path-format',
+        '-p',
+        default=None,
+        help='Custom featured path format',
+    ),
+    click.option(
+        '--remove-duplicates',
+        '-R',
+        default=False,
+        is_flag=True,
+        help='True to remove files that are exactly the same in name\
+                          and a file hash',
+    ),
+    click.option(
+        '--use-date-filename',
+        '-f',
+        default=False,
+        is_flag=True,
+        help="Use filename date for media original date.",
+    ),
+    click.option(
+       '--use-file-dates',
+        '-F',
+        default=False,
+        is_flag=True,
+        help="Use file date created or modified for media original date.",
+    ),
+]
 
 def print_help(command):
     click.echo(command.get_help(click.Context(sort)))
@@ -79,27 +129,25 @@ def _get_exclude(opt, exclude):
         exclude = opt['exclude']
     return set(exclude)
 
+
 def get_collection_config(root):
     return Config(os.path.join(root, '.ordigi', 'ordigi.conf'))
 
-@click.command('sort')
+
+def _get_paths(paths, root):
+    if not paths:
+        paths = root
+    paths = set(paths)
+
+    return paths, root
+
+
+@click.command('import')
 @add_options(_logger_options)
+@add_options(_input_options)
 @add_options(_dry_run_options)
-@add_options(_filter_option)
-@click.option(
-    '--album-from-folder',
-    default=False,
-    is_flag=True,
-    help="Use images' folders as their album names.",
-)
-@click.option(
-    '--destination',
-    '-d',
-    type=click.Path(file_okay=False),
-    default=None,
-    help='Sort files into this directory.',
-)
-@click.option('--clean', '-C', default=False, is_flag=True, help='Clean empty folders')
+@add_options(_filter_options)
+@add_options(_sort_options)
 @click.option(
     '--copy',
     '-c',
@@ -108,31 +156,70 @@ def get_collection_config(root):
     help='True if you want files to be copied over from src_dir to\
               dest_dir rather than moved',
 )
-@click.option(
-    '--ignore-tags',
-    '-I',
-    default=set(),
-    multiple=True,
-    help='Specific tags or group that will be ignored when\
-              searching for file data. Example \'File:FileModifyDate\' or \'Filename\'',
-)
-@click.option(
-    '--interactive', '-i', default=False, is_flag=True, help="Interactive mode"
-)
-@click.option(
-    '--path-format',
-    '-p',
-    default=None,
-    help='set custom featured path format',
-)
-@click.option(
-    '--remove-duplicates',
-    '-R',
-    default=False,
-    is_flag=True,
-    help='True to remove files that are exactly the same in name\
-                      and a file hash',
-)
+@click.argument('src', required=False, nargs=-1, type=click.Path())
+@click.argument('dest', required=True, nargs=1, type=click.Path())
+def _import(**kwargs):
+    """Sort files or directories by reading their EXIF and organizing them
+    according to ordigi.conf preferences.
+    """
+
+    log_level = log.level(kwargs['verbose'], kwargs['debug'])
+    logger = log.get_logger(level=log_level)
+
+    src_paths = kwargs['src']
+    root = kwargs['dest']
+    src_paths, root = _get_paths(src_paths, root)
+
+    if kwargs['copy']:
+        import_mode = 'copy'
+    else:
+        import_mode = 'move'
+
+    config = get_collection_config(root)
+    opt = config.get_options()
+
+    path_format = opt['path_format']
+    if kwargs['path_format']:
+        path_format = kwargs['path_format']
+
+    exclude = _get_exclude(opt, kwargs['exclude'])
+    filter_by_ext = set(kwargs['filter_by_ext'])
+
+    collection = Collection(
+        root,
+        kwargs['album_from_folder'],
+        False,
+        opt['day_begins'],
+        kwargs['dry_run'],
+        exclude,
+        filter_by_ext,
+        kwargs['glob'],
+        kwargs['interactive'],
+        logger,
+        opt['max_deep'],
+        kwargs['use_date_filename'],
+        kwargs['use_file_dates'],
+    )
+
+    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
+
+    summary = collection.sort_files(
+        src_paths, path_format, loc, import_mode, kwargs['remove_duplicates'], kwargs['ignore_tags']
+    )
+
+    if log_level < 30:
+        summary.print()
+
+    if summary.errors:
+        sys.exit(1)
+
+@click.command('sort')
+@add_options(_logger_options)
+@add_options(_input_options)
+@add_options(_dry_run_options)
+@add_options(_filter_options)
+@add_options(_sort_options)
+@click.option('--clean', '-C', default=False, is_flag=True, help='Clean empty folders')
 @click.option(
     '--reset-cache',
     '-r',
@@ -140,55 +227,24 @@ def get_collection_config(root):
     is_flag=True,
     help='Regenerate the hash.json and location.json database ',
 )
-@click.option(
-    '--use-date-filename',
-    '-f',
-    default=False,
-    is_flag=True,
-    help="Use filename date for media original date.",
-)
-@click.option(
-    '--use-file-dates',
-    '-F',
-    default=False,
-    is_flag=True,
-    help="Use file date created or modified for media original date.",
-)
-@click.argument('paths', required=True, nargs=-1, type=click.Path())
-def sort(**kwargs):
+@click.argument('subdirs', required=False, nargs=-1, type=click.Path())
+@click.argument('dest', required=True, nargs=1, type=click.Path())
+def _sort(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
     """
 
-    root = kwargs['destination']
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
-
-    paths = kwargs['paths']
-
-    if kwargs['copy']:
-        mode = 'copy'
-    else:
-        mode = 'move'
-
     logger = log.get_logger(level=log_level)
+
+    subdirs = kwargs['subdirs']
+    root = kwargs['dest']
+    paths, root = _get_paths(subdirs, root)
+    paths = os.path.join(root, subdirs)
 
     cache = True
     if kwargs['reset_cache']:
         cache = False
-
-    if len(paths) > 1:
-        if not root:
-            # Use last path argument as destination
-            root = paths[-1]
-            paths = paths[0:-1]
-    elif paths:
-        # Source and destination are the same
-        root = paths[0]
-    else:
-        logger.error(f'`ordigi sort` need at least one path argument')
-        sys.exit(1)
-
-    paths = set(paths)
 
     config = get_collection_config(root)
     opt = config.get_options()
@@ -212,15 +268,14 @@ def sort(**kwargs):
         kwargs['interactive'],
         logger,
         opt['max_deep'],
-        mode,
         kwargs['use_date_filename'],
         kwargs['use_file_dates'],
     )
 
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
 
-    summary, result = collection.sort_files(
-        paths, loc, kwargs['remove_duplicates'], kwargs['ignore_tags']
+    summary = collection.sort_files(
+        paths, path_format, loc, kwargs['remove_duplicates'], kwargs['ignore_tags']
     )
 
     if kwargs['clean']:
@@ -229,14 +284,14 @@ def sort(**kwargs):
     if log_level < 30:
         summary.print()
 
-    if not result:
+    if summary.errors:
         sys.exit(1)
 
 
 @click.command('clean')
 @add_options(_logger_options)
 @add_options(_dry_run_options)
-@add_options(_filter_option)
+@add_options(_filter_options)
 @click.option(
     '--dedup-regex',
     '-d',
@@ -260,32 +315,25 @@ def sort(**kwargs):
     is_flag=True,
     help='True to remove files that are exactly the same in name and a file hash',
 )
-@click.option(
-    '--root',
-    '-r',
-    type=click.Path(file_okay=False),
-    default=None,
-    help='Root dir of media collection. If not set, use path',
-)
-@click.argument('path', required=True, nargs=1, type=click.Path())
-def clean(**kwargs):
+@click.argument('subdirs', required=False, nargs=-1, type=click.Path())
+@click.argument('dest', required=True, nargs=1, type=click.Path())
+def _clean(**kwargs):
     """Remove empty folders
     Usage: clean [--verbose|--debug] directory [removeRoot]"""
 
-    result = True
     dry_run = kwargs['dry_run']
     folders = kwargs['folders']
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
-    root = kwargs['root']
-
-    path = kwargs['path']
-
     logger = log.get_logger(level=log_level)
+
+    subdirs = kwargs['subdirs']
+    root = kwargs['dest']
+    paths, root = _get_paths(subdirs, root)
+    paths = os.path.join(root, subdirs)
+
     clean_all = False
     if not folders:
         clean_all = True
-    if not root:
-        root = path
 
     config = get_collection_config(root)
     opt = config.get_options()
@@ -303,30 +351,35 @@ def clean(**kwargs):
         max_deep=opt['max_deep'],
     )
 
-    if kwargs['path_string']:
-        dedup_regex = list(kwargs['dedup_regex'])
-        summary, result = collection.dedup_regex(
-            path, dedup_regex, kwargs['remove_duplicates']
-        )
+    for path in paths:
+        if kwargs['path_string']:
+            dedup_regex = list(kwargs['dedup_regex'])
+            collection.dedup_regex(
+                path, dedup_regex, kwargs['remove_duplicates']
+            )
 
-    if clean_all or folders:
-        summary = collection.remove_empty_folders(path)
+        if clean_all or folders:
+            collection.remove_empty_folders(path)
 
-    if kwargs['delete_excluded']:
-        summary = collection.remove_excluded_files()
+        if kwargs['delete_excluded']:
+            collection.remove_excluded_files()
+
+    summary = collection.summary
 
     if log_level < 30:
         summary.print()
 
-    if not result:
+    if summary.errors:
         sys.exit(1)
 
 
 @click.command('init')
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
-def init(**kwargs):
-    """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
+def _init(**kwargs):
+    """
+    Init media collection database.
+    """
     root = kwargs['path']
     config = get_collection_config(root)
     opt = config.get_options()
@@ -344,8 +397,10 @@ def init(**kwargs):
 @click.command('update')
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
-def update(**kwargs):
-    """Regenerate the hash.json database which contains all of the sha256 signatures of media files."""
+def _update(**kwargs):
+    """
+    Update media collection database.
+    """
     root = kwargs['path']
     config = get_collection_config(root)
     opt = config.get_options()
@@ -363,8 +418,10 @@ def update(**kwargs):
 @click.command('check')
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
-def check(**kwargs):
-    """check db and verify hashes"""
+def _check(**kwargs):
+    """
+    Check media collection.
+    """
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
     logger = log.get_logger(level=log_level)
     root = kwargs['path']
@@ -373,10 +430,10 @@ def check(**kwargs):
     collection = Collection(root, exclude=opt['exclude'], logger=logger)
     result = collection.check_db()
     if result:
-        summary, result = collection.check_files()
+        summary = collection.check_files()
         if log_level < 30:
             summary.print()
-        if not result:
+        if summary.errors:
             sys.exit(1)
     else:
         logger.error('Db data is not accurate run `ordigi update`')
@@ -386,7 +443,7 @@ def check(**kwargs):
 @click.command('compare')
 @add_options(_logger_options)
 @add_options(_dry_run_options)
-@add_options(_filter_option)
+@add_options(_filter_options)
 @click.option('--find-duplicates', '-f', default=False, is_flag=True)
 @click.option(
     '--output-dir',
@@ -404,13 +461,6 @@ def check(**kwargs):
     help='Revert compare',
 )
 @click.option(
-    '--root',
-    '-r',
-    type=click.Path(file_okay=False),
-    default=None,
-    help='Root dir of media collection. If not set, use path',
-)
-@click.option(
     '--similar-to',
     '-s',
     default=False,
@@ -422,15 +472,23 @@ def check(**kwargs):
     default=80,
     help='Similarity level for images',
 )
-@click.argument('path', nargs=1, required=True)
-def compare(**kwargs):
-    '''Compare files in directories'''
+@click.argument('subdirs', required=False, nargs=-1, type=click.Path())
+@click.argument('dest', required=True, nargs=1, type=click.Path())
+def _compare(**kwargs):
+    """
+    Sort similar images in directories
+    """
 
     dry_run = kwargs['dry_run']
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
-    root = kwargs['root']
+
+    subdirs = kwargs['subdirs']
+    root = kwargs['dest']
+    paths, root = _get_paths(subdirs, root)
+    paths = os.path.join(root, subdirs)
 
     path = kwargs['path']
+    root = kwargs['root']
 
     logger = log.get_logger(level=log_level)
     if not root:
@@ -451,15 +509,18 @@ def compare(**kwargs):
         logger=logger,
     )
 
-    if kwargs['revert_compare']:
-        summary, result = collection.revert_compare(path)
-    else:
-        summary, result = collection.sort_similar_images(path, kwargs['similarity'])
+    for path in paths:
+        if kwargs['revert_compare']:
+            collection.revert_compare(path)
+        else:
+            collection.sort_similar_images(path, kwargs['similarity'])
+
+    summary = collection.summary
 
     if log_level < 30:
         summary.print()
 
-    if not result:
+    if summary.errors:
         sys.exit(1)
 
 
@@ -468,12 +529,13 @@ def main(**kwargs):
     pass
 
 
-main.add_command(clean)
-main.add_command(check)
-main.add_command(compare)
-main.add_command(init)
-main.add_command(sort)
-main.add_command(update)
+main.add_command(_clean)
+main.add_command(_check)
+main.add_command(_compare)
+main.add_command(_init)
+main.add_command(_import)
+main.add_command(_sort)
+main.add_command(_update)
 
 
 if __name__ == '__main__':
