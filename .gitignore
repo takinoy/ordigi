@@ -1,19 +1,20 @@
-**.pyc
-**/node_modules/**
-**.arw
-**.dng
-**/.DS_Store
-**.mm
-**.nef
-**.rw2
+# Compiled python modules.
+*.pyc
+
+/build/
 /.coverage
-build/**
-dist/**
 docs/_build
-docs/Odigi_data_scheme.odg
-env/**
+docs/Ordigi_data_scheme.odg
+
+# Setuptools distribution folder.
+/dist/
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
+
+/env/
 /htmlcov
-/photo
-/resources
+/ressources
 /Session.vim
 /tags
+
