@@ -7,11 +7,9 @@ import sys
 import click
 
 from ordigi.config import Config
-from ordigi import constants
 from ordigi import log
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
-
 
 _logger_options = [
     click.option(
@@ -136,7 +134,7 @@ def get_collection_config(root):
 
 def _get_paths(paths, root):
     if not paths:
-        paths = root
+        paths = [root]
     paths = set(paths)
 
     return paths, root
@@ -239,8 +237,10 @@ def _sort(**kwargs):
 
     subdirs = kwargs['subdirs']
     root = kwargs['dest']
-    paths, root = _get_paths(subdirs, root)
-    paths = os.path.join(root, subdirs)
+    subpaths, root = _get_paths(subdirs, root)
+    paths = set()
+    for subpath in subpaths:
+        paths.add(os.path.join(root, subpath))
 
     cache = True
     if kwargs['reset_cache']:
@@ -538,5 +538,5 @@ main.add_command(_sort)
 main.add_command(_update)
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
