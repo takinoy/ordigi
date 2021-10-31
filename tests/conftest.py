@@ -20,7 +20,7 @@ def reset_singletons():
     _ExifToolProc.instance = None
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sample_files_paths(tmpdir_factory):
     tmp_path = Path(tmpdir_factory.mktemp("ordigi-src-"))
     path = Path(ORDIGI_PATH, 'samples/test_exif')

@@ -110,7 +110,7 @@ _sort_options = [
 ]
 
 def print_help(command):
-    click.echo(command.get_help(click.Context(sort)))
+    click.echo(command.get_help(click.Context(command)))
 
 
 def add_options(options):
@@ -137,6 +137,16 @@ def _get_paths(paths, root):
     if not paths:
         paths = [root]
     paths = set(paths)
+
+    return paths, root
+
+def _get_subpaths(relpaths, root):
+    if not relpaths:
+        paths = {root}
+    else:
+        paths = set()
+        for relpath in relpaths:
+            paths.add(os.path.join(root, relpath))
 
     return paths, root
 
@@ -238,10 +248,7 @@ def _sort(**kwargs):
 
     subdirs = kwargs['subdirs']
     root = kwargs['dest']
-    subpaths, root = _get_paths(subdirs, root)
-    paths = set()
-    for subpath in subpaths:
-        paths.add(os.path.join(root, subpath))
+    paths, root = _get_subpaths(subdirs, root)
 
     cache = True
     if kwargs['reset_cache']:
@@ -317,10 +324,9 @@ def _sort(**kwargs):
     help='True to remove files that are exactly the same in name and a file hash',
 )
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
-@click.argument('dest', required=True, nargs=1, type=click.Path())
+@click.argument('collection', required=True, nargs=1, type=click.Path())
 def _clean(**kwargs):
-    """Remove empty folders
-    Usage: clean [--verbose|--debug] directory [removeRoot]"""
+    """Remove empty folders"""
 
     dry_run = kwargs['dry_run']
     folders = kwargs['folders']
@@ -328,9 +334,8 @@ def _clean(**kwargs):
     logger = log.get_logger(level=log_level)
 
     subdirs = kwargs['subdirs']
-    root = kwargs['dest']
-    paths, root = _get_paths(subdirs, root)
-    paths = os.path.join(root, subdirs)
+    root = kwargs['collection']
+    paths, root = _get_subpaths(subdirs, root)
 
     clean_all = False
     if not folders:
@@ -352,13 +357,13 @@ def _clean(**kwargs):
         max_deep=opt['max_deep'],
     )
 
-    for path in paths:
-        if kwargs['path_string']:
-            dedup_regex = list(kwargs['dedup_regex'])
-            collection.dedup_regex(
-                path, dedup_regex, kwargs['remove_duplicates']
-            )
+    if kwargs['path_string']:
+        dedup_regex = set(kwargs['dedup_regex'])
+        collection.dedup_regex(
+            paths, dedup_regex, kwargs['remove_duplicates']
+        )
 
+    for path in paths:
         if clean_all or folders:
             collection.remove_empty_folders(path)
 
@@ -446,21 +451,7 @@ def _check(**kwargs):
 @add_options(_dry_run_options)
 @add_options(_filter_options)
 @click.option('--find-duplicates', '-f', default=False, is_flag=True)
-@click.option(
-    '--output-dir',
-    '-o',
-    default=False,
-    is_flag=True,
-    help='output dir',
-)
 @click.option('--remove-duplicates', '-r', default=False, is_flag=True)
-@click.option(
-    '--revert-compare',
-    '-R',
-    default=False,
-    is_flag=True,
-    help='Revert compare',
-)
 @click.option(
     '--similar-to',
     '-s',
@@ -474,7 +465,7 @@ def _check(**kwargs):
     help='Similarity level for images',
 )
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
-@click.argument('dest', required=True, nargs=1, type=click.Path())
+@click.argument('collection', required=True, nargs=1, type=click.Path())
 def _compare(**kwargs):
     """
     Sort similar images in directories
@@ -482,18 +473,11 @@ def _compare(**kwargs):
 
     dry_run = kwargs['dry_run']
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
+    logger = log.get_logger(level=log_level)
 
     subdirs = kwargs['subdirs']
-    root = kwargs['dest']
-    paths, root = _get_paths(subdirs, root)
-    paths = os.path.join(root, subdirs)
-
-    path = kwargs['path']
-    root = kwargs['root']
-
-    logger = log.get_logger(level=log_level)
-    if not root:
-        root = kwargs['path']
+    root = kwargs['collection']
+    paths, root = _get_subpaths(subdirs, root)
 
     config = get_collection_config(root)
     opt = config.get_options()
@@ -511,10 +495,7 @@ def _compare(**kwargs):
     )
 
     for path in paths:
-        if kwargs['revert_compare']:
-            collection.revert_compare(path)
-        else:
-            collection.sort_similar_images(path, kwargs['similarity'])
+        collection.sort_similar_images(path, kwargs['similarity'])
 
     summary = collection.summary
 
@@ -537,7 +518,3 @@ main.add_command(_init)
 main.add_command(_import)
 main.add_command(_sort)
 main.add_command(_update)
-
-
-# if __name__ == '__main__':
-#     main()

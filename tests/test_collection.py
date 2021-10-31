@@ -239,11 +239,6 @@ class TestCollection:
         # Summary is created and there is no errors
         assert not summary.errors
 
-        summary = collection.revert_compare(path)
-
-        # Summary is created and there is no errors
-        assert not summary.errors
-
     @pytest.mark.skip()
     def test_fill_data(self, tmp_path, monkeypatch):
         path = tmp_path / 'collection'

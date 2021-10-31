@@ -35,7 +35,7 @@ class FPath:
     def get_items(self):
         return {
             'album': '{album}',
-            'basename': '{basename}',
+            'stem': '{stem}',
             'camera_make': '{camera_make}',
             'camera_model': '{camera_model}',
             'city': '{city}',
@@ -123,15 +123,16 @@ class FPath:
         # Each item has its own custom logic and we evaluate a single item and return
         # the evaluated string.
         part = ''
-        basename = os.path.splitext(metadata['filename'])[0]
-        if item == 'basename':
-            part = basename
+        filename = metadata['filename']
+        stem = os.path.splitext(filename)[0]
+        if item == 'stem':
+            part = stem
         elif item == 'ext':
-            part = os.path.splitext(metadata['filename'])[1][1:]
+            part = os.path.splitext(filename)[1][1:]
         elif item == 'name':
             # Remove date prefix added to the name.
-            part = basename
-            for i, rx in utils.get_date_regex(basename):
+            part = stem
+            for i, rx in utils.get_date_regex(stem):
                 part = re.sub(rx, '', part)
         elif item == 'date':
             date = metadata['date_media']
@@ -173,11 +174,11 @@ class FPath:
         u_regex = '%u' + regex
         l_regex = '%l' + regex
         if re.search(u_regex, this_part):
-            this_part = re.sub(u_regex, part.upper(), this_part)
-        elif re.search(l_regex, this_part):
-            this_part = re.sub(l_regex, part.lower(), this_part)
-        else:
-            this_part = re.sub(regex, part, this_part)
+            return re.sub(u_regex, part.upper(), this_part)
+        if re.search(l_regex, this_part):
+            return re.sub(l_regex, part.lower(), this_part)
+
+        return re.sub(regex, part, this_part)
 
     def get_path_part(self, this_part, metadata):
         """Build path part
@@ -194,7 +195,7 @@ class FPath:
                     regex = '[-_ .]?(%[ul])?' + regex
                     this_part = re.sub(regex, part, this_part)
                 else:
-                    self._set_case(regex, part, this_part)
+                    this_part = self._set_case(regex, part, this_part)
 
         # Delete separator char at the begining of the string if any:
         if this_part:
@@ -341,7 +342,7 @@ class Collection:
             media.set_album_from_folder()
             updated = True
         if media.metadata['original_name'] in (False, ''):
-            media.set_value('original_name', self.filename)
+            media.set_value('original_name', media.metadata['filename'])
             updated = True
         if self.album_from_folder:
             album = media.metadata['album']
@@ -633,90 +634,58 @@ class Collection:
         else:
             return 0
 
-    def dedup_regex(self, path, dedup_regex, remove_duplicates=False):
-        # cycle throught files
-        result = False
-        path = self._check_path(path)
-        # Delimiter regex
-        delim = r'[-_ .]'
-        # Numeric date item  regex
-        d = r'\d{2}'
-        # Numeric date regex
-
-        if len(dedup_regex) == 0:
-            date_num2 = re.compile(
-                fr'([^0-9]{d}{delim}{d}{delim}|{delim}{d}{delim}{d}[^0-9])'
-            )
-            date_num3 = re.compile(
-                fr'([^0-9]{d}{delim}{d}{delim}{d}{delim}|{delim}{d}{delim}{d}{delim}{d}[^0-9])'
-            )
-            default = re.compile(r'([^-_ .]+[-_ .])')
-            dedup_regex = [date_num3, date_num2, default]
+    def _sort_medias(self, files_data, import_mode=None, remove_duplicates=False):
+        """
+        sort files and solve conflicts
+        """
+        # Create directories
+        for media, relpath in files_data:
+            dest_directory = self.root / relpath.parent
+            self._create_directory(dest_directory, media)
 
         conflicts = []
-        self.src_list = [
-            x
-            for x in self._get_files_in_path(
-                path, glob=self.glob,
-                extensions=self.filter_by_ext,
-            )
-        ]
-        for src_path in self.src_list:
-            # TODO to test it
-            media = Media(src_path, path, logger=self.logger)
-            path_parts = src_path.relative_to(self.root).parts
-            dedup_path = []
-            for path_part in path_parts:
-                items = []
-                items = self._split_part(dedup_regex.copy(), path_part, items)
+        for media, relpath in files_data:
+            src_path = media.file_path
+            dest_path = self.root / relpath
 
-                filtered_items = []
-                for item in items:
-                    if item not in filtered_items:
-                        filtered_items.append(item)
+            conflict = self.check_conflicts(src_path, dest_path, remove_duplicates)
 
-                dedup_path.append(''.join(filtered_items))
-
-            # Dedup path
-            dest_path = self.root.joinpath(*dedup_path)
-            self._create_directory(dest_path.parent.name, media)
-
-            conflicts = self.check_conflicts(src_path, dest_path, remove_duplicates)
-
-            result = False
             if not conflict:
-                record = self._record_file(src_path, dest_path, media)
+                self.sort_file(
+                    src_path, dest_path, media, import_mode=import_mode
+                    )
             elif conflict == 1:
                 # There is conflict and file are different
                 conflicts.append((src_path, dest_path, media))
-            elif conflict in (2, 3):
-                result = True
-
-            if result:
-                # result is true or None
+            elif conflict == 3:
+                # Same file checksum
+                if import_mode == 'move':
+                    self._remove(src_path)
+                self.dest_list.append(dest_path)
+            elif conflict == 2:
+                # File already sorted
                 self.dest_list.append(dest_path)
 
         if conflicts != []:
-            files_data, conflict = self._solve_conflicts(conflicts, remove_duplicates)
-            src_path, dest_path, media = file_data
+            for files_data, conflict in self._solve_conflicts(conflicts,
+                    remove_duplicates):
+                src_path, dest_path, media = files_data
 
-            result = False
-            if not conflict:
-                self._record_file(src_path, dest_path, media)
-            elif conflict == 1:
-                # There is unresolved conflict
-                self.summary.append((src_path, False))
-            elif conflict in (2, 3):
-                result = True
-
-            if result:
-                # result is true or None
-                self.dest_list.append(dest_path)
-
-        if not self._check_processed():
-            self.summary.append((None, False))
-
-        return self.summary
+                if not conflict:
+                    self.sort_file(
+                        src_path, dest_path, media, import_mode=import_mode
+                        )
+                elif conflict == 1:
+                    # There is unresolved conflict
+                    self.summary.append((src_path, False))
+                elif conflict == 3:
+                    # Same file checksum
+                    if import_mode == 'move':
+                        self._remove(src_path)
+                    self.dest_list.append(dest_path)
+                elif conflict == 2:
+                    # File already sorted
+                    self.dest_list.append(dest_path)
 
     def _modify_selection(self):
         """
@@ -764,10 +733,66 @@ class Collection:
         # Finally check if are files are successfully processed
         n_fail = len(self.src_list) - len(self.dest_list)
         if n_fail != 0:
-            self.logger.error("{n_fail} files have not be processed")
+            self.logger.error(f"{n_fail} files have not be processed")
             return False
 
         return self.check_db()
+
+    def _get_medias_data(
+        self, src_dirs, import_mode=None, ignore_tags=set(), loc=None
+    ):
+        """Get medias data"""
+        src_dir_in_collection = False
+        for src_dir in src_dirs:
+            self.dest_list = []
+            src_dir = self._check_path(src_dir)
+            self.src_list = self._get_path_list(src_dir)
+
+            # Get medias and src_dirs
+            for src_path in self.src_list:
+                if self.root in src_path.parents:
+                    src_dir_in_collection = True
+                else:
+                    if not import_mode:
+                        self.logger.error(f"""{src_path} not in {self.root}
+                                collection, use `ordigi import`""")
+                        sys.exit(1)
+
+                # Get file metadata
+                media = Media(
+                    src_path,
+                    src_dir,
+                    self.album_from_folder,
+                    ignore_tags,
+                    self.interactive,
+                    self.logger,
+                    self.use_date_filename,
+                    self.use_file_dates,
+                )
+                media.get_metadata(self.root, loc, self.db, self.cache)
+
+                yield media, src_dir_in_collection
+
+    def _init_check_db(self, loc=None, ignore_tags=set()):
+        if self.db.is_empty('metadata'):
+            self.init(loc, ignore_tags)
+        elif not self.check_db():
+            self.logger.error('Db data is not accurate run `ordigi update`')
+            sys.exit(1)
+
+    def _get_path_list(self, path):
+        src_list = [
+            x
+            for x in self._get_files_in_path(
+                path, glob=self.glob,
+                extensions=self.filter_by_ext,
+            )
+        ]
+        if self.interactive:
+            src_list = self._modify_selection()
+            print('Processing...')
+
+        return src_list
 
     def get_medias(self, loc, ignore_tags=set()):
         for file_path in self._get_all_files():
@@ -787,25 +812,6 @@ class Collection:
         for media, file_path in self.get_medias(loc):
             self._add_db_data(media.metadata)
             self.summary.append((file_path, 'update'))
-
-        return self.summary
-
-    def _init_check_db(self, loc=None, ignore_tags=set()):
-        if self.db.is_empty('metadata'):
-            self.init(loc, ignore_tags)
-        elif not self.check_db():
-            self.logger.error('Db data is not accurate run `ordigi update`')
-            sys.exit(1)
-
-    def check_files(self):
-        for file_path in self._get_all_files():
-            checksum = utils.checksum(file_path)
-            relpath = file_path.relative_to(self.root)
-            if checksum == self.db.get_checksum(relpath):
-                self.summary.append((file_path, 'check'))
-            else:
-                self.logger.error('{file_path} is corrupted')
-                self.summary.append((file_path, False))
 
         return self.summary
 
@@ -857,34 +863,33 @@ class Collection:
 
         return self.summary
 
+    def check_files(self):
+        for file_path in self._get_all_files():
+            checksum = utils.checksum(file_path)
+            relpath = file_path.relative_to(self.root)
+            if checksum == self.db.get_checksum(relpath):
+                self.summary.append((file_path, 'check'))
+            else:
+                self.logger.error('{file_path} is corrupted')
+                self.summary.append((file_path, False))
+
+        return self.summary
+
     def remove_empty_subdirs(self, directories):
         parents = set()
         for directory in directories:
             # if folder empty, delete it
-            files = os.listdir(directory)
-            if len(files) == 0:
-                if not self.dry_run:
-                    directory.rmdir()
+            if directory.is_dir():
+                files = os.listdir(directory)
+                if len(files) == 0:
+                    if not self.dry_run:
+                        directory.rmdir()
 
             if self.root in directory.parent.parents:
                 parents.add(directory.parent)
 
         if parents != set():
             self.remove_empty_subdirs(parents)
-
-    def _get_path_list(self, path):
-        src_list = [
-            x
-            for x in self._get_files_in_path(
-                path, glob=self.glob,
-                extensions=self.filter_by_ext,
-            )
-        ]
-        if self.interactive:
-            src_list = self._modify_selection()
-            print('Processing...')
-
-        return src_list
 
     def sort_file(self, src_path, dest_path, media, import_mode=False):
         if import_mode == 'copy':
@@ -909,101 +914,88 @@ class Collection:
 
         return self.summary
 
-    def sort_files(self, src_dirs, path_format, loc, import_mode=False, remove_duplicates=False, ignore_tags=set()):
+    def sort_files(
+        self, src_dirs, path_format, loc,
+        import_mode=False, remove_duplicates=False, ignore_tags=set()
+        ):
         """
         Sort files into appropriate folder
         """
         # Check db
         self._init_check_db(loc, ignore_tags)
 
+        # Get medias data
         files_data = []
         src_dirs_in_collection = set()
-        for src_dir in src_dirs:
-            self.dest_list = []
-            src_dir = self._check_path(src_dir)
-            conflicts = []
-            self.src_list = self._get_path_list(src_dir)
+        for media, src_dir_in_collection in self._get_medias_data(
+            src_dirs,
+            import_mode=import_mode, ignore_tags=ignore_tags, loc=loc,
+        ):
+            # Get the destination path according to metadata
+            fpath = FPath(path_format, self.day_begins, self.logger)
+            relpath = Path(fpath.get_path(media.metadata))
+            if src_dir_in_collection:
+                src_dirs_in_collection.add(media.file_path.parent)
 
-            # Get medias and src_dirs
-            for src_path in self.src_list:
-                if self.root in src_path.parents:
-                    src_dirs_in_collection.add(src_path.parent)
-                else:
-                    if not import_mode:
-                        self.logger.error(f"""{src_path} not in {self.root}
-                                collection, use `ordigi import`""")
-                        sys.exit(1)
+            files_data.append((copy(media), relpath))
 
-                # Get file metadata
-                media = Media(
-                    src_path,
-                    src_dir,
-                    self.album_from_folder,
-                    ignore_tags,
-                    self.interactive,
-                    self.logger,
-                    self.use_date_filename,
-                    self.use_file_dates,
-                )
-                metadata = media.get_metadata(self.root, loc, self.db, self.cache)
-                # Get the destination path according to metadata
-                fpath = FPath(path_format, self.day_begins, self.logger)
-                relpath = Path(fpath.get_path(metadata))
+        # Sort files and solve conflicts
+        self._sort_medias(files_data, import_mode, remove_duplicates)
 
-                files_data.append((copy(media), relpath))
+        self.remove_empty_subdirs(src_dirs_in_collection)
 
-            # Create directories
-            for media, relpath in files_data:
-                dest_directory = self.root / relpath.parent
-                self._create_directory(dest_directory, media)
+        if not self._check_processed():
+            self.summary.append((None, False))
 
-            # sort files and solve conflicts
-            for media, relpath in files_data:
-                src_path = media.file_path
-                dest_path = self.root / relpath
+        return self.summary
 
-                conflict = self.check_conflicts(src_path, dest_path, remove_duplicates)
+    def dedup_regex(self, paths, dedup_regex, remove_duplicates=False):
+        """Deduplicate file path parts"""
+        # Check db
+        self._init_check_db()
 
-                if not conflict:
-                    self.sort_file(
-                        src_path, dest_path, media, import_mode=import_mode
-                        )
-                elif conflict == 1:
-                    # There is conflict and file are different
-                    conflicts.append((src_path, dest_path, media))
-                elif conflict == 3:
-                    # Same file checksum
-                    if import_mode == 'move':
-                        self._remove(src_path)
-                    self.dest_list.append(dest_path)
-                elif conflict == 2:
-                    # File already sorted
-                    self.dest_list.append(dest_path)
+        # Delimiter regex
+        delim = r'[-_ .]'
+        # Numeric date item  regex
+        d = r'\d{2}'
 
-            if conflicts != []:
-                files_data, conflict = self._solve_conflicts(conflicts, remove_duplicates)
-                src_path, dest_path, media = file_data
+        # Numeric date regex
+        if len(dedup_regex) == 0:
+            date_num2 = re.compile(
+                fr'([^0-9]{d}{delim}{d}{delim}|{delim}{d}{delim}{d}[^0-9])'
+            )
+            date_num3 = re.compile(
+                fr'([^0-9]{d}{delim}{d}{delim}{d}{delim}|{delim}{d}{delim}{d}{delim}{d}[^0-9])'
+            )
+            default = re.compile(r'([^-_ .]+[-_ .])')
+            dedup_regex = [date_num3, date_num2, default]
 
-                if not conflict:
-                    self.sort_file(
-                        src_path, dest_path, media, import_mode=import_mode
-                        )
-                elif conflict == 1:
-                    # There is unresolved conflict
-                    self.summary.append((src_path, False))
-                elif conflict == 3:
-                    # Same file checksum
-                    if import_mode == 'move':
-                        self._remove(src_path)
-                    self.dest_list.append(dest_path)
-                elif conflict == 2:
-                    # File already sorted
-                    self.dest_list.append(dest_path)
+        # Get medias data
+        files_data = []
+        for media, _ in self._get_medias_data(paths):
+            # Deduplicate the path
+            src_path = media.file_path
+            path_parts = src_path.relative_to(self.root).parts
+            dedup_path = []
+            for path_part in path_parts:
+                items = []
+                items = self._split_part(dedup_regex.copy(), path_part, items)
 
-            self.remove_empty_subdirs(src_dirs_in_collection)
+                filtered_items = []
+                for item in items:
+                    if item not in filtered_items:
+                        filtered_items.append(item)
 
-            if not self._check_processed():
-                self.summary.append((None, False))
+                dedup_path.append(''.join(filtered_items))
+
+            relpath = Path(*dedup_path)
+            files_data.append((copy(media), relpath))
+
+        # Sort files and solve conflicts
+        self._sort_medias(files_data, remove_duplicates=remove_duplicates)
+
+        if not self._check_processed():
+            self.summary.append((None, False))
 
         return self.summary
 
@@ -1049,106 +1041,61 @@ class Collection:
             if image.is_image():
                 yield image
 
-    def sort_similar_images(self, path, similarity=80):
+    def _get_media_data(self, img_path, path):
+        media = Media(img_path, path, self.logger)
+        media.get_metadata(self.root, db=self.db, cache=self.cache)
 
+        return media
+
+    def _find_similar_images(self, image, images, path, dest_dir, similarity=80):
+        files_data = []
+        if not image.img_path.is_file():
+            return files_data
+
+        name = image.img_path.stem
+        directory_name = dest_dir / name.replace('.', '_')
+
+        for img_path in images.find_similar(image, similarity):
+            self.src_list.append(img_path)
+
+            media = self._get_media_data(img_path, path)
+            relpath = directory_name / img_path.name
+
+            files_data.append((copy(media), relpath))
+
+        if files_data:
+            # Found similar images to image
+            self.src_list.append(image.img_path)
+            media = self._get_media_data(image.img_path, path)
+            relpath = directory_name / image.img_path.name
+            files_data.insert(0, (copy(media), relpath))
+
+        return files_data
+
+    def sort_similar_images(self, path, similarity=80, remove_duplicates=False):
+        """Sort similar images using imagehash library"""
         # Check db
-        if not self.check_db():
-            self.logger.error('Db data is not accurate run `ordigi init`')
-            sys.exit(1)
+        self._init_check_db()
 
+        dest_dir = self.root / 'similar_images'
         path = self._check_path(path)
-        images = set(x for x in self._get_images(path))
-        i = Images(images, logger=self.logger)
-        nb_row_ini = self.db.len('metadata')
-        for image in images:
-            if not image.img_path.is_file():
-                continue
-            media_ref = Media(image.img_path, path, self.logger)
-            # Todo: compare metadata?
-            metadata = media_ref.get_metadata(self.root, db=self.db, cache=self.cache)
-            similar = False
-            moved_imgs = set()
-            for img_path in i.find_similar(image, similarity):
-                similar = True
-                media = Media(img_path, path, self.logger)
-                metadata = media.get_metadata(self.root, db=self.db, cache=self.cache)
-                # move image into directory
-                name = img_path.stem
-                directory_name = 'similar_to_' + name
-                dest_directory = img_path.parent / directory_name
-                dest_path = dest_directory / img_path.name
-                dest_directory.mkdir(exist_ok=True)
 
+        images_paths = set(x for x in self._get_images(path))
+        images = Images(images_paths, logger=self.logger)
+        nb_row_ini = self.db.len('metadata')
+        for image in images_paths:
+            files_data = self._find_similar_images(
+                image, images, path, dest_dir, similarity
+            )
+            if files_data:
                 # Move the simlars file into the destination directory
-                self._move(img_path, dest_path)
-                moved_imgs.add(img_path)
-                if self._record_file(img_path, dest_path, media):
-                    self.summary.append((img_path, 'sort'))
-                else:
-                    self.summary.append((img_path, False))
-
-            if similar:
-                img_path = image.img_path
-                dest_path = dest_directory / img_path.name
-                self._move(img_path, dest_path)
-                moved_imgs.add(img_path)
-                if self._record_file(img_path, dest_path, media_ref):
-                    self.summary.append((img_path, 'sort'))
-                else:
-                    self.summary.append((img_path, False))
+                self._sort_medias(files_data, remove_duplicates=remove_duplicates)
 
         nb_row_end = self.db.len('metadata')
         if nb_row_ini and nb_row_ini != nb_row_end:
             self.logger.error('Nb of row have changed unexpectedly')
 
-        if result:
-            result = self.check_db()
-            self.summary.append((None, False))
-
-        return self.summary
-
-    def revert_compare(self, path):
-
-        if not self.check_db():
-            self.logger.error('Db data is not accurate run `ordigi init`')
-            sys.exit(1)
-
-        path = self._check_path(path)
-        dirnames = set()
-        moved_files = set()
-        nb_row_ini = self.db.len('metadata')
-        for src_path in self._get_files_in_path(
-            path, glob=self.glob,
-            extensions=self.filter_by_ext,
-        ):
-            dirname = src_path.parent.name
-            if dirname.find('similar_to') == 0:
-                dirnames.add(src_path.parent)
-
-                # move file to initial folder and update metadata
-                media = Media(src_path, path, self.logger)
-                metadata = media.get_metadata(self.root, db=self.db, cache=self.cache)
-                dest_path = Path(src_path.parent.parent, src_path.name)
-                self._move(src_path, dest_path)
-                moved_files.add(src_path)
-                if self._record_file(src_path, dest_path, media):
-                    self.summary.append((src_path, 'sort'))
-                else:
-                    self.summary.append((src_path, False))
-
-        for dirname in dirnames:
-            # remove 'similar_to*' directories
-            try:
-                dirname.rmdir()
-            except OSError as error:
-                self.logger.error(error)
-
-        nb_row_end = self.db.len('metadata')
-        if nb_row_ini and nb_row_ini != nb_row_end:
-            self.logger.error('Nb of row have changed unexpectedly')
-
-        if result:
-            result = self.check_db()
+        if not self._check_processed():
             self.summary.append((None, False))
 
         return self.summary
@@ -1218,4 +1165,3 @@ class Collection:
                 self.summary.append((file_path, 'update'))
 
         return self.summary
-

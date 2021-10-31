@@ -233,12 +233,13 @@ class Media:
         if self.metadata is None:
             return None
 
-        basename = os.path.splitext(self.metadata['filename'])[0]
+        filename = self.metadata['filename']
+        stem = os.path.splitext(filename)[0]
         date_original = self.metadata['date_original']
         if self.metadata['original_name']:
             date_filename = self.get_date_format(self.metadata['original_name'])
         else:
-            date_filename = self.get_date_format(basename)
+            date_filename = self.get_date_format(stem)
 
         date_original = self.metadata['date_original']
         date_created = self.metadata['date_created']
@@ -246,7 +247,7 @@ class Media:
         if self.metadata['date_original']:
             if date_filename and date_filename != date_original:
                 self.logger.warning(
-                    f"{basename} time mark is different from {date_original}"
+                    f"{filename} time mark is different from {date_original}"
                 )
                 if self.interactive:
                     # Ask for keep date taken, filename time, or neither
@@ -268,7 +269,7 @@ class Media:
             )
             if date_created and date_filename > date_created:
                 self.logger.warning(
-                    f"{basename} time mark is more recent than {date_created}"
+                    f"{filename} time mark is more recent than {date_created}"
                 )
                 if self.interactive:
                     choices = [
@@ -335,6 +336,7 @@ class Media:
         else:
             return answers['album']
 
+    # TODO use methods _get_metadata_from_db and _get_metadata_from_exif
     def get_metadata(self, root, loc=None, db=None, cache=False):
         """Get a dictionary of metadata from exif.
         All keys will be present and have a value of None if not obtained.
