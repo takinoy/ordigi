@@ -23,7 +23,7 @@ class TestFPath:
     @pytest.fixture(autouse=True)
     def setup_class(cls, sample_files_paths):
         cls.src_path, cls.file_paths = sample_files_paths
-        cls.path_format = constants.default_path + '/' + constants.default_name
+        cls.path_format = constants.DEFAULT_PATH + '/' + constants.DEFAULT_NAME
         cls.logger = log.get_logger(level=10)
 
     def test_get_part(self, tmp_path):
@@ -121,7 +121,7 @@ class TestCollection:
     @pytest.fixture(autouse=True)
     def setup_class(cls, sample_files_paths):
         cls.src_path, cls.file_paths = sample_files_paths
-        cls.path_format = constants.default_path + '/' + constants.default_name
+        cls.path_format = constants.DEFAULT_PATH + '/' + constants.DEFAULT_NAME
         cls.logger = log.get_logger(level=10)
 
     def teardown_class(self):

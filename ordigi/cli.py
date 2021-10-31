@@ -130,23 +130,17 @@ def _get_exclude(opt, exclude):
 
 
 def get_collection_config(root):
-    return Config(os.path.join(root, '.ordigi', 'ordigi.conf'))
+    return Config(root.joinpath('.ordigi', 'ordigi.conf'))
 
 
 def _get_paths(paths, root):
+    root = Path(root).absolute()
     if not paths:
-        paths = [root]
-    paths = set(paths)
-
-    return paths, root
-
-def _get_subpaths(relpaths, root):
-    if not relpaths:
         paths = {root}
     else:
         paths = set()
-        for relpath in relpaths:
-            paths.add(os.path.join(root, relpath))
+        for path in paths:
+            paths.add(Path(path).absolute())
 
     return paths, root
 
@@ -248,7 +242,7 @@ def _sort(**kwargs):
 
     subdirs = kwargs['subdirs']
     root = kwargs['dest']
-    paths, root = _get_subpaths(subdirs, root)
+    paths, root = _get_paths(subdirs, root)
 
     cache = True
     if kwargs['reset_cache']:
@@ -335,7 +329,7 @@ def _clean(**kwargs):
 
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
-    paths, root = _get_subpaths(subdirs, root)
+    paths, root = _get_paths(subdirs, root)
 
     clean_all = False
     if not folders:
@@ -386,7 +380,7 @@ def _init(**kwargs):
     """
     Init media collection database.
     """
-    root = kwargs['path']
+    root = Path(kwargs['path']).absolute()
     config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
@@ -407,7 +401,7 @@ def _update(**kwargs):
     """
     Update media collection database.
     """
-    root = kwargs['path']
+    root = Path(kwargs['path']).absolute()
     config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
@@ -430,7 +424,7 @@ def _check(**kwargs):
     """
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
     logger = log.get_logger(level=log_level)
-    root = kwargs['path']
+    root = Path(kwargs['path']).absolute()
     config = get_collection_config(root)
     opt = config.get_options()
     collection = Collection(root, exclude=opt['exclude'], logger=logger)
@@ -477,7 +471,7 @@ def _compare(**kwargs):
 
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
-    paths, root = _get_subpaths(subdirs, root)
+    paths, root = _get_paths(subdirs, root)
 
     config = get_collection_config(root)
     opt = config.get_options()

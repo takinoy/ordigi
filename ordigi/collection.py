@@ -140,8 +140,9 @@ class FPath:
             if date is not None:
                 part = self.get_early_morning_photos_date(date, mask)
         elif item == 'folder':
-            part = os.path.basename(metadata['subdirs'])
-
+            folder = os.path.basename(metadata['subdirs'])
+            if folder != metadata['src_dir']:
+                part = folder
         elif item == 'folders':
             folders = Path(metadata['subdirs']).parts
             folders = self._get_folders(folders, mask)
@@ -270,7 +271,7 @@ class Collection:
     ):
 
         # Attributes
-        self.root = Path(root).expanduser().absolute()
+        self.root = root.expanduser().absolute()
         if not self.root.exists():
             logger.error(f'Directory {self.root} does not exist')
             sys.exit(1)
@@ -742,7 +743,6 @@ class Collection:
         self, src_dirs, import_mode=None, ignore_tags=set(), loc=None
     ):
         """Get medias data"""
-        src_dir_in_collection = False
         for src_dir in src_dirs:
             self.dest_list = []
             src_dir = self._check_path(src_dir)
@@ -750,9 +750,7 @@ class Collection:
 
             # Get medias and src_dirs
             for src_path in self.src_list:
-                if self.root in src_path.parents:
-                    src_dir_in_collection = True
-                else:
+                if self.root not in src_path.parents:
                     if not import_mode:
                         self.logger.error(f"""{src_path} not in {self.root}
                                 collection, use `ordigi import`""")
@@ -771,7 +769,7 @@ class Collection:
                 )
                 media.get_metadata(self.root, loc, self.db, self.cache)
 
-                yield media, src_dir_in_collection
+                yield media
 
     def _init_check_db(self, loc=None, ignore_tags=set()):
         if self.db.is_empty('metadata'):
@@ -875,21 +873,51 @@ class Collection:
 
         return self.summary
 
-    def remove_empty_subdirs(self, directories):
+    def _remove_empty_subdirs(self, directories, src_dirs):
+        """Remove empty subdir after moving files"""
         parents = set()
         for directory in directories:
+            if not directory.is_dir():
+                continue
+
+            if str(directory) in src_dirs:
+                continue
+
             # if folder empty, delete it
-            if directory.is_dir():
-                files = os.listdir(directory)
-                if len(files) == 0:
-                    if not self.dry_run:
-                        directory.rmdir()
+            files = os.listdir(directory)
+            if len(files) == 0:
+                if not self.dry_run:
+                    directory.rmdir()
 
             if self.root in directory.parent.parents:
                 parents.add(directory.parent)
 
         if parents != set():
-            self.remove_empty_subdirs(parents)
+            self._remove_empty_subdirs(parents, src_dirs)
+
+    def remove_empty_folders(self, directory, remove_root=True):
+        """Remove empty sub-folders in collection"""
+        if not os.path.isdir(directory):
+            self.summary.append((directory, False))
+            return self.summary
+
+        # remove empty subfolders
+        files = os.listdir(directory)
+        if len(files):
+            for f in files:
+                fullpath = os.path.join(directory, f)
+                if os.path.isdir(fullpath):
+                    self.remove_empty_folders(fullpath)
+
+        # if folder empty, delete it
+        files = os.listdir(directory)
+        if len(files) == 0 and remove_root:
+            self.logger.info(f"Removing empty folder: {directory}")
+            if not self.dry_run:
+                os.rmdir(directory)
+            self.summary.append((directory, 'remove_empty_folders'))
+
+        return self.summary
 
     def sort_file(self, src_path, dest_path, media, import_mode=False):
         if import_mode == 'copy':
@@ -926,23 +954,23 @@ class Collection:
 
         # Get medias data
         files_data = []
-        src_dirs_in_collection = set()
-        for media, src_dir_in_collection in self._get_medias_data(
+        subdirs = set()
+        for media in self._get_medias_data(
             src_dirs,
             import_mode=import_mode, ignore_tags=ignore_tags, loc=loc,
         ):
             # Get the destination path according to metadata
             fpath = FPath(path_format, self.day_begins, self.logger)
             relpath = Path(fpath.get_path(media.metadata))
-            if src_dir_in_collection:
-                src_dirs_in_collection.add(media.file_path.parent)
+            subdirs.add(media.file_path.parent)
 
             files_data.append((copy(media), relpath))
 
         # Sort files and solve conflicts
         self._sort_medias(files_data, import_mode, remove_duplicates)
 
-        self.remove_empty_subdirs(src_dirs_in_collection)
+        if import_mode != 'copy':
+            self._remove_empty_subdirs(subdirs, src_dirs)
 
         if not self._check_processed():
             self.summary.append((None, False))
@@ -972,7 +1000,7 @@ class Collection:
 
         # Get medias data
         files_data = []
-        for media, _ in self._get_medias_data(paths):
+        for media in self._get_medias_data(paths):
             # Deduplicate the path
             src_path = media.file_path
             path_parts = src_path.relative_to(self.root).parts
@@ -996,30 +1024,6 @@ class Collection:
 
         if not self._check_processed():
             self.summary.append((None, False))
-
-        return self.summary
-
-    def remove_empty_folders(self, directory, remove_root=True):
-        'Function to remove empty folders'
-        if not os.path.isdir(directory):
-            self.summary.append((directory, False))
-            return self.summary
-
-        # remove empty subfolders
-        files = os.listdir(directory)
-        if len(files):
-            for f in files:
-                fullpath = os.path.join(directory, f)
-                if os.path.isdir(fullpath):
-                    self.remove_empty_folders(fullpath)
-
-        # if folder empty, delete it
-        files = os.listdir(directory)
-        if len(files) == 0 and remove_root:
-            self.logger.info(f"Removing empty folder: {directory}")
-            if not self.dry_run:
-                os.rmdir(directory)
-            self.summary.append((directory, 'remove_empty_folders'))
 
         return self.summary
 

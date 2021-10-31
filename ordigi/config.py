@@ -26,7 +26,7 @@ class Config:
         return False
 
     def load_config(self):
-        if not path.exists(self.conf_path):
+        if not self.conf_path.exists():
             return {}
 
         conf = RawConfigParser()
@@ -55,7 +55,7 @@ class Config:
             elif 'dirs_path' and 'name' in self.conf['Path']:
                 return self.conf['Path']['dirs_path'] + '/' + self.conf['Path']['name']
 
-        return constants.default_path + '/' + constants.default_name
+        return constants.DEFAULT_PATH + '/' + constants.DEFAULT_NAME
 
     def get_options(self):
         """Get config options
@@ -67,7 +67,7 @@ class Config:
         if geocoder and geocoder in ('Nominatim',):
             options['geocoder'] = geocoder
         else:
-            options['geocoder'] = constants.default_geocoder
+            options['geocoder'] = constants.DEFAULT_GEOCODER
 
         prefer_english_names = self.get_option('prefer_english_names', 'Geolocation')
         if prefer_english_names:

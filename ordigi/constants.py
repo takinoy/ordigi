@@ -2,22 +2,27 @@
 Settings.
 """
 
-from os import environ, path
+from os import environ
+from pathlib import Path
 
 #: If True, debug messages will be printed.
 debug = False
 
 # Ordigi settings directory.
-if 'XDG_CONFIG_HOME' in environ:
-    confighome = environ['XDG_CONFIG_HOME']
-elif 'APPDATA' in environ:
-    confighome = environ['APPDATA']
-else:
-    confighome = path.join(environ['HOME'], '.config')
-application_directory = path.join(confighome, 'ordigi')
+def get_config_dir(name):
+    if 'XDG_CONFIG_HOME' in environ:
+        confighome = Path(environ['XDG_CONFIG_HOME'])
+    elif 'APPDATA' in environ:
+        confighome = Path(environ['APPDATA'])
+    else:
+        confighome = Path(environ['HOME'], '.config')
 
-default_path = '{%Y-%m-%b}/{album}|{city}'
-default_name = '{%Y-%m-%d_%H-%M-%S}-{name}-{title}.%l{ext}'
-default_geocoder = 'Nominatim'
+    return confighome / name
 
-CONFIG_FILE = path.join(application_directory, 'ordigi.conf')
+APPLICATION_DIRECTORY = get_config_dir('ordigi')
+
+DEFAULT_PATH = '{%Y-%m-%b}/{album}|{city}'
+DEFAULT_NAME = '{%Y-%m-%d_%H-%M-%S}-{name}-{title}.%l{ext}'
+DEFAULT_GEOCODER = 'Nominatim'
+
+CONFIG_FILE = APPLICATION_DIRECTORY / 'ordigi.conf'
