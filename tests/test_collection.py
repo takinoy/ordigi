@@ -131,12 +131,12 @@ class TestCollection:
     def assert_import(self, summary, nb):
         # Summary is created and there is no errors
         assert summary.errors == 0
-        assert summary.result['import'] == nb
+        assert summary.success_table.sum('import') == nb
 
     def assert_sort(self, summary, nb):
         # Summary is created and there is no errors
         assert summary.errors == 0
-        assert summary.result['sort'] == nb
+        assert summary.success_table.sum('sort') == nb
 
     def test_sort_files(self, tmp_path):
         collection = Collection(tmp_path, album_from_folder=True,
@@ -148,7 +148,8 @@ class TestCollection:
         self.assert_import(summary, 30)
 
         summary = collection.check_files()
-        assert summary.result['check'] == 30
+        assert summary.success_table.sum('import') == 30
+        assert summary.success_table.sum('update') == 0
         assert not summary.errors
 
         # check if album value are set
@@ -169,13 +170,14 @@ class TestCollection:
 
         shutil.copytree(tmp_path / 'test_exif', tmp_path / 'test_exif_copy')
         collection.summary = Summary(tmp_path)
-        assert sum(collection.summary.result.values()) == 0
+        assert collection.summary.success_table.sum() == 0
         summary = collection.update(loc)
-        assert summary.result['update'] == 2
+        assert summary.success_table.sum('update') == 2
+        assert summary.success_table.sum() == 2
         assert not summary.errors
         collection.summary = Summary(tmp_path)
         summary = collection.update(loc)
-        assert not summary.result['update']
+        assert summary.success_table.sum() == 0
         assert not summary.errors
 
         # test with populated dest dir
@@ -186,7 +188,8 @@ class TestCollection:
         # test summary update
         collection.summary = Summary(tmp_path)
         summary = collection.update(loc)
-        assert summary.result['update']
+        assert summary.success_table.sum('sort') == 0
+        assert summary.success_table.sum('update')
         assert not summary.errors
 
     def test_sort_files_invalid_db(self, tmp_path):

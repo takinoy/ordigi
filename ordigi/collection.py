@@ -337,7 +337,7 @@ class Collection:
         row_data = self._format_row_data('metadata', metadata)
         self.db.add_row('metadata', row_data)
 
-    def _update_exif_data(self, dest_path, media):
+    def _update_exif_data(self, media):
         updated = False
         if self.album_from_folder:
             media.set_album_from_folder()
@@ -374,7 +374,7 @@ class Collection:
                     if fnmatch(file_path, exclude):
                         if not self.dry_run:
                             self.remove(file_path)
-                        self.summary.append((file_path, 'remove_excluded'))
+                        self.summary.append('remove', True, file_path)
                         break
 
         return self.summary
@@ -383,13 +383,13 @@ class Collection:
         checksum = media.metadata['checksum']
         if not self._checkcomp(dest_path, checksum):
             self.logger.error(f'Files {src_path} and {dest_path} are not identical')
-            self.summary.append((src_path, False))
+            self.summary.append('check', False, src_path, dest_path)
             return False
 
         # change media file_path to dest_path
         media.file_path = dest_path
         if not self.dry_run:
-            updated = self._update_exif_data(dest_path, media)
+            updated = self._update_exif_data(media)
             if updated:
                 checksum = utils.checksum(dest_path)
                 media.metadata['checksum'] = checksum
@@ -420,7 +420,7 @@ class Collection:
         """Check file and record the file to db"""
         # Check if file remain the same
         if not self._check_file(src_path, dest_path, media):
-            self.summary.append((src_path, False))
+            self.summary.append('check', False, src_path, dest_path)
             return False
 
         if not self.dry_run:
@@ -678,7 +678,10 @@ class Collection:
                         )
                 elif conflict == 1:
                     # There is unresolved conflict
-                    self.summary.append((src_path, False))
+                    if import_mode:
+                        self.summary.append('import', False, src_path, dest_path)
+                    else:
+                        self.summary.append('sort', False, src_path, dest_path)
                 elif conflict == 3:
                     # Same file checksum
                     if import_mode == 'move':
@@ -809,7 +812,7 @@ class Collection:
     def init(self, loc, ignore_tags=set()):
         for media, file_path in self.get_medias(loc):
             self._add_db_data(media.metadata)
-            self.summary.append((file_path, 'update'))
+            self.summary.append('update', file_path)
 
         return self.summary
 
@@ -853,7 +856,7 @@ class Collection:
                         break
                 # set row attribute to the file
                 self._add_db_data(media.metadata)
-                self.summary.append((file_path, 'update'))
+                self.summary.append('update', file_path)
 
         # Finally delete invalid rows
         for row in invalid_db_rows:
@@ -866,10 +869,10 @@ class Collection:
             checksum = utils.checksum(file_path)
             relpath = file_path.relative_to(self.root)
             if checksum == self.db.get_checksum(relpath):
-                self.summary.append((file_path, 'check'))
+                self.summary.append('check',True, file_path)
             else:
                 self.logger.error('{file_path} is corrupted')
-                self.summary.append((file_path, False))
+                self.summary.append('check', False, file_path)
 
         return self.summary
 
@@ -898,7 +901,7 @@ class Collection:
     def remove_empty_folders(self, directory, remove_root=True):
         """Remove empty sub-folders in collection"""
         if not os.path.isdir(directory):
-            self.summary.append((directory, False))
+            self.summary.append('remove', False, directory)
             return self.summary
 
         # remove empty subfolders
@@ -915,7 +918,7 @@ class Collection:
             self.logger.info(f"Removing empty folder: {directory}")
             if not self.dry_run:
                 os.rmdir(directory)
-            self.summary.append((directory, 'remove_empty_folders'))
+            self.summary.append('remove', True, directory)
 
         return self.summary
 
@@ -924,8 +927,6 @@ class Collection:
             self._copy(src_path, dest_path)
         else:
             self._move(src_path, dest_path)
-        if import_mode:
-            update = False
 
         result = self._record_file(
             src_path, dest_path, media, import_mode=import_mode
@@ -934,11 +935,14 @@ class Collection:
         if result:
             self.dest_list.append(dest_path)
             if import_mode:
-                self.summary.append((src_path, 'import'))
+                self.summary.append('import', True, src_path, dest_path)
             else:
-                self.summary.append((src_path, 'sort'))
+                self.summary.append('sort', True, src_path, dest_path)
         else:
-            self.summary.append((src_path, False))
+            if import_mode:
+                self.summary.append('import', False, src_path, dest_path)
+            else:
+                self.summary.append('sort', False, src_path, dest_path)
 
         return self.summary
 
@@ -973,7 +977,7 @@ class Collection:
             self._remove_empty_subdirs(subdirs, src_dirs)
 
         if not self._check_processed():
-            self.summary.append((None, False))
+            self.summary.append('check', False)
 
         return self.summary
 
@@ -1023,7 +1027,7 @@ class Collection:
         self._sort_medias(files_data, remove_duplicates=remove_duplicates)
 
         if not self._check_processed():
-            self.summary.append((None, False))
+            self.summary.append('check', False)
 
         return self.summary
 
@@ -1100,7 +1104,7 @@ class Collection:
             self.logger.error('Nb of row have changed unexpectedly')
 
         if not self._check_processed():
-            self.summary.append((None, False))
+            self.summary.append('check', False)
 
         return self.summary
 
@@ -1166,6 +1170,6 @@ class Collection:
                 # Update exif data
                 media.set_key_values(key, value)
 
-                self.summary.append((file_path, 'update'))
+                self.summary.append('update', False, file_path)
 
         return self.summary

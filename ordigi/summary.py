@@ -1,64 +1,97 @@
+# import pandas as pd
 from tabulate import tabulate
 
+class Tables:
+    """Create table and display result in Pandas DataFrame"""
+
+    def __init__(self, actions):
+        self.actions = actions
+
+        self.table = []
+
+        self.columns = ['action', 'file_path', 'dest_path']
+        # self.df = self.dataframe()
+
+    def append(self, action, file_path=None, dest_path=None):
+        row = (action, file_path, dest_path)
+        self.table.append(row)
+
+    def sum(self, action=None):
+        if not action:
+            return len(self.table)
+
+        count = 0
+        for row in self.table:
+            if row[0] == action:
+                count += 1
+
+        return count
+
+    # def dataframe(self):
+    #     return pd.DataFrame(self.table, columns=self.columns)
+
+    def tabulate(self):
+        errors_headers = self.columns
+        return tabulate(self.table, headers=errors_headers)
 
 class Summary:
-    def __init__(self, path):
+    """Result summary of ordigi program call"""
+
+    def __init__(self, root):
         self.actions = (
             'check',
             'import',
-            'remove_empty_folders',
-            'remove_excluded',
+            'remove',
             'sort',
             'update',
         )
-        self.path = path
-        self.result = {}
-        for action in self.actions:
-            self.result[action] = 0
 
+        # Set labels
+        self.state = ['success', 'errors']
+        self.root = root
+        self.success_table = Tables(self.actions)
+        self.errors_table = Tables(self.actions)
         self.errors = 0
-        self.errors_items = []
 
-    def append(self, row):
-        file_path, action = row
-
+    def append(self, action, success, file_path=None, dest_path=None):
         if action:
-            for m in self.actions:
-                if action == m:
-                    self.result[action] += 1
-        else:
-            self.errors += 1
-            if file_path:
-                self.errors_items.append(file_path)
+            if success:
+                self.success_table.append(action, file_path, dest_path)
+            else:
+                self.errors_table.append(action, file_path, dest_path)
+
+        if not success:
+            self.errors +=1
 
     def print(self):
+        """Print summary"""
 
         print()
-        for action in self.result:
-            nb = self.result[action]
-            if self.result[action] != 0:
+        for action in self.actions:
+            nb = self.success_table.sum(action)
+            if nb != 0:
                 if action == 'check':
-                    print(f"SUMMARY: {nb} files checked in {self.path}.")
+                    print(f"SUMMARY: {nb} files checked in {self.root}.")
                 elif action == 'import':
-                    print(f"SUMMARY: {nb} files imported into {self.path}.")
+                    print(f"SUMMARY: {nb} files imported into {self.root}.")
                 elif action == 'sort':
-                    print(f"SUMMARY: {nb} files sorted inside {self.path}.")
+                    print(f"SUMMARY: {nb} files sorted inside {self.root}.")
                 elif action == 'remove_excluded':
-                    print(f"SUMMARY: {nb} files deleted in {self.path}.")
+                    print(f"SUMMARY: {nb} files deleted in {self.root}.")
                 elif action == 'remove_empty_folders':
-                    print(f"SUMMARY: {nb} empty folders removed in {self.path}.")
+                    print(f"SUMMARY: {nb} empty folders removed in {self.root}.")
                 elif action == 'update':
-                    print(f"SUMMARY: {nb} files updated in {self.path} database.")
+                    print(f"SUMMARY: {nb} files updated in {self.root} database.")
 
-        if sum(self.result.values()) == 0 and not self.errors:
-            print(f"SUMMARY: no file imported, sorted or deleted from {self.path}.")
+        success = self.success_table.sum()
+        if not success and not self.errors:
+            print(f"SUMMARY: no action done in {self.root}.")
 
-        if self.errors > 0:
+        errors = self.errors_table.sum()
+        if errors:
             print()
-            errors_headers = [f"ERROR: {self.errors} errors reported in files:"]
-            errors_result = []
-            for path in self.errors_items:
-                errors_result.append([path])
+            print(f"ERROR: {errors} errors reported for files:")
+            print(self.success_table.tabulate())
 
-            print(tabulate(errors_result, headers=errors_headers))
-            print()
+        elif self.errors:
+            print(f"ERROR: {errors} errors reported.")
