@@ -61,6 +61,14 @@ _filter_options = [
             common media file extension for filtering. Ignored files remain in
             the same directory structure""",
     ),
+    click.option(
+        '--ignore-tags',
+        '-I',
+        default=set(),
+        multiple=True,
+        help='Specific tags or group that will be ignored when\
+                  searching for file data. Example \'File:FileModifyDate\' or \'Filename\'',
+    ),
     click.option('--glob', '-g', default='**/*', help='Glob file selection'),
 ]
 
@@ -70,14 +78,6 @@ _sort_options = [
         default=False,
         is_flag=True,
         help="Use images' folders as their album names.",
-    ),
-    click.option(
-        '--ignore-tags',
-        '-I',
-        default=set(),
-        multiple=True,
-        help='Specific tags or group that will be ignored when\
-                  searching for file data. Example \'File:FileModifyDate\' or \'Filename\'',
     ),
     click.option(
         '--path-format',
@@ -133,14 +133,15 @@ def get_collection_config(root):
     return Config(root.joinpath('.ordigi', 'ordigi.conf'))
 
 
+
 def _get_paths(paths, root):
-    root = Path(root).absolute()
+    root = Path(root).expanduser().absolute()
     if not paths:
         paths = {root}
     else:
         paths = set()
         for path in paths:
-            paths.add(Path(path).absolute())
+            paths.add(Path(path).expanduser().absolute())
 
     return paths, root
 
@@ -198,6 +199,7 @@ def _import(**kwargs):
         filter_by_ext,
         kwargs['glob'],
         kwargs['interactive'],
+        kwargs['ignore_tags'],
         logger,
         opt['max_deep'],
         kwargs['use_date_filename'],
@@ -207,7 +209,7 @@ def _import(**kwargs):
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
 
     summary = collection.sort_files(
-        src_paths, path_format, loc, import_mode, kwargs['remove_duplicates'], kwargs['ignore_tags']
+        src_paths, path_format, loc, import_mode, kwargs['remove_duplicates']
     )
 
     if log_level < 30:
@@ -268,6 +270,7 @@ def _sort(**kwargs):
         filter_by_ext,
         kwargs['glob'],
         kwargs['interactive'],
+        kwargs['ignore_tags'],
         logger,
         opt['max_deep'],
         kwargs['use_date_filename'],
@@ -277,7 +280,7 @@ def _sort(**kwargs):
     loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
 
     summary = collection.sort_files(
-        paths, path_format, loc, kwargs['remove_duplicates'], kwargs['ignore_tags']
+        paths, path_format, loc, kwargs['remove_duplicates']
     )
 
     if kwargs['clean']:
@@ -380,7 +383,7 @@ def _init(**kwargs):
     """
     Init media collection database.
     """
-    root = Path(kwargs['path']).absolute()
+    root = Path(kwargs['path']).expanduser().absolute()
     config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
@@ -401,7 +404,7 @@ def _update(**kwargs):
     """
     Update media collection database.
     """
-    root = Path(kwargs['path']).absolute()
+    root = Path(kwargs['path']).expanduser().absolute()
     config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
@@ -424,7 +427,7 @@ def _check(**kwargs):
     """
     log_level = log.level(kwargs['verbose'], kwargs['debug'])
     logger = log.get_logger(level=log_level)
-    root = Path(kwargs['path']).absolute()
+    root = Path(kwargs['path']).expanduser().absolute()
     config = get_collection_config(root)
     opt = config.get_options()
     collection = Collection(root, exclude=opt['exclude'], logger=logger)

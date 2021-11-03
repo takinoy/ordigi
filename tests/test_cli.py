@@ -31,12 +31,12 @@ class TestOrdigi:
         )
         cls.filter_options = (
             ('--exclude', '.DS_Store'),
+            ('--ignore-tags', 'CreateDate'),
             ('--filter-by-ext', 'jpg'),
             ('--glob', '*'),
         )
         cls.sort_options = (
             '--album-from-folder',
-            '--ignore-tags',
             '--path-format',
             '--remove-duplicates',
             '--use-date-filename',
@@ -74,7 +74,6 @@ class TestOrdigi:
 
         arg_options = (
             *self.filter_options,
-            ('--ignore-tags', 'CreateDate'),
             ('--path-format', '{%Y}/{folder}/{name}.{ext}'),
 
         )
@@ -155,7 +154,6 @@ class TestOrdigi:
 
         arg_options = (
             *self.filter_options,
-            ('--ignore-tags', 'CreateDate'),
             ('--path-format', '{%Y}/{folder}/{stem}.{ext}'),
 
         )

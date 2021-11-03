@@ -35,7 +35,7 @@ class Media:
         file_path,
         src_dir,
         album_from_folder=False,
-        ignore_tags=set(),
+        ignore_tags=None,
         interactive=False,
         logger=logging.getLogger(),
         use_date_filename=False,
@@ -49,6 +49,9 @@ class Media:
 
         self.album_from_folder = album_from_folder
         self.exif_metadata = None
+
+        if ignore_tags is None:
+            ignore_tags = set()
         self.ignore_tags = ignore_tags
         self.interactive = interactive
         self.logger = logger.getChild(self.__class__.__name__)
