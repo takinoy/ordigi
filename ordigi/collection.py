@@ -309,8 +309,8 @@ class Paths:
 
     def __init__(
         self,
-        exclude=set(),
-        extensions=set(),
+        exclude=None,
+        extensions=None,
         glob='**/*',
         interactive=False,
         logger=logging.getLogger(),
@@ -320,7 +320,7 @@ class Paths:
         # Options
         self.exclude = exclude
 
-        if '%media' in extensions:
+        if extensions and '%media' in extensions:
             extensions.remove('%media')
             self.extensions = extensions.union(Media.extensions)
         else:
@@ -802,8 +802,8 @@ class Collection(SortMedias):
         cache=False,
         day_begins=0,
         dry_run=False,
-        exclude=set(),
-        extensions=set(),
+        exclude=None,
+        extensions=None,
         glob='**/*',
         interactive=False,
         ignore_tags=None,
@@ -1067,7 +1067,7 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def dedup_regex(self, paths, dedup_regex, remove_duplicates=False):
+    def dedup_regex(self, paths, dedup_regex=None, remove_duplicates=False):
         """Deduplicate file path parts"""
 
         # Check db
@@ -1079,7 +1079,7 @@ class Collection(SortMedias):
         d = r'\d{2}'
 
         # Numeric date regex
-        if len(dedup_regex) == 0:
+        if not dedup_regex:
             date_num2 = re.compile(
                 fr'([^0-9]{d}{delim}{d}{delim}|{delim}{d}{delim}{d}[^0-9])'
             )

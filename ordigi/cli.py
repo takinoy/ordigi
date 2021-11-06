@@ -47,14 +47,14 @@ _filter_options = [
     click.option(
         '--exclude',
         '-E',
-        default=set(),
+        default=None,
         multiple=True,
         help='Directories or files to exclude.',
     ),
     click.option(
         '--ext',
         '-e',
-        default=set(),
+        default=None,
         multiple=True,
         help="""Use filename
             extension to filter files for sorting. If value is '*', use
@@ -64,7 +64,7 @@ _filter_options = [
     click.option(
         '--ignore-tags',
         '-I',
-        default=set(),
+        default=None,
         multiple=True,
         help='Specific tags or group that will be ignored when\
                   searching for file data. Example \'File:FileModifyDate\' or \'Filename\'',
@@ -300,7 +300,7 @@ def _sort(**kwargs):
 @click.option(
     '--dedup-regex',
     '-d',
-    default=set(),
+    default=None,
     multiple=True,
     help='Regex to match duplicate strings parts',
 )
