@@ -106,7 +106,6 @@ class Images:
 
     def get_images_hashes(self):
         """Get image hashes"""
-        hashes = {}
         # Searching for duplicates.
         for image in self.images:
             with img.open(image.img_path) as img:
@@ -115,7 +114,8 @@ class Images:
     def find_duplicates(self, img_path):
         """Find duplicates"""
         duplicates = []
-        for temp_hash in get_images_hashes():
+        hashes = {}
+        for temp_hash in self.get_images_hashes():
             if temp_hash in hashes:
                 self.logger.info(
                     "Duplicate {} \nfound for image {}\n".format(
@@ -140,7 +140,7 @@ class Images:
             answer = input(f"Do you want to delete these {duplicates} images? Y/n: ")
             if answer.strip().lower() == 'y':
                 self.remove_duplicates(duplicates)
-                self.logger.info(f'{duplicate} deleted successfully!')
+                self.logger.info('Duplicates images deleted successfully!')
         else:
             self.logger.info("No duplicates found")
 

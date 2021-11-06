@@ -6,6 +6,7 @@ import atexit
 import json
 import logging
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -62,6 +63,7 @@ class _ExifToolProc:
         exiftool: optional path to exiftool binary (if not provided, will search path to find it)"""
 
         self.logger = logger.getChild(self.__class__.__name__)
+        self._exiftool = exiftool or get_exiftool_path()
         if hasattr(self, "_process_running") and self._process_running:
             # already running
             if exiftool is not None and exiftool != self._exiftool:
@@ -72,7 +74,6 @@ class _ExifToolProc:
             return
 
         self._process_running = False
-        self._exiftool = exiftool or get_exiftool_path()
         self._start_proc()
 
     @property
@@ -399,7 +400,7 @@ class ExifToolCaching(ExifTool):
 
     Creates a singleton cached ExifTool instance"""
 
-    _singletons = {}
+    _singletons: dict[Path, ExifTool]  = {}
 
     def __new__(cls, filepath, exiftool=None, logger=logging.getLogger()):
         """create new object or return instance of already created singleton"""

@@ -2,7 +2,7 @@
 Media :class:`Media` class to get file metadata
 """
 
-from dateutil.parser import parse
+from dateutil import parser
 import inquirer
 import logging
 import mimetypes
@@ -166,8 +166,8 @@ class Media:
             regex = re.compile(r'(\d{4}):(\d{2}):(\d{2})')
             if re.match(regex, value) is not None:  # noqa
                 value = re.sub(regex, r'\g<1>-\g<2>-\g<3>', value)
-            return parse(value)
-        except BaseException or dateutil.parser._parser.ParserError as e:
+            return parser.parse(value)
+        except BaseException or parser._parser.ParserError as e:
             self.logger.warning(e.args, value)
             return None
 

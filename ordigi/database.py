@@ -133,7 +133,7 @@ class Sqlite:
         else:
             return False
 
-    def _run_many(self, query):
+    def _run_many(self, query, table_list):
         self.cur.executemany(query, table_list)
         if self.cur.fetchone()[0] != 1:
             return False
@@ -207,7 +207,7 @@ class Sqlite:
 
     def build_table(self, table, row_data, primary_keys):
         header = self.get_header(row_data)
-        create_table(table, row_data, primary_keys)
+        return self.create_table(table, row_data, primary_keys)
 
     def build_row(self, table, row_data):
         """
