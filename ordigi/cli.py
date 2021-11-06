@@ -46,14 +46,14 @@ _dry_run_options = [
 _filter_options = [
     click.option(
         '--exclude',
-        '-e',
+        '-E',
         default=set(),
         multiple=True,
         help='Directories or files to exclude.',
     ),
     click.option(
-        '--filter-by-ext',
-        '-f',
+        '--ext',
+        '-e',
         default=set(),
         multiple=True,
         help="""Use filename
@@ -187,7 +187,7 @@ def _import(**kwargs):
         path_format = kwargs['path_format']
 
     exclude = _get_exclude(opt, kwargs['exclude'])
-    filter_by_ext = set(kwargs['filter_by_ext'])
+    extensions = set(kwargs['ext'])
 
     collection = Collection(
         root,
@@ -196,7 +196,7 @@ def _import(**kwargs):
         opt['day_begins'],
         kwargs['dry_run'],
         exclude,
-        filter_by_ext,
+        extensions,
         kwargs['glob'],
         kwargs['interactive'],
         kwargs['ignore_tags'],
@@ -258,7 +258,7 @@ def _sort(**kwargs):
         path_format = kwargs['path_format']
 
     exclude = _get_exclude(opt, kwargs['exclude'])
-    filter_by_ext = set(kwargs['filter_by_ext'])
+    extensions = set(kwargs['ext'])
 
     collection = Collection(
         root,
@@ -267,7 +267,7 @@ def _sort(**kwargs):
         opt['day_begins'],
         kwargs['dry_run'],
         exclude,
-        filter_by_ext,
+        extensions,
         kwargs['glob'],
         kwargs['interactive'],
         kwargs['ignore_tags'],
@@ -342,13 +342,13 @@ def _clean(**kwargs):
     opt = config.get_options()
 
     exclude = _get_exclude(opt, kwargs['exclude'])
-    filter_by_ext = set(kwargs['filter_by_ext'])
+    extensions = set(kwargs['ext'])
 
     collection = Collection(
         root,
         dry_run=dry_run,
         exclude=exclude,
-        filter_by_ext=filter_by_ext,
+        extensions=extensions,
         glob=kwargs['glob'],
         logger=logger,
         max_deep=opt['max_deep'],
@@ -480,12 +480,12 @@ def _compare(**kwargs):
     opt = config.get_options()
 
     exclude = _get_exclude(opt, kwargs['exclude'])
-    filter_by_ext = set(kwargs['filter_by_ext'])
+    extensions = set(kwargs['ext'])
 
     collection = Collection(
         root,
         exclude=exclude,
-        filter_by_ext=filter_by_ext,
+        extensions=extensions,
         glob=kwargs['glob'],
         dry_run=dry_run,
         logger=logger,

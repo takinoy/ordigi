@@ -8,7 +8,7 @@ import pytest
 import inquirer
 
 from ordigi import constants
-from ordigi.collection import Collection, FPath
+from ordigi.collection import Collection, FPath, Paths
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
 from ordigi.geolocation import GeoLocation
 from ordigi import log
@@ -143,7 +143,7 @@ class TestCollection:
                 logger=self.logger)
         loc = GeoLocation()
         summary = collection.sort_files([self.src_path],
-                self.path_format, loc, import_mode='copy')
+                self.path_format, loc, imp='copy')
 
         self.assert_import(summary, 30)
 
@@ -198,36 +198,36 @@ class TestCollection:
         randomize_db(tmp_path)
         with pytest.raises(sqlite3.DatabaseError) as e:
             summary = collection.sort_files([self.src_path],
-                    self.path_format, loc, import_mode='copy')
+                    self.path_format, loc, imp='copy')
 
     def test_sort_file(self, tmp_path):
-        for import_mode in 'copy', 'move', False:
+        for imp in ('copy', 'move', False):
             collection = Collection(tmp_path)
             # copy mode
             src_path = Path(self.src_path, 'test_exif', 'photo.png')
             media = Media(src_path, self.src_path)
             metadata = media.get_metadata(tmp_path)
-            name = 'photo_' + str(import_mode) + '.png'
+            name = 'photo_' + str(imp) + '.png'
             dest_path = Path(tmp_path, name)
             src_checksum = utils.checksum(src_path)
             summary = collection.sort_file(src_path, dest_path, media,
-                    import_mode=import_mode)
+                    imp=imp)
             assert not summary.errors
             # Ensure files remain the same
             assert collection._checkcomp(dest_path, src_checksum)
 
-            if import_mode == 'copy':
+            if imp == 'copy':
                 assert src_path.exists()
             else:
                 assert not src_path.exists()
                 shutil.copyfile(dest_path, src_path)
 
-    def test__get_files_in_path(self, tmp_path):
-        collection = Collection(tmp_path, exclude={'**/*.dng',}, max_deep=1,
-                use_date_filename=True, use_file_dates=True)
-        paths = [x for x in collection._get_files_in_path(self.src_path,
-            glob='**/photo*')]
-        assert len(paths) == 6
+    def test_get_files(self):
+        exclude={'**/*.dng',}
+        paths = Paths(exclude=exclude, max_deep=1)
+        paths = list(paths.get_files(self.src_path))
+        assert len(paths) == 9
+        assert Path(self.src_path, 'test_exif/photo.dng') not in paths
         for path in paths:
             assert isinstance(path, Path)
 
@@ -248,7 +248,6 @@ class TestCollection:
         shutil.copytree(self.src_path, path)
         collection = Collection(path, logger=self.logger)
         # loc = GeoLocation()
-        import ipdb; ipdb.set_trace()
 
 #         def mockreturn(prompt, theme):
 #             return {'value': '03-12-2021 08:12:35'}

@@ -32,7 +32,7 @@ class TestOrdigi:
         cls.filter_options = (
             ('--exclude', '.DS_Store'),
             ('--ignore-tags', 'CreateDate'),
-            ('--filter-by-ext', 'jpg'),
+            ('--ext', 'jpg'),
             ('--glob', '*'),
         )
         cls.sort_options = (

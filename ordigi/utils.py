@@ -102,6 +102,36 @@ def get_date_from_string(string, user_regex=None):
         return date
 
 
+def split_part(dedup_regex, path_part, items=None):
+    """
+    Split part from regex
+    :returns: parts
+    """
+    if not items:
+        items = []
+
+    regex = dedup_regex.pop(0)
+    parts = re.split(regex, path_part)
+    # Loop thought part, search matched regex part and proceed with
+    # next regex for others parts
+    for n, part in enumerate(parts):
+        if re.match(regex, part):
+            if part[0] in '-_ .':
+                if n > 0:
+                    # move the separator to previous item
+                    parts[n - 1] = parts[n - 1] + part[0]
+                items.append(part[1:])
+            else:
+                items.append(part)
+        elif dedup_regex != []:
+            # Others parts
+            items = split_part(dedup_regex, part, items)
+        else:
+            items.append(part)
+
+    return items
+
+
 # Conversion functions
 # source:https://rodic.fr/blog/camelcase-and-snake_case-strings-conversion-with-python/
 
