@@ -31,6 +31,7 @@ class FPath:
         self.logger = logger
         self.path_format = path_format
         self.whitespace_regex = '[ \t\n\r\f\v]+'
+        self.whitespace_sub = '_'
 
     def get_items(self):
         return {
@@ -196,6 +197,11 @@ class FPath:
                     regex = '[-_ .]?(%[ul])?' + regex
                     this_part = re.sub(regex, part, this_part)
                 else:
+                    if self.whitespace_sub != ' ':
+                        # Lastly we want to sanitize the name
+                        path_string = re.sub(
+                            self.whitespace_regex, self.whitespace_sub, this_part
+                        )
                     this_part = self._set_case(regex, part, this_part)
 
         # Delete separator char at the begining of the string if any:
@@ -204,15 +210,13 @@ class FPath:
             if re.match(regex, this_part[0]):
                 this_part = this_part[1:]
 
-        return this_part.strip()
+        return this_part
 
-    def get_path(self, metadata, whitespace_sub='_'):
-        """path_format: {%Y-%d-%m}/%u{city}/{album}
-
+    def get_path(self, metadata: dict) -> list:
+        """
+        path_format: {%Y-%d-%m}/%u{city}/{album}
         Returns file path.
-
-        :returns: string"""
-
+        """
         path_format = self.path_format
         path = []
         path_parts = path_format.split('/')
@@ -239,15 +243,7 @@ class FPath:
         if part == '' or re.match(r'^\..*', part):
             path.append(metadata['filename'])
 
-        path_string = os.path.join(*path)
-
-        if whitespace_sub != ' ':
-            # Lastly we want to sanitize the name
-            path_string = re.sub(self.whitespace_regex, whitespace_sub, path_string)
-
-        return path_string
-
-        return None
+        return os.path.join(*path)
 
 
 class CollectionDb:
