@@ -34,6 +34,7 @@ class FPath:
         self.whitespace_sub = '_'
 
     def get_items(self):
+        """Return features items of Fpath class"""
         return {
             'album': '{album}',
             'stem': '{stem}',
@@ -56,8 +57,8 @@ class FPath:
     def get_early_morning_photos_date(self, date, mask):
         """check for early hour photos to be grouped with previous day"""
 
-        for m in '%H', '%M', '%S','%I', '%p', '%f':
-            if m in mask:
+        for i in '%H', '%M', '%S','%I', '%p', '%f':
+            if i in mask:
                 # D'ont change date format if datestring contain hour, minutes or seconds...
                 return date.strftime(mask)
 
@@ -80,8 +81,8 @@ class FPath:
         n = len(folders) - 1
 
         if not re.search(r':', mask):
-            a = re.compile(r'[0-9]')
-            match = re.search(a, mask)
+            regex0 = re.compile(r'[0-9]')
+            match = re.search(regex0, mask)
             if match:
                 # single folder example: folders[1]
                 i = int(match[0])
@@ -95,26 +96,27 @@ class FPath:
                 return folders
         else:
             # multiple folder selection: example folders[1:3]
-            a = re.compile(r'[0-9]:')
-            b = re.compile(r':[0-9]')
-            begin = int(re.search(a, mask)[0][0])
-            end = int(re.search(b, mask)[0][1])
+            regex0 = re.compile(r'[0-9]:')
+            regex1 = re.compile(r':[0-9]')
+            begin = int(re.search(regex0, mask)[0][0])
+            end = int(re.search(regex1, mask)[0][1])
 
             if begin > n:
                 # no matched folders
                 return ['']
+
             if end > n:
                 end = n
 
             if begin >= end:
                 return ['']
-            else:
-                # select matched folders
-                return folders[begin:end]
+
+            # select matched folders
+            return folders[begin:end]
 
     def get_part(self, item, mask, metadata):
-        """Parse a specific folder's name given a mask and metadata.
-
+        """
+        Parse a specific folder's name given a mask and metadata.
         :param item: Name of the item as defined in the path (i.e. date from %date)
         :param mask: Mask representing the template for the path (i.e. %city %state
         :param metadata: Metadata dictionary.
@@ -133,8 +135,8 @@ class FPath:
         elif item == 'name':
             # Remove date prefix added to the name.
             part = stem
-            for i, rx in utils.get_date_regex(stem):
-                part = re.sub(rx, '', part)
+            for regex in utils.get_date_regex(stem).values():
+                part = re.sub(regex, '', part)
         elif item == 'date':
             date = metadata['date_media']
             # early morning photos can be grouped with previous day
@@ -199,7 +201,7 @@ class FPath:
                 else:
                     if self.whitespace_sub != ' ':
                         # Lastly we want to sanitize the name
-                        path_string = re.sub(
+                        this_part = re.sub(
                             self.whitespace_regex, self.whitespace_sub, this_part
                         )
                     this_part = self._set_case(regex, part, this_part)
@@ -229,8 +231,7 @@ class FPath:
                     # Check if all masks are substituted
                     if True in [c in part for c in '{}']:
                         self.logger.error(
-                            f'Format path part invalid: \
-                                {this_part}'
+                            f"Format path part invalid: {this_part}"
                         )
                         sys.exit(1)
 
@@ -569,7 +570,7 @@ class SortMedias:
 
         if dest_checksum != src_checksum:
             self.logger.info(
-                f'Source checksum and destination checksum are not the same'
+                "Source checksum and destination checksum are not the same"
             )
             return False
 
@@ -584,7 +585,6 @@ class SortMedias:
             self.summary.append('check', False, src_path, dest_path)
             return False
 
-        # TODO put this to Medias class???
         # change media file_path to dest_path
         media.file_path = dest_path
         if not self.dry_run:
@@ -671,41 +671,39 @@ class SortMedias:
             self.logger.info(f'Create {directory_path}')
 
     def check_conflicts(self, src_path, dest_path, remove_duplicates=False):
-        '''
+        """
         Check if file can be copied or moved file to dest_path.
-        Return True if success, None is no filesystem action, False if
-        conflicts.
-        :params: str, str, bool
-        :returns: bool or None
-        '''
+        """
 
         # check for collisions
         if src_path == dest_path:
             self.logger.info(f"File {dest_path} already sorted")
             return 2
+
         if dest_path.is_dir():
             self.logger.info(f"File {dest_path} is a existing directory")
             return 1
-        elif dest_path.is_file():
+
+        if dest_path.is_file():
             self.logger.info(f"File {dest_path} already exist")
             if remove_duplicates:
                 if filecmp.cmp(src_path, dest_path):
                     self.logger.info(
-                        f"File in source and destination are identical. Duplicate will be ignored."
+                        "File in source and destination are identical. Duplicate will be ignored."
                     )
                     return 3
-                else:  # name is same, but file is different
-                    self.logger.info(
-                        f"File {src_path} and {dest_path} are different."
-                    )
-                    return 1
-            else:
+
+                # name is same, but file is different
+                self.logger.info(
+                    f"File {src_path} and {dest_path} are different."
+                )
                 return 1
-        else:
-            return 0
+
+            return 1
+
+        return 0
 
     def _solve_conflicts(self, conflicts, remove_duplicates):
-        result = False
         unresolved_conflicts = []
         while conflicts != []:
             src_path, dest_path, media = conflicts.pop()
@@ -845,7 +843,7 @@ class Collection(SortMedias):
 
         # Arguments
         if not self.root.exists():
-            logger.error(f'Directory {self.root} does not exist')
+            self.logger.error(f'Directory {self.root} does not exist')
             sys.exit(1)
 
         # Options
@@ -871,6 +869,7 @@ class Collection(SortMedias):
             yield file_path
 
     def init(self, loc):
+        """Init collection db"""
         for file_path in self.get_collection_files():
             media = self.medias.get_media(file_path, self.root, loc)
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
@@ -911,6 +910,7 @@ class Collection(SortMedias):
             sys.exit(1)
 
     def update(self, loc):
+        """Update collection db"""
         file_paths = list(self.get_collection_files())
         db_rows = list(self.db.sqlite.get_rows('metadata'))
         invalid_db_rows = set()
@@ -936,8 +936,8 @@ class Collection(SortMedias):
                         media.metadata['src_path'] = row['SrcPath']
                         # Check if row FilePath is a subpath of relpath
                         if relpath.startswith(row['FilePath']):
-                            d = os.path.relpath(relpath, row['FilePath'])
-                            media.metadata['subdirs'] = row['Subdirs'] + d
+                            path = os.path.relpath(relpath, row['FilePath'])
+                            media.metadata['subdirs'] = row['Subdirs'] + path
                         media.metadata['Filename'] = row['Filename']
                         break
                 # set row attribute to the file
@@ -951,6 +951,7 @@ class Collection(SortMedias):
         return self.summary
 
     def check_files(self):
+        """Check file integrity."""
         for file_path in self.paths.get_files(self.root):
             checksum = utils.checksum(file_path)
             relpath = file_path.relative_to(self.root)
@@ -972,7 +973,6 @@ class Collection(SortMedias):
 
     def remove_excluded_files(self):
         """Remove excluded files in collection"""
-        result = True
         # get all files
         for file_path in self.get_collection_files(exclude=False):
             for exclude in self.paths.exclude:
@@ -987,7 +987,7 @@ class Collection(SortMedias):
         """Remove empty subdir after moving files"""
         parents = set()
         for directory in directories:
-            self.logger.info(f'remove empty subdirs')
+            self.logger.info("remove empty subdirs")
             if not directory.is_dir():
                 continue
 
@@ -1014,8 +1014,8 @@ class Collection(SortMedias):
         # remove empty subfolders
         files = os.listdir(directory)
         if len(files):
-            for f in files:
-                fullpath = os.path.join(directory, f)
+            for i in files:
+                fullpath = os.path.join(directory, i)
                 if os.path.isdir(fullpath):
                     self.remove_empty_folders(fullpath)
 

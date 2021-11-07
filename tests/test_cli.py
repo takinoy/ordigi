@@ -43,8 +43,8 @@ class TestOrdigi:
             '--use-file-dates',
         )
 
-    def assert_cli(self, command, paths):
-        result = self.runner.invoke(command, [*paths])
+    def assert_cli(self, command, attributes):
+        result = self.runner.invoke(command, [*attributes])
         assert result.exit_code == 0
 
     def assert_options(self, command, bool_options, arg_options, paths):

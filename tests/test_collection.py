@@ -87,7 +87,7 @@ class TestFPath:
                             assert part == file_path.suffix[1:], file_path
                         elif item == 'name':
                             expected_part = file_path.stem
-                            for i, rx in utils.get_date_regex(expected_part):
+                            for rx in utils.get_date_regex(expected_part).values():
                                 part = re.sub(rx, '', expected_part)
                             assert part == expected_part, file_path
                         elif item == 'custom':
