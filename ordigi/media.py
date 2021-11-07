@@ -2,13 +2,14 @@
 Media :class:`Media` class to get file metadata
 """
 
-from dateutil import parser
-import inquirer
 import logging
 import mimetypes
 import os
 import re
 import sys
+
+from dateutil import parser
+import inquirer
 
 from ordigi.exiftool import ExifTool, ExifToolCaching
 from ordigi import utils
@@ -16,10 +17,9 @@ from ordigi import request
 
 
 class Media:
-
-    """The media class for all media objects.
-
-    :param str file_path: The fully qualified path to the media file.
+    """
+    The media class for all media objects.
+    The fully qualified path to the media file.
     """
 
     d_coordinates = {'latitude': 'latitude_ref', 'longitude': 'longitude_ref'}
@@ -62,7 +62,8 @@ class Media:
 
         self.theme = request.load_theme()
 
-    def get_tags(self):
+    def get_tags(self) -> dict:
+        """Get exif tags groups in dict"""
         tags_keys = {}
         tags_keys['date_original'] = [
             'EXIF:DateTimeOriginal',
@@ -99,11 +100,10 @@ class Media:
 
         # Remove ignored tag from list
         for tag_regex in self.ignore_tags:
-            ignored_tags = set()
             for key, tags in tags_keys.items():
-                for n, tag in enumerate(tags):
+                for i, tag in enumerate(tags):
                     if re.match(tag_regex, tag):
-                        del tags_keys[key][n]
+                        del tags_keys[key][i]
 
         return tags_keys
 
@@ -339,97 +339,92 @@ class Media:
         else:
             return answers['album']
 
-    # TODO use methods _get_metadata_from_db and _get_metadata_from_exif
-    def get_metadata(self, root, loc=None, db=None, cache=False):
-        """Get a dictionary of metadata from exif.
-        All keys will be present and have a value of None if not obtained.
+    def _set_metadata_from_exif(self):
 
-        :returns: dict
-        """
-        self.metadata = {}
-        self.metadata['checksum'] = utils.checksum(self.file_path)
+        self.metadata['src_dir'] = str(self.src_dir)
+        self.metadata['subdirs'] = str(
+            self.file_path.relative_to(self.src_dir).parent
+        )
+        self.metadata['filename'] = self.file_path.name
+        # Get metadata from exif
 
-        db_checksum = False
-        location_id = None
+        self.get_exif_metadata()
 
-        if cache and db:
-            # Check if file_path is a subpath of root
-            if str(self.file_path).startswith(str(root)):
-                relpath = os.path.relpath(self.file_path, root)
-                db_checksum = db.get_checksum(relpath)
-                file_checksum = self.metadata['checksum']
-                # Check if checksum match
-                if db_checksum and db_checksum != file_checksum:
-                    self.logger.error(f'{self.file_path} checksum has changed')
-                    self.logger.error('(modified or corrupted file).')
-                    self.logger.error(
-                        f'file_checksum={file_checksum},\ndb_checksum={db_checksum}'
-                    )
-                    self.logger.info(
-                        'Use --reset-cache, check database integrity or try to restore the file'
-                    )
-                    # We d'ont want to silently ignore or correct this without
-                    # resetting the cache as is could be due to file corruption
-                    sys.exit(1)
+        # Retrieve selected metadata to dict
+        if not self.exif_metadata:
+            return self.metadata
 
-        if db_checksum:
-            # Get metadata from db
+        for key in self.tags_keys:
             formated_data = None
-            for key in self.tags_keys:
-                if key in (
-                    'latitude',
-                    'longitude',
-                    'latitude_ref',
-                    'longitude_ref',
-                    'file_path',
-                ):
-                    continue
-                label = utils.snake2camel(key)
-                value = db.get_metadata_data(relpath, label)
+            for value in self._get_key_values(key):
                 if 'date' in key:
                     formated_data = self.get_date_format(value)
+                elif key in ('latitude', 'longitude'):
+                    formated_data = self.get_coordinates(key, value)
                 else:
-                    formated_data = value
-                self.metadata[key] = formated_data
-            for key in 'src_dir', 'subdirs', 'filename':
-                label = utils.snake2camel(key)
-                formated_data = db.get_metadata_data(relpath, label)
-                self.metadata[key] = formated_data
-
-            location_id = db.get_metadata_data(relpath, 'LocationId')
-        else:
-            self.metadata['src_dir'] = str(self.src_dir)
-            self.metadata['subdirs'] = str(
-                self.file_path.relative_to(self.src_dir).parent
-            )
-            self.metadata['filename'] = self.file_path.name
-            # Get metadata from exif
-
-            self.get_exif_metadata()
-
-            # Retrieve selected metadata to dict
-            if not self.exif_metadata:
-                return self.metadata
-
-            for key in self.tags_keys:
-                formated_data = None
-                for value in self._get_key_values(key):
-                    if 'date' in key:
-                        formated_data = self.get_date_format(value)
-                    elif key in ('latitude', 'longitude'):
-                        formated_data = self.get_coordinates(key, value)
+                    if value is not None and value != '':
+                        formated_data = value
                     else:
-                        if value is not None and value != '':
-                            formated_data = value
-                        else:
-                            formated_data = None
-                    if formated_data:
-                        # Use this data and break
-                        break
+                        formated_data = None
+                if formated_data:
+                    # Use this data and break
+                    break
 
-                self.metadata[key] = formated_data
+            self.metadata[key] = formated_data
 
-        self.metadata['date_media'] = self.get_date_media()
+    def _set_metadata_from_db(self, db, relpath):
+        # Get metadata from db
+        formated_data = None
+        for key in self.tags_keys:
+            if key in (
+                'latitude',
+                'longitude',
+                'latitude_ref',
+                'longitude_ref',
+                'file_path',
+            ):
+                continue
+
+            label = utils.snake2camel(key)
+            value = db.get_metadata_data(relpath, label)
+            if 'date' in key:
+                formated_data = self.get_date_format(value)
+            else:
+                formated_data = value
+            self.metadata[key] = formated_data
+        for key in 'src_dir', 'subdirs', 'filename':
+            label = utils.snake2camel(key)
+            formated_data = db.get_metadata_data(relpath, label)
+            self.metadata[key] = formated_data
+
+        return db.get_metadata_data(relpath, 'LocationId')
+
+    def _check_file(self, db, root):
+        # Check if file_path is a subpath of root
+        if str(self.file_path).startswith(str(root)):
+            relpath = os.path.relpath(self.file_path, root)
+            db_checksum = db.get_checksum(relpath)
+            file_checksum = self.metadata['checksum']
+            # Check if checksum match
+            if db_checksum and db_checksum != file_checksum:
+                self.logger.error(f'{self.file_path} checksum has changed')
+                self.logger.error('(modified or corrupted file).')
+                self.logger.error(
+                    f'file_checksum={file_checksum},\ndb_checksum={db_checksum}'
+                )
+                self.logger.info(
+                    'Use --reset-cache, check database integrity or try to restore the file'
+                )
+                # We d'ont want to silently ignore or correct this without
+                # resetting the cache as is could be due to file corruption
+                sys.exit(1)
+
+            return relpath, db_checksum
+
+        return
+
+    def _set_location_metadata(self, location_id, db, loc=None):
+
         self.metadata['location_id'] = location_id
 
         loc_keys = (
@@ -469,21 +464,45 @@ class Media:
             for key in loc_keys:
                 self.metadata[key] = None
 
-        if self.album_from_folder:
-            album = self.metadata['album']
-            folder = self.file_path.parent.name
-            if album and album != '':
-                if self.interactive:
-                    answer = self._set_album(album, folder)
-                    if answer == 'c':
-                        self.metadata['album'] = input('album=')
-                    if answer == 'a':
-                        self.metadata['album'] = album
-                    elif answer == 'f':
-                        self.metadata['album'] = folder
+    def _set_album_from_folder(self):
+        album = self.metadata['album']
+        folder = self.file_path.parent.name
+        if album and album != '':
+            if self.interactive:
+                answer = self._set_album(album, folder)
+                if answer == 'c':
+                    self.metadata['album'] = input('album=')
+                if answer == 'a':
+                    self.metadata['album'] = album
+                elif answer == 'f':
+                    self.metadata['album'] = folder
 
-            if not album or album == '':
-                self.metadata['album'] = folder
+        if not album or album == '':
+            self.metadata['album'] = folder
+
+    def get_metadata(self, root, loc=None, db=None, cache=False) -> dict:
+        """
+        Get a dictionary of metadata from exif.
+        All keys will be present and have a value of None if not obtained.
+        """
+        self.metadata = {}
+        self.metadata['checksum'] = utils.checksum(self.file_path)
+
+        db_checksum = False
+        location_id = None
+        if cache and db:
+            relpath, db_checksum = self._check_file(db, root)
+        if db_checksum:
+            location_id = self._set_metadata_from_db(db, relpath)
+        else:
+            self._set_metadata_from_exif()
+
+        self.metadata['date_media'] = self.get_date_media()
+
+        self._set_location_metadata(location_id, db, loc)
+
+        if self.album_from_folder:
+            self._set_album_from_folder()
 
         return self.metadata
 
@@ -493,7 +512,7 @@ class Media:
             return False
 
         if 'date_original' in self.metadata:
-            if self.metadata['date_original'] != None:
+            if self.metadata['date_original']:
                 return True
 
         return False
