@@ -208,6 +208,7 @@ class TestCollection:
             media = Media(src_path, self.src_path)
             metadata = media.get_metadata(tmp_path)
             name = 'photo_' + str(imp) + '.png'
+            media.metadata['file_path'] = name
             dest_path = Path(tmp_path, name)
             src_checksum = utils.checksum(src_path)
             summary = collection.sort_file(src_path, dest_path, media,

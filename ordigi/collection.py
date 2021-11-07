@@ -594,8 +594,6 @@ class SortMedias:
                 checksum = utils.checksum(dest_path)
                 media.metadata['checksum'] = checksum
 
-        media.metadata['file_path'] = os.path.relpath(dest_path, self.root)
-
         if not self.dry_run:
             self.db.add_file_data(media.metadata)
             if imp != 'copy' and self.root in src_path.parents:
@@ -634,15 +632,15 @@ class SortMedias:
 
         return self.summary
 
-    def _create_directories(self, files_data):
+    def _create_directories(self, medias):
         """Create a directory if it does not already exist.
 
         :param Path: A fully qualified path of the to create.
         :returns: bool
         """
-        for media, relpath in files_data:
-            directory_path = self.root / relpath.parent
-
+        for media in medias:
+            relpath = os.path.dirname(media.metadata['file_path'])
+            directory_path = self.root / relpath
             parts = directory_path.relative_to(self.root).parts
             for i, _ in enumerate(parts):
                 dir_path = self.root / Path(*parts[0 : i + 1])
@@ -664,7 +662,7 @@ class SortMedias:
                     self.logger.warning(f'Renaming {dir_path} to {file_path}')
                     if not self.dry_run:
                         shutil.move(dir_path, file_path)
-                    for med, _ in files_data:
+                    for med in medias:
                         if med.file_path == dir_path:
                             med.file_path = file_path
                             break
@@ -731,19 +729,21 @@ class SortMedias:
                 unresolved_conflicts.append((src_path, dest_path, media))
                 self.logger.error(f"Too many appends for {dest_path}")
 
+            media.metadata['file_path'] = os.path.relpath(dest_path, self.root)
+
             yield (src_path, dest_path, media), conflict
 
-    def sort_medias(self, files_data, imp=False, remove_duplicates=False):
+    def sort_medias(self, medias, imp=False, remove_duplicates=False):
         """
         sort files and solve conflicts
         """
         # Create directories
-        self._create_directories(files_data)
+        self._create_directories(medias)
 
         conflicts = []
-        for media, relpath in files_data:
+        for media in medias:
             src_path = media.file_path
-            dest_path = self.root / relpath
+            dest_path = self.root / media.metadata['file_path']
 
             conflict = self.check_conflicts(src_path, dest_path, remove_duplicates)
 
@@ -764,9 +764,9 @@ class SortMedias:
 
         if conflicts != []:
             for files_data, conflict in self._solve_conflicts(conflicts,
-                    remove_duplicates):
-                src_path, dest_path, media = files_data
+                remove_duplicates):
 
+                src_path, dest_path, media = files_data
                 if not conflict:
                     self.sort_file(
                         src_path, dest_path, media, imp=imp
@@ -785,12 +785,8 @@ class SortMedias:
         return self.summary
 
 
-# TODO clean varaible
-# media
-
 class Collection(SortMedias):
     """Class of the media collection."""
-# TODO clean variables
     def __init__(
         self,
         root,
@@ -1042,18 +1038,18 @@ class Collection(SortMedias):
         self._init_check_db(loc)
 
         # Get medias data
-        files_data = []
+        medias = []
         subdirs = set()
         for media in self.medias.get_medias(src_dirs, imp=imp, loc=loc):
             # Get the destination path according to metadata
             fpath = FPath(path_format, self.day_begins, self.logger)
-            relpath = Path(fpath.get_path(media.metadata))
+            media.metadata['file_path'] = fpath.get_path(media.metadata)
             subdirs.add(media.file_path.parent)
 
-            files_data.append((copy(media), relpath))
+            medias.append(copy(media))
 
         # Sort files and solve conflicts
-        self.summary = self.sort_medias(files_data, imp, remove_duplicates)
+        self.summary = self.sort_medias(medias, imp, remove_duplicates)
 
         if imp != 'copy':
             self.remove_empty_subdirs(subdirs, src_dirs)
@@ -1086,7 +1082,7 @@ class Collection(SortMedias):
             dedup_regex = [date_num3, date_num2, default]
 
         # Get medias data
-        files_data = []
+        medias = []
         for media in self.medias.get_medias(paths):
             # Deduplicate the path
             src_path = media.file_path
@@ -1102,11 +1098,11 @@ class Collection(SortMedias):
 
                 dedup_path.append(''.join(filtered_items))
 
-            relpath = Path(*dedup_path)
-            files_data.append((copy(media), relpath))
+            media.metadata['file_path'] = os.path.join(*dedup_path)
+            medias.append(copy(media))
 
         # Sort files and solve conflicts
-        self.sort_medias(files_data, remove_duplicates=remove_duplicates)
+        self.sort_medias(medias, remove_duplicates=remove_duplicates)
 
         if not self.check_db():
             self.summary.append('check', False)
@@ -1114,48 +1110,49 @@ class Collection(SortMedias):
         return self.summary
 
     def _find_similar_images(self, image, images, path, dest_dir, similarity=80):
-        files_data = []
+        medias = []
         if not image.img_path.is_file():
-            return files_data
+            return medias
 
         name = image.img_path.stem
-        directory_name = dest_dir / name.replace('.', '_')
+        directory_name = os.path.join(dest_dir, name.replace('.', '_'))
 
         for img_path in images.find_similar(image, similarity):
             self.paths.paths_list.append(img_path)
 
             media = self.medias.get_media(img_path, path)
-            relpath = directory_name / img_path.name
+            relpath = os.path.join(directory_name, image.img_path.name)
+            media.metadata['file_path'] = relpath
+            medias.append(copy(media))
 
-            files_data.append((copy(media), relpath))
-
-        if files_data:
+        if medias:
             # Found similar images to image
             self.paths.paths_list.append(image.img_path)
             media = self.medias.get_media(image.img_path, path)
-            relpath = directory_name / image.img_path.name
-            files_data.insert(0, (copy(media), relpath))
+            relpath = os.path.join(directory_name, image.img_path.name)
+            media.metadata['file_path'] = relpath
+            medias.insert(0, copy(media))
 
-        return files_data
+        return medias
 
     def sort_similar_images(self, path, similarity=80, remove_duplicates=False):
         """Sort similar images using imagehash library"""
         # Check db
         self._init_check_db()
 
-        dest_dir = self.root / 'similar_images'
+        dest_dir = 'similar_images'
         path = self.paths.check(path)
 
         images_paths = set(self.paths.get_images(path))
         images = Images(images_paths, logger=self.logger)
         nb_row_ini = self.db.sqlite.len('metadata')
         for image in images_paths:
-            files_data = self._find_similar_images(
+            medias = self._find_similar_images(
                 image, images, path, dest_dir, similarity
             )
-            if files_data:
+            if medias:
                 # Move the simlars file into the destination directory
-                self.sort_medias(files_data, remove_duplicates=remove_duplicates)
+                self.sort_medias(medias, remove_duplicates=remove_duplicates)
 
         nb_row_end = self.db.sqlite.len('metadata')
         if nb_row_ini and nb_row_ini != nb_row_end:
