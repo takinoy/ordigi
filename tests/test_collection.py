@@ -206,13 +206,14 @@ class TestCollection:
             # copy mode
             src_path = Path(self.src_path, 'test_exif', 'photo.png')
             media = Media(src_path, self.src_path)
-            metadata = media.get_metadata(tmp_path)
+            media.get_metadata(tmp_path)
             name = 'photo_' + str(imp) + '.png'
             media.metadata['file_path'] = name
             dest_path = Path(tmp_path, name)
             src_checksum = utils.checksum(src_path)
-            summary = collection.sort_file(src_path, dest_path, media,
-                    imp=imp)
+            summary = collection.sort_file(
+                src_path, dest_path, media.metadata, imp=imp
+                )
             assert not summary.errors
             # Ensure files remain the same
             assert collection._checkcomp(dest_path, src_checksum)

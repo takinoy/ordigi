@@ -16,10 +16,185 @@ from ordigi import utils
 from ordigi import request
 
 
+class Metadata:
+
+    def __init__(self, ignore_tags=None):
+
+        # Options
+        if ignore_tags is None:
+            ignore_tags = set()
+
+        self.exif_metadata = []
+        self.metadata = {}
+        # self.datas = {}
+        self.ignore_tags = ignore_tags
+
+        # Attributes
+        self.tags_keys = self.get_tags()
+
+    def get_tags(self) -> dict:
+        """Get exif tags groups in dict"""
+        tags_keys = {}
+        tags_keys['date_original'] = [
+            'EXIF:DateTimeOriginal',
+            'H264:DateTimeOriginal',
+            'QuickTime:ContentCreateDate',
+        ]
+        tags_keys['date_created'] = [
+            'EXIF:CreateDate',
+            'QuickTime:CreationDate',
+            'QuickTime:CreateDate',
+            'QuickTime:CreationDate-und-US',
+            'QuickTime:MediaCreateDate',
+        ]
+        tags_keys['date_modified'] = ['File:FileModifyDate', 'QuickTime:ModifyDate']
+        tags_keys['camera_make'] = ['EXIF:Make', 'QuickTime:Make']
+        tags_keys['camera_model'] = ['EXIF:Model', 'QuickTime:Model']
+        tags_keys['album'] = ['XMP-xmpDM:Album', 'XMP:Album']
+        tags_keys['title'] = ['XMP:Title', 'XMP:DisplayName']
+        tags_keys['latitude'] = [
+            'EXIF:GPSLatitude',
+            'XMP:GPSLatitude',
+            # 'QuickTime:GPSLatitude',
+            'Composite:GPSLatitude',
+        ]
+        tags_keys['longitude'] = [
+            'EXIF:GPSLongitude',
+            'XMP:GPSLongitude',
+            # 'QuickTime:GPSLongitude',
+            'Composite:GPSLongitude',
+        ]
+        tags_keys['latitude_ref'] = ['EXIF:GPSLatitudeRef']
+        tags_keys['longitude_ref'] = ['EXIF:GPSLongitudeRef']
+        tags_keys['original_name'] = ['XMP:OriginalFileName']
+
+        # Remove ignored tag from list
+        for tag_regex in self.ignore_tags:
+            for key, tags in tags_keys.items():
+                for i, tag in enumerate(tags):
+                    if re.match(tag_regex, tag):
+                        del tags_keys[key][i]
+
+        return tags_keys
+
+    def _del_ignored_tags(self):
+        for tag_regex in self.ignore_tags:
+            ignored_tags = set()
+            for tag in self.exif_metadata:
+                if re.search(tag_regex, tag) is not None:
+                    ignored_tags.add(tag)
+            for ignored_tag in ignored_tags:
+                del self.exif_metadata[ignored_tag]
+
+class WriteExif(Metadata):
+
+    def __init__(
+            self,
+            file_path,
+            metadata,
+            exif_metadata=None,
+            ignore_tags=None,
+            logger=logging.getLogger(),
+            ):
+        super().__init__(ignore_tags)
+        self.file_path = file_path
+        self.metadata = metadata
+
+        if not exif_metadata:
+            exif_metadata = []
+
+        self.exif_metadata = exif_metadata
+        self.logger = logger.getChild(self.__class__.__name__)
+
+    def set_value(self, tag, value):
+        """Set value of a tag.
+
+        :returns: value (str)
+        """
+        return ExifTool(self.file_path, logger=self.logger).setvalue(tag, value)
+
+    def set_key_values(self, key, value):
+        """Set tags values for given key"""
+        status = True
+        if self.exif_metadata is None:
+            return False
+
+        for tag in self.tags_keys[key]:
+            if tag in self.exif_metadata:
+                if not self.set_value(tag, value):
+                    status = False
+
+        return status
+
+    def set_date_media(self, time):
+        """
+        Set the date/time a photo was taken.
+        :param datetime time: datetime object of when the photo was taken
+        :returns: bool
+        """
+        if time is None:
+            return False
+
+        formatted_time = time.strftime('%Y:%m:%d %H:%M:%S')
+        status = self.set_value('date_original', formatted_time)
+        if status == False:
+            # exif attribute date_original d'ont exist
+            status = self.set_value('date_created', formatted_time)
+
+        return status
+
+    def set_coordinates(self, latitude, longitude):
+        status = []
+        if self.metadata['latitude_ref']:
+            latitude = abs(latitude)
+            if latitude > 0:
+                status.append(self.set_value('latitude_ref', 'N'))
+            else:
+                status.append(self.set_value('latitude_ref', 'S'))
+
+        status.append(self.set_value('latitude', latitude))
+
+        if self.metadata['longitude_ref']:
+            longitude = abs(longitude)
+            if longitude > 0:
+                status.append(self.set_value('latitude_ref', 'E'))
+            else:
+                status.append(self.set_value('longitude_ref', 'W'))
+
+        status.append(self.set_value('longitude', longitude))
+
+        if all(status):
+            return True
+        else:
+            return False
+
+    def set_album_from_folder(self):
+        """Set the album attribute based on the leaf folder name
+
+        :returns: bool
+        """
+        return self.set_value('album', self.file_path.parent.name)
+
+
+class ReadExif(Metadata):
+    def __init__(
+        self,
+        file_path,
+        src_dir,
+        album_from_folder=False,
+        ignore_tags=None,
+        interactive=False,
+        logger=logging.getLogger(),
+        use_date_filename=False,
+        use_file_dates=False,
+    ):
+        super().__init__(ignore_tags)
+
+
+
 class Media:
     """
-    The media class for all media objects.
-    The fully qualified path to the media file.
+    Extract matadatas from exiftool and sort them to dict structure
     """
 
     d_coordinates = {'latitude': 'latitude_ref', 'longitude': 'longitude_ref'}
@@ -128,8 +303,8 @@ class Media:
         return mimetype[0]
 
     def _get_key_values(self, key):
-        """Get the first value of a tag set
-
+        """
+        Get the first value of a tag set
         :returns: str or None if no exif tag
         """
         if self.exif_metadata is None:
@@ -140,8 +315,8 @@ class Media:
                 yield self.exif_metadata[tag]
 
     def get_value(self, tag):
-        """Get given value from EXIF.
-
+        """
+        Get given value from EXIF.
         :returns: str or None
         """
         if self.exif_metadata is None:
@@ -152,7 +327,7 @@ class Media:
         return self.exif_metadata[tag]
 
     def get_date_format(self, value):
-        """Formate date attribute.
+        """Formatting date attribute.
         :returns: datetime object or None
         """
         # We need to parse a string to datetime format.
@@ -585,5 +760,101 @@ class Media:
         :returns: bool
         """
         return self.set_value('album', self.file_path.parent.name)
+
+
+class Medias:
+    """Get media data in collection or source path"""
+
+    def __init__(
+        self,
+        paths,
+        root,
+        album_from_folder=False,
+        cache=False,
+        db=None,
+        interactive=False,
+        ignore_tags=None,
+        logger=logging.getLogger(),
+        use_date_filename=False,
+        use_file_dates=False,
+    ):
+
+        # Modules
+        self.db = db
+        self.paths = paths
+
+        # Arguments
+        self.root = root
+
+        # Options
+        self.cache = cache
+        self.album_from_folder = album_from_folder
+        self.ignore_tags = ignore_tags
+        self.interactive = interactive
+        self.logger = logger.getChild(self.__class__.__name__)
+        self.use_date_filename = use_date_filename
+        self.use_file_dates = use_file_dates
+
+        # Attributes
+        # List to store medias datas
+        self.datas = {}
+        self.theme = request.load_theme()
+
+    def get_media(self, file_path, src_dir, loc=None):
+        media = Media(
+            file_path,
+            src_dir,
+            self.album_from_folder,
+            self.ignore_tags,
+            self.interactive,
+            self.logger,
+            self.use_date_filename,
+            self.use_file_dates,
+        )
+        media.get_metadata(self.root, loc, self.db.sqlite, self.cache)
+
+        return media
+
+    def get_medias(self, src_dirs, imp=False, loc=None):
+        """Get medias data"""
+        for src_dir in src_dirs:
+            src_dir = self.paths.check(src_dir)
+            paths = self.paths.get_paths_list(src_dir)
+
+            # Get medias and src_dirs
+            for src_path in paths:
+                if self.root not in src_path.parents:
+                    if not imp:
+                        self.logger.error(f"""{src_path} not in {self.root}
+                                collection, use `ordigi import`""")
+                        sys.exit(1)
+
+                # Get file metadata
+                media = self.get_media(src_path, src_dir, loc)
+
+                yield media
+
+    def update_exif_data(self, metadata):
+
+        file_path = self.root / metadata['file_path']
+        exif = WriteExif(file_path, metadata, self.ignore_tags)
+
+        updated = False
+        if self.album_from_folder:
+            exif.set_album_from_folder()
+            updated = True
+        if metadata['original_name'] in (False, ''):
+            exif.set_value('original_name', metadata['filename'])
+            updated = True
+        if self.album_from_folder:
+            album = metadata['album']
+            if album and album != '':
+                exif.set_value('album', album)
+                updated = True
+
+        if updated:
+            return True
+
+        return False
 
 
