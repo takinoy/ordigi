@@ -52,7 +52,7 @@ class TestMedia:
                         assert value is None
 
                     if key == 'album':
-                        for album in  media._get_key_values('album'):
+                        for album in  media.get_key_values('album'):
                             if album is not None and album != '':
                                 assert value == album
                                 break
@@ -76,6 +76,7 @@ class TestMedia:
             exif_data = ExifToolCaching(str(file_path)).asdict()
             media = Media(file_path, self.src_path, use_date_filename=True,
                     use_file_dates=True)
+            media.get_metadata(self.src_path)
             date_media = media.get_date_media()
 
             date_filename = None

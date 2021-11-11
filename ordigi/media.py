@@ -69,6 +69,7 @@ class ExifMetadata:
 
 
 class ReadExif(ExifMetadata):
+    """Read exif metadata to file"""
 
     def __init__(
             self,
@@ -94,7 +95,7 @@ class ReadExif(ExifMetadata):
 
         return ExifToolCaching(self.file_path, logger=self.logger).asdict()
 
-    def _get_key_values(self, key):
+    def get_key_values(self, key):
         """
         Get the first value of a tag set
         :returns: str or None if no exif tag
@@ -106,20 +107,43 @@ class ReadExif(ExifMetadata):
             if tag in self.exif_metadata:
                 yield self.exif_metadata[tag]
 
-    def get_value(self, tag):
+    def get_coordinates(self, key, value):
+        """Get latitude or longitude value
+
+        :param str key: Type of coordinate to get. Either "latitude" or
+            "longitude".
+        :returns: float or None
         """
-        Get given value from EXIF.
-        :returns: str or None
-        """
-        if self.exif_metadata is None:
-            return None
-        if tag not in self.exif_metadata:
+        if value is None:
             return None
 
-        return self.exif_metadata[tag]
+        if isinstance(value, str) and len(value) == 0:
+            # If exiftool GPS output is empty, the data returned will be a str
+            # with 0 length.
+            # https://github.com/jmathai/elodie/issues/354
+            return None
+
+        # Cast coordinate to a float due to a bug in exiftool's
+        #   -json output format.
+        # https://github.com/jmathai/elodie/issues/171
+        # http://u88.n24.queensu.ca/exiftool/forum/index.php/topic,7952.0.html  # noqa
+        this_coordinate = float(value)
+
+        direction_multiplier = 1.0
+        #   when self.set_gps_ref != True
+        if key == 'latitude':
+            if 'EXIF:GPSLatitudeRef' in self.exif_metadata:
+                if self.exif_metadata['EXIF:GPSLatitudeRef'] == 'S':
+                    direction_multiplier = -1.0
+        elif key == 'longitude':
+            if 'EXIF:GPSLongitudeRef' in self.exif_metadata:
+                if self.exif_metadata['EXIF:GPSLongitudeRef'] == 'W':
+                    direction_multiplier = -1.0
+        return this_coordinate * direction_multiplier
 
 
 class WriteExif(ExifMetadata):
+    """Write exif metadata to file"""
 
     def __init__(
             self,
@@ -140,6 +164,7 @@ class WriteExif(ExifMetadata):
 
         :returns: value (str)
         """
+        # TODO overwrite mode check if fail
         return ExifTool(self.file_path, logger=self.logger).setvalue(tag, value)
 
     def set_key_values(self, key, value):
@@ -190,16 +215,16 @@ class WriteExif(ExifMetadata):
 
         if all(status):
             return True
-        else:
-            return False
+
+        return False
 
     def set_album_from_folder(self):
         """Set the album attribute based on the leaf folder name
 
         :returns: bool
         """
+        # TODO use tag key
         return self.set_value('Album', self.file_path.parent.name)
-
 
 class Media(ReadExif):
     """
@@ -230,60 +255,24 @@ class Media(ReadExif):
         self.album_from_folder = album_from_folder
         self.interactive = interactive
         self.logger = logger.getChild(self.__class__.__name__)
+        self.metadata = None
         self.use_date_filename = use_date_filename
         self.use_file_dates = use_file_dates
 
         self.theme = request.load_theme()
 
-        # get self.metadata
-        self.get_metadata(self.file_path)
 
     def get_mimetype(self):
         """
         Get the mimetype of the file.
         :returns: str or None
         """
+        # TODO add to metadata
         mimetype = mimetypes.guess_type(self.file_path)
         if mimetype is None:
             return None
 
         return mimetype[0]
-
-    def get_coordinates(self, key, value):
-        """Get latitude or longitude value
-
-        :param str key: Type of coordinate to get. Either "latitude" or
-            "longitude".
-        :returns: float or None
-        """
-        if value is None:
-            return None
-
-        if isinstance(value, str) and len(value) == 0:
-            # If exiftool GPS output is empty, the data returned will be a str
-            # with 0 length.
-            # https://github.com/jmathai/elodie/issues/354
-            return None
-
-        # Cast coordinate to a float due to a bug in exiftool's
-        #   -json output format.
-        # https://github.com/jmathai/elodie/issues/171
-        # http://u88.n24.queensu.ca/exiftool/forum/index.php/topic,7952.0.html  # noqa
-        this_coordinate = float(value)
-
-        direction_multiplier = 1.0
-        #   when self.set_gps_ref != True
-        if key == 'latitude':
-            if 'EXIF:GPSLatitudeRef' in self.exif_metadata:
-                if self.exif_metadata['EXIF:GPSLatitudeRef'] == 'S':
-                    direction_multiplier = -1.0
-        elif key == 'longitude':
-            if 'EXIF:GPSLongitudeRef' in self.exif_metadata:
-                if self.exif_metadata['EXIF:GPSLongitudeRef'] == 'W':
-                    direction_multiplier = -1.0
-        return this_coordinate * direction_multiplier
-
-        return None
 
     def get_date_format(self, value):
         """
@@ -311,11 +300,12 @@ class Media(ReadExif):
         choices_list = [
             inquirer.List(
                 'date_list',
-                message=f"Choice appropriate original date",
+                message="Choice appropriate original date",
                 choices=choices,
                 default=default,
             ),
         ]
+        # import ipdb; ipdb.set_trace()
         answers = inquirer.prompt(choices_list, theme=self.theme)
 
         if not answers['date_list']:
@@ -324,8 +314,8 @@ class Media(ReadExif):
             ]
             answers = inquirer.prompt(prompt, theme=self.theme)
             return self.get_date_format(answers['date_custom'])
-        else:
-            return answers['date_list']
+
+        return answers['date_list']
 
     def get_date_media(self):
         '''
@@ -384,17 +374,19 @@ class Media(ReadExif):
 
             return date_filename
 
-        elif self.use_file_dates:
+        if self.use_file_dates:
             if date_created:
                 self.logger.warning(
                     f"use date created:{date_created} for {self.file_path}"
                 )
                 return date_created
-            elif date_modified:
+
+            if date_modified:
                 self.logger.warning(
                     f"use date modified:{date_modified} for {self.file_path}"
                 )
                 return date_modified
+
         elif self.interactive:
             choices = []
             if date_filename:
@@ -441,7 +433,7 @@ class Media(ReadExif):
 
         for key in self.tags_keys:
             formated_data = None
-            for value in self._get_key_values(key):
+            for value in self.get_key_values(key):
                 if 'date' in key:
                     formated_data = self.get_date_format(value)
                 elif key in ('latitude', 'longitude'):
@@ -485,7 +477,8 @@ class Media(ReadExif):
         return db.get_metadata_data(relpath, 'LocationId')
 
     def _check_file(self, db, root):
-        # Check if file_path is a subpath of root
+        """Check if file_path is a subpath of root"""
+
         if str(self.file_path).startswith(str(root)):
             relpath = os.path.relpath(self.file_path, root)
             db_checksum = db.get_checksum(relpath)
@@ -506,7 +499,7 @@ class Media(ReadExif):
 
             return relpath, db_checksum
 
-        return
+        return None, None
 
     def _set_location_metadata(self, location_id, db, loc=None):
 
@@ -653,8 +646,8 @@ class Medias:
         self.datas = {}
         self.theme = request.load_theme()
 
-    def get_media(self, file_path, src_dir, loc=None):
-        return Media(
+    def get_media(self, file_path, src_dir):
+        media = Media(
             file_path,
             src_dir,
             self.album_from_folder,
@@ -665,7 +658,16 @@ class Medias:
             self.use_file_dates,
         )
 
-    def get_medias(self, src_dirs, imp=False, loc=None):
+        return media
+
+    def get_metadata(self, file_path, src_dir, loc=None):
+        media = self.get_media(file_path, src_dir)
+        media.get_metadata(self.root, loc, self.db.sqlite,
+                self.cache)
+
+        return media.metadata
+
+    def get_metadatas(self, src_dirs, imp=False, loc=None):
         """Get medias data"""
         for src_dir in src_dirs:
             src_dir = self.paths.check(src_dir)
@@ -680,9 +682,9 @@ class Medias:
                         sys.exit(1)
 
                 # Get file metadata
-                media = self.get_media(src_path, src_dir, loc)
+                metadata = self.get_metadata(src_path, src_dir, loc)
 
-                yield media
+                yield src_path, metadata
 
     def update_exif_data(self, metadata):
 
@@ -711,5 +713,3 @@ class Medias:
             return True
 
         return False
-
-

@@ -777,10 +777,10 @@ class Collection(SortMedias):
     def init(self, loc):
         """Init collection db"""
         for file_path in self.get_collection_files():
-            media = self.medias.get_media(file_path, self.root, loc)
-            media.metadata['file_path'] = os.path.relpath(file_path, self.root)
+            metadata = self.medias.get_metadata(file_path, self.root, loc)
+            metadata['file_path'] = os.path.relpath(file_path, self.root)
 
-            self.db.add_file_data(media.metadata)
+            self.db.add_file_data(metadata)
             self.summary.append('update', file_path)
 
         return self.summary
@@ -832,22 +832,22 @@ class Collection(SortMedias):
             relpath = os.path.relpath(file_path, self.root)
             # If file not in database
             if relpath not in db_paths:
-                media = self.medias.get_media(file_path, self.root, loc)
-                media.metadata['file_path'] = relpath
+                metadata = self.medias.get_metadata(file_path, self.root, loc)
+                metadata['file_path'] = relpath
                 # Check if file checksum is in invalid rows
                 row = []
                 for row in invalid_db_rows:
-                    if row['Checksum'] == media.metadata['checksum']:
+                    if row['Checksum'] == metadata['checksum']:
                         # file have been moved without registering to db
-                        media.metadata['src_path'] = row['SrcPath']
+                        metadata['src_path'] = row['SrcPath']
                         # Check if row FilePath is a subpath of relpath
                         if relpath.startswith(row['FilePath']):
                             path = os.path.relpath(relpath, row['FilePath'])
-                            media.metadata['subdirs'] = row['Subdirs'] + path
-                        media.metadata['Filename'] = row['Filename']
+                            metadata['subdirs'] = row['Subdirs'] + path
+                        metadata['Filename'] = row['Filename']
                         break
                 # set row attribute to the file
-                self.db.add_file_data(media.metadata)
+                self.db.add_file_data(metadata)
                 self.summary.append('update', file_path)
 
         # Finally delete invalid rows
@@ -947,14 +947,13 @@ class Collection(SortMedias):
 
         # Get medias data
         subdirs = set()
-        for media in self.medias.get_medias(src_dirs, imp=imp, loc=loc):
+        for src_path, metadata in self.medias.get_metadatas(src_dirs, imp=imp, loc=loc):
             # Get the destination path according to metadata
             fpath = FPath(path_format, self.day_begins, self.logger)
-            media.metadata['file_path'] = fpath.get_path(media.metadata)
-            subdirs.add(media.file_path.parent)
+            metadata['file_path'] = fpath.get_path(metadata)
+            subdirs.add(src_path.parent)
 
-            src_path = media.file_path
-            self.medias.datas[src_path] = copy(media.metadata)
+            self.medias.datas[src_path] = copy(metadata)
 
         # Sort files and solve conflicts
         self.summary = self.sort_medias(imp, remove_duplicates)
@@ -990,9 +989,8 @@ class Collection(SortMedias):
             dedup_regex = [date_num3, date_num2, default]
 
         # Get medias data
-        for media in self.medias.get_medias(paths):
+        for src_path, metadata in self.medias.get_metadatas(paths):
             # Deduplicate the path
-            src_path = media.file_path
             path_parts = src_path.relative_to(self.root).parts
             dedup_path = []
             for path_part in path_parts:
@@ -1005,9 +1003,8 @@ class Collection(SortMedias):
 
                 dedup_path.append(''.join(filtered_items))
 
-            media.metadata['file_path'] = os.path.join(*dedup_path)
-            src_path = media.file_path
-            self.medias.datas[src_path] = copy(media.metadata)
+            metadata['file_path'] = os.path.join(*dedup_path)
+            self.medias.datas[src_path] = copy(metadata)
 
         # Sort files and solve conflicts
         self.sort_medias(remove_duplicates=remove_duplicates)
@@ -1027,20 +1024,18 @@ class Collection(SortMedias):
         for img_path in images.find_similar(image, similarity):
             self.paths.paths_list.append(img_path)
 
-            media = self.medias.get_media(img_path, path)
+            metadata = self.medias.get_metadata(img_path, path)
             relpath = os.path.join(directory_name, img_path.name)
-            media.metadata['file_path'] = relpath
-            file_path = media.file_path
-            self.medias.datas[file_path] = copy(media.metadata)
+            metadata['file_path'] = relpath
+            self.medias.datas[img_path] = copy(metadata)
 
         if self.medias.datas:
             # Found similar images to image
             self.paths.paths_list.append(image.img_path)
-            media = self.medias.get_media(image.img_path, path)
+            metadata = self.medias.get_metadata(image.img_path, path)
             relpath = os.path.join(directory_name, image.img_path.name)
-            media.metadata['file_path'] = relpath
-            file_path = media.file_path
-            self.medias.datas[file_path] = copy(media.metadata)
+            metadata['file_path'] = relpath
+            self.medias.datas[image.img_path] = copy(metadata)
 
         return True
 

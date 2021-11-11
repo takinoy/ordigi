@@ -1,4 +1,3 @@
-# TODO to be removed later
 from datetime import datetime
 import shutil
 import sqlite3
@@ -12,7 +11,7 @@ from ordigi.collection import Collection, FPath, Paths
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
 from ordigi.geolocation import GeoLocation
 from ordigi import log
-from ordigi.media import Media
+from ordigi.media import Media, ReadExif
 from ordigi import utils
 from .conftest import randomize_files, randomize_db
 from ordigi.summary import Summary
@@ -65,12 +64,12 @@ class TestFPath:
 
             exif_data = ExifToolCaching(str(file_path)).asdict()
             loc = GeoLocation()
-            metadata = media.metadata
+            media.get_metadata(self.src_path, loc)
             for item, regex in items.items():
                 for mask in masks:
                     matched = re.search(regex, mask)
                     if matched:
-                        part = fpath.get_part(item, mask[1:-1], metadata)
+                        part = fpath.get_part(item, mask[1:-1], media.metadata)
                         # check if part is correct
                         assert isinstance(part, str), file_path
                         if item == 'basename':
@@ -157,7 +156,7 @@ class TestCollection:
         for file_path in paths:
             if '.db' not in str(file_path):
                 media = Media(file_path, tmp_path, album_from_folder=True)
-                for value in media._get_key_values('album'):
+                for value in ReadExif(file_path).get_key_values('album'):
                     assert value != '' or None
 
         collection = Collection(tmp_path, album_from_folder=True)
@@ -206,6 +205,7 @@ class TestCollection:
             # copy mode
             src_path = Path(self.src_path, 'test_exif', 'photo.png')
             media = Media(src_path, self.src_path)
+            media.get_metadata(tmp_path)
             name = 'photo_' + str(imp) + '.png'
             media.metadata['file_path'] = name
             dest_path = Path(tmp_path, name)
