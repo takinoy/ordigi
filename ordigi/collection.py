@@ -15,7 +15,7 @@ from pathlib import Path, PurePath
 import inquirer
 
 from ordigi.database import Sqlite
-from ordigi.media import Media, Medias
+from ordigi.media import Medias
 from ordigi.images import Image, Images
 from ordigi import request
 from ordigi.summary import Summary
@@ -319,7 +319,7 @@ class Paths:
 
         if extensions and '%media' in extensions:
             extensions.remove('%media')
-            self.extensions = extensions.union(Media.extensions)
+            self.extensions = extensions.union(Medias.extensions)
         else:
             self.extensions = extensions
 
@@ -362,8 +362,8 @@ class Paths:
     def get_files(self, path):
         """Recursively get files which match a path and extension.
 
-        :param str path string: Path to start recursive file listing
-        :returns: Path file_path, Path subdirs
+        :param Path path: Path to start recursive file listing
+        :returns: Path generator File
         """
         for path0 in path.glob(self.glob):
             if path0.is_dir():

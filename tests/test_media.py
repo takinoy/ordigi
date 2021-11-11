@@ -14,7 +14,7 @@ from ordigi.utils import get_date_from_string
 ORDIGI_PATH = Path(__file__).parent.parent
 CACHING = True
 
-class TestMetadata:
+class TestMedia:
 
     @pytest.fixture(autouse=True)
     def setup_class(cls, sample_files_paths):
@@ -31,8 +31,7 @@ class TestMetadata:
         for file_path, media in self.get_media():
             # test get metadata from cache or exif
             for root in self.src_path, tmp_path:
-                result = media.get_metadata(root)
-                assert result
+                media.get_metadata(root)
                 assert isinstance(media.metadata, dict), media.metadata
                 #check if all tags key are present
                 for tags_key, tags in media.tags_keys.items():
@@ -77,7 +76,6 @@ class TestMetadata:
             exif_data = ExifToolCaching(str(file_path)).asdict()
             media = Media(file_path, self.src_path, use_date_filename=True,
                     use_file_dates=True)
-            metadata = media.get_metadata(self.src_path)
             date_media = media.get_date_media()
 
             date_filename = None

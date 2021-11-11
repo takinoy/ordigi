@@ -65,7 +65,7 @@ class TestFPath:
 
             exif_data = ExifToolCaching(str(file_path)).asdict()
             loc = GeoLocation()
-            metadata = media.get_metadata(self.src_path, loc)
+            metadata = media.metadata
             for item, regex in items.items():
                 for mask in masks:
                     matched = re.search(regex, mask)
@@ -153,10 +153,10 @@ class TestCollection:
         assert not summary.errors
 
         # check if album value are set
-        for file_path in tmp_path.glob('**/*'):
+        paths = Paths(glob='**/*').get_files(tmp_path)
+        for file_path in paths:
             if '.db' not in str(file_path):
                 media = Media(file_path, tmp_path, album_from_folder=True)
-                media.get_exif_metadata()
                 for value in media._get_key_values('album'):
                     assert value != '' or None
 
@@ -206,7 +206,6 @@ class TestCollection:
             # copy mode
             src_path = Path(self.src_path, 'test_exif', 'photo.png')
             media = Media(src_path, self.src_path)
-            media.get_metadata(tmp_path)
             name = 'photo_' + str(imp) + '.png'
             media.metadata['file_path'] = name
             dest_path = Path(tmp_path, name)
