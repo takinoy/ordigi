@@ -38,8 +38,8 @@ def distance_between_two_points(lat1, lon1, lat2, lon2):
 
 
 def get_date_regex(string, user_regex=None):
-    if user_regex is not None:
-        matches = re.findall(user_regex, string)
+    if user_regex:
+        regex = {'a': re.compile(user_regex)}
     else:
         regex = {
             # regex to match date format type %Y%m%d, %y%m%d, %d%m%Y,
@@ -59,8 +59,7 @@ def get_date_regex(string, user_regex=None):
             ),
         }
 
-        for i, rx in regex.items():
-            yield i, rx
+    return regex
 
 
 def get_date_from_string(string, user_regex=None):
@@ -69,7 +68,7 @@ def get_date_from_string(string, user_regex=None):
     # Otherwise assume a filename such as IMG_20160915_123456.jpg as default.
 
     matches = []
-    for i, rx in get_date_regex(string, user_regex):
+    for i, rx in get_date_regex(string, user_regex).items():
         match = re.findall(rx, string)
         if match != []:
             if i == 'c':
@@ -110,7 +109,7 @@ def split_part(dedup_regex, path_part, items=None):
     if not items:
         items = []
 
-    regex = dedup_regex.pop(0)
+    regex = dedup_regex.pop()
     parts = re.split(regex, path_part)
     # Loop thought part, search matched regex part and proceed with
     # next regex for others parts
@@ -123,7 +122,7 @@ def split_part(dedup_regex, path_part, items=None):
                 items.append(part[1:])
             else:
                 items.append(part)
-        elif dedup_regex != []:
+        elif dedup_regex:
             # Others parts
             items = split_part(dedup_regex, part, items)
         else:
