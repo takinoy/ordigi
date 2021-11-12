@@ -9,11 +9,11 @@ import os
 import re
 import shutil
 import sys
-import logging
 from pathlib import Path, PurePath
 
 import inquirer
 
+from ordigi import LOG
 from ordigi.database import Sqlite
 from ordigi.media import Medias
 from ordigi.images import Image, Images
@@ -25,10 +25,10 @@ from ordigi import utils
 class FPath:
     """Featured path object"""
 
-    def __init__(self, path_format, day_begins=0, logger=logging.getLogger()):
+    def __init__(self, path_format, day_begins=0):
         self.day_begins = day_begins
         self.items = self.get_items()
-        self.logger = logger
+        self.log = LOG.getChild(self.__class__.__name__)
         self.path_format = path_format
         self.whitespace_regex = '[ \t\n\r\f\v]+'
         self.whitespace_sub = '_'
@@ -63,7 +63,7 @@ class FPath:
                 return date.strftime(mask)
 
         if date.hour < self.day_begins:
-            self.logger.info(
+            self.log.info(
                 "moving this photo to the previous day for classification purposes"
             )
 
@@ -230,7 +230,7 @@ class FPath:
                 if part != '':
                     # Check if all masks are substituted
                     if True in [c in part for c in '{}']:
-                        self.logger.error(
+                        self.log.error(
                             f"Format path part invalid: {this_part}"
                         )
                         sys.exit(1)
@@ -271,34 +271,34 @@ class CollectionDb:
 
 class FileIO:
     """File Input/Ouput operations for collection"""
-    def __init__(self, dry_run=False, logger=logging.getLogger()):
+    def __init__(self, dry_run=False):
         # Options
         self.dry_run = dry_run
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
 
     def copy(self, src_path, dest_path):
         if not self.dry_run:
             shutil.copy2(src_path, dest_path)
-        self.logger.info(f'copy: {src_path} -> {dest_path}')
+        self.log.info(f'copy: {src_path} -> {dest_path}')
 
     def move(self, src_path, dest_path):
         if not self.dry_run:
             # Move the file into the destination directory
             shutil.move(src_path, dest_path)
 
-        self.logger.info(f'move: {src_path} -> {dest_path}')
+        self.log.info(f'move: {src_path} -> {dest_path}')
 
     def remove(self, path):
         if not self.dry_run:
             os.remove(path)
 
-        self.logger.info(f'remove: {path}')
+        self.log.info(f'remove: {path}')
 
     def rmdir(self, directory):
         if not self.dry_run:
             directory.rmdir()
 
-        self.logger.info(f'remove dir: {directory}')
+        self.log.info(f'remove dir: {directory}')
 
 
 class Paths:
@@ -310,7 +310,6 @@ class Paths:
         extensions=None,
         glob='**/*',
         interactive=False,
-        logger=logging.getLogger(),
         max_deep=None,
     ):
 
@@ -325,7 +324,7 @@ class Paths:
 
         self.glob = glob
         self.interactive = interactive
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
         self.max_deep = max_deep
         self.paths_list = []
 
@@ -339,7 +338,7 @@ class Paths:
         """
         # some error checking
         if not path.exists():
-            self.logger.error(f'Directory {path} does not exist')
+            self.log.error(f'Directory {path} does not exist')
             sys.exit(1)
 
         return path
@@ -451,7 +450,6 @@ class SortMedias:
         db=None,
         dry_run=False,
         interactive=False,
-        logger=logging.getLogger(),
     ):
 
         # Arguments
@@ -463,7 +461,7 @@ class SortMedias:
         self.db = db
         self.dry_run = dry_run
         self.interactive = interactive
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
         self.summary = Summary(self.root)
 
         # Attributes
@@ -477,7 +475,7 @@ class SortMedias:
         dest_checksum = utils.checksum(dest_path)
 
         if dest_checksum != src_checksum:
-            self.logger.info(
+            self.log.info(
                 "Source checksum and destination checksum are not the same"
             )
             return False
@@ -489,7 +487,7 @@ class SortMedias:
         # Check if file remain the same
         checksum = metadata['checksum']
         if not self._checkcomp(dest_path, checksum):
-            self.logger.error(f'Files {src_path} and {dest_path} are not identical')
+            self.log.error(f'Files {src_path} and {dest_path} are not identical')
             self.summary.append('check', False, src_path, dest_path)
             return False
 
@@ -551,7 +549,7 @@ class SortMedias:
             for i, _ in enumerate(parts):
                 dir_path = self.root / Path(*parts[0 : i + 1])
                 if dir_path.is_file():
-                    self.logger.warning(f'Target directory {dir_path} is a file')
+                    self.log.warning(f'Target directory {dir_path} is a file')
                     # Rename the src_file
                     if self.interactive:
                         prompt = [
@@ -565,7 +563,7 @@ class SortMedias:
                     else:
                         file_path = dir_path.parent / (dir_path.name + '_file')
 
-                    self.logger.warning(f'Renaming {dir_path} to {file_path}')
+                    self.log.warning(f'Renaming {dir_path} to {file_path}')
                     if not self.dry_run:
                         shutil.move(dir_path, file_path)
                     metadata = self.medias.datas[dir_path]
@@ -574,7 +572,7 @@ class SortMedias:
 
             if not self.dry_run:
                 directory_path.mkdir(parents=True, exist_ok=True)
-            self.logger.info(f'Create {directory_path}')
+            self.log.info(f'Create {directory_path}')
 
     def check_conflicts(self, src_path, dest_path, remove_duplicates=False):
         """
@@ -583,24 +581,24 @@ class SortMedias:
 
         # check for collisions
         if src_path == dest_path:
-            self.logger.info(f"File {dest_path} already sorted")
+            self.log.info(f"File {dest_path} already sorted")
             return 2
 
         if dest_path.is_dir():
-            self.logger.info(f"File {dest_path} is a existing directory")
+            self.log.info(f"File {dest_path} is a existing directory")
             return 1
 
         if dest_path.is_file():
-            self.logger.info(f"File {dest_path} already exist")
+            self.log.info(f"File {dest_path} already exist")
             if remove_duplicates:
                 if filecmp.cmp(src_path, dest_path):
-                    self.logger.info(
+                    self.log.info(
                         "File in source and destination are identical. Duplicate will be ignored."
                     )
                     return 3
 
                 # name is same, but file is different
-                self.logger.info(
+                self.log.info(
                     f"File {src_path} and {dest_path} are different."
                 )
                 return 1
@@ -633,7 +631,7 @@ class SortMedias:
             if conflict == 1:
                 # i = 100:
                 unresolved_conflicts.append((src_path, dest_path, metadata))
-                self.logger.error(f"Too many appends for {dest_path}")
+                self.log.error(f"Too many appends for {dest_path}")
 
             metadata['file_path'] = os.path.relpath(dest_path, self.root)
 
@@ -705,7 +703,6 @@ class Collection(SortMedias):
         glob='**/*',
         interactive=False,
         ignore_tags=None,
-        logger=logging.getLogger(),
         max_deep=None,
         use_date_filename=False,
         use_file_dates=False,
@@ -713,13 +710,12 @@ class Collection(SortMedias):
 
         # Modules
         self.db = CollectionDb(root)
-        self.fileio = FileIO(dry_run, logger)
+        self.fileio = FileIO(dry_run)
         self.paths = Paths(
             exclude,
             extensions,
             glob,
             interactive,
-            logger,
             max_deep,
         )
 
@@ -731,7 +727,6 @@ class Collection(SortMedias):
             self.db,
             interactive,
             ignore_tags,
-            logger,
             use_date_filename,
             use_file_dates,
         )
@@ -744,18 +739,17 @@ class Collection(SortMedias):
             self.db,
             dry_run,
             interactive,
-            logger,
         )
 
         # Arguments
         if not self.root.exists():
-            self.logger.error(f'Directory {self.root} does not exist')
+            self.log.error(f'Directory {self.root} does not exist')
             sys.exit(1)
 
         # Options
         self.day_begins = day_begins
         self.glob = glob
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
 
         self.summary = Summary(self.root)
 
@@ -769,7 +763,6 @@ class Collection(SortMedias):
         paths = Paths(
             exclude,
             interactive=self.interactive,
-            logger=self.logger,
         )
         for file_path in paths.get_files(self.root):
             yield file_path
@@ -796,14 +789,14 @@ class Collection(SortMedias):
             relpath = os.path.relpath(file_path, self.root)
             # If file not in database
             if relpath not in db_rows:
-                self.logger.error('Db data is not accurate')
-                self.logger.info(f'{file_path} not in db')
+                self.log.error('Db data is not accurate')
+                self.log.info(f'{file_path} not in db')
                 return False
 
         nb_files = len(file_paths)
         nb_row = len(db_rows)
         if nb_row != nb_files:
-            self.logger.error('Db data is not accurate')
+            self.log.error('Db data is not accurate')
             return False
 
         return True
@@ -812,7 +805,7 @@ class Collection(SortMedias):
         if self.db.sqlite.is_empty('metadata'):
             self.init(loc)
         elif not self.check_db():
-            self.logger.error('Db data is not accurate run `ordigi update`')
+            self.log.error('Db data is not accurate run `ordigi update`')
             sys.exit(1)
 
     def update(self, loc):
@@ -864,7 +857,7 @@ class Collection(SortMedias):
             if checksum == self.db.sqlite.get_checksum(relpath):
                 self.summary.append('check',True, file_path)
             else:
-                self.logger.error('{file_path} is corrupted')
+                self.log.error('{file_path} is corrupted')
                 self.summary.append('check', False, file_path)
 
         return self.summary
@@ -893,7 +886,7 @@ class Collection(SortMedias):
         """Remove empty subdir after moving files"""
         parents = set()
         for directory in directories:
-            self.logger.info("remove empty subdirs")
+            self.log.info("remove empty subdirs")
             if not directory.is_dir():
                 continue
 
@@ -928,7 +921,7 @@ class Collection(SortMedias):
         # if folder empty, delete it
         files = os.listdir(directory)
         if len(files) == 0 and remove_root:
-            self.logger.info(f"Removing empty folder: {directory}")
+            self.log.info(f"Removing empty folder: {directory}")
             if not self.dry_run:
                 os.rmdir(directory)
             self.summary.append('remove', True, directory)
@@ -949,7 +942,7 @@ class Collection(SortMedias):
         subdirs = set()
         for src_path, metadata in self.medias.get_metadatas(src_dirs, imp=imp, loc=loc):
             # Get the destination path according to metadata
-            fpath = FPath(path_format, self.day_begins, self.logger)
+            fpath = FPath(path_format, self.day_begins)
             metadata['file_path'] = fpath.get_path(metadata)
             subdirs.add(src_path.parent)
 
@@ -966,7 +959,7 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def dedup_regex(self, paths, dedup_regex=None, remove_duplicates=False):
+    def dedup_path(self, paths, dedup_regex=None, remove_duplicates=False):
         """Deduplicate file path parts"""
 
         # Check db
@@ -1048,7 +1041,7 @@ class Collection(SortMedias):
         path = self.paths.check(path)
 
         images_paths = set(self.paths.get_images(path))
-        images = Images(images_paths, logger=self.logger)
+        images = Images(images_paths)
         nb_row_ini = self.db.sqlite.len('metadata')
         for image in images_paths:
             # Clear datas in every loops
@@ -1062,7 +1055,7 @@ class Collection(SortMedias):
 
         nb_row_end = self.db.sqlite.len('metadata')
         if nb_row_ini and nb_row_ini != nb_row_end:
-            self.logger.error('Nb of row have changed unexpectedly')
+            self.log.error('Nb of row have changed unexpectedly')
 
         if not self.check_db():
             self.summary.append('check', False)

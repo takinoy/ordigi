@@ -7,6 +7,7 @@ import sys
 
 import click
 
+from ordigi import LOG
 from ordigi.config import Config
 from ordigi import log
 from ordigi.collection import Collection
@@ -14,16 +15,9 @@ from ordigi.geolocation import GeoLocation
 
 _logger_options = [
     click.option(
-        '--debug',
-        default=False,
-        is_flag=True,
-        help='Override the value in constants.py with True.',
-    ),
-    click.option(
         '--verbose',
         '-v',
-        default=False,
-        is_flag=True,
+        default='WARNING',
         help='True if you want to see details of file processing',
     ),
 ]
@@ -166,12 +160,11 @@ def _import(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
     """
+    log_level = log.get_level(kwargs['verbose'])
+    LOG = log.get_logger(level=log_level)
 
-    log_level = log.level(kwargs['verbose'], kwargs['debug'])
-    logger = log.get_logger(level=log_level)
-
-    src_paths = kwargs['src']
     root = kwargs['dest']
+    src_paths = kwargs['src']
     src_paths, root = _get_paths(src_paths, root)
 
     if kwargs['copy']:
@@ -200,13 +193,12 @@ def _import(**kwargs):
         kwargs['glob'],
         kwargs['interactive'],
         kwargs['ignore_tags'],
-        logger,
         opt['max_deep'],
         kwargs['use_date_filename'],
         kwargs['use_file_dates'],
     )
 
-    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
 
     summary = collection.sort_files(
         src_paths, path_format, loc, import_mode, kwargs['remove_duplicates']
@@ -238,9 +230,8 @@ def _sort(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
     """
-
-    log_level = log.level(kwargs['verbose'], kwargs['debug'])
-    logger = log.get_logger(level=log_level)
+    log_level = log.get_level(kwargs['verbose'])
+    LOG = log.get_logger(level=log_level)
 
     subdirs = kwargs['subdirs']
     root = kwargs['dest']
@@ -271,13 +262,12 @@ def _sort(**kwargs):
         kwargs['glob'],
         kwargs['interactive'],
         kwargs['ignore_tags'],
-        logger,
         opt['max_deep'],
         kwargs['use_date_filename'],
         kwargs['use_file_dates'],
     )
 
-    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
 
     summary = collection.sort_files(
         paths, path_format, loc, kwargs['remove_duplicates']
@@ -327,8 +317,8 @@ def _clean(**kwargs):
 
     dry_run = kwargs['dry_run']
     folders = kwargs['folders']
-    log_level = log.level(kwargs['verbose'], kwargs['debug'])
-    logger = log.get_logger(level=log_level)
+    log_level = log.get_level(kwargs['verbose'])
+    LOG = log.get_logger(level=log_level)
 
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
@@ -350,13 +340,12 @@ def _clean(**kwargs):
         exclude=exclude,
         extensions=extensions,
         glob=kwargs['glob'],
-        logger=logger,
         max_deep=opt['max_deep'],
     )
 
     if kwargs['path_string']:
         dedup_regex = set(kwargs['dedup_regex'])
-        collection.dedup_regex(
+        collection.dedup_path(
             paths, dedup_regex, kwargs['remove_duplicates']
         )
 
@@ -386,11 +375,11 @@ def _init(**kwargs):
     root = Path(kwargs['path']).expanduser().absolute()
     config = get_collection_config(root)
     opt = config.get_options()
-    log_level = log.level(kwargs['verbose'], kwargs['debug'])
+    log_level = log.get_level(kwargs['verbose'])
+    LOG = log.get_logger(level=log_level)
 
-    logger = log.get_logger(level=log_level)
-    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(root, exclude=opt['exclude'], logger=logger)
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
+    collection = Collection(root, exclude=opt['exclude'])
     summary = collection.init(loc)
 
     if log_level < 30:
@@ -407,11 +396,11 @@ def _update(**kwargs):
     root = Path(kwargs['path']).expanduser().absolute()
     config = get_collection_config(root)
     opt = config.get_options()
-    log_level = log.level(kwargs['verbose'], kwargs['debug'])
+    log_level = log.get_level(kwargs['verbose'])
+    LOG = log.get_logger(level=log_level)
 
-    logger = log.get_logger(level=log_level)
-    loc = GeoLocation(opt['geocoder'], logger, opt['prefer_english_names'], opt['timeout'])
-    collection = Collection(root, exclude=opt['exclude'], logger=logger)
+    loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
+    collection = Collection(root, exclude=opt['exclude'])
     summary = collection.update(loc)
 
     if log_level < 30:
@@ -425,12 +414,13 @@ def _check(**kwargs):
     """
     Check media collection.
     """
-    log_level = log.level(kwargs['verbose'], kwargs['debug'])
-    logger = log.get_logger(level=log_level)
     root = Path(kwargs['path']).expanduser().absolute()
+
+    log_level = log.get_level(kwargs['verbose'])
+    LOG = log.get_logger(level=log_level)
     config = get_collection_config(root)
     opt = config.get_options()
-    collection = Collection(root, exclude=opt['exclude'], logger=logger)
+    collection = Collection(root, exclude=opt['exclude'])
     result = collection.check_db()
     if result:
         summary = collection.check_files()
@@ -439,7 +429,7 @@ def _check(**kwargs):
         if summary.errors:
             sys.exit(1)
     else:
-        logger.error('Db data is not accurate run `ordigi update`')
+        LOG.error('Db data is not accurate run `ordigi update`')
         sys.exit(1)
 
 
@@ -469,11 +459,11 @@ def _compare(**kwargs):
     """
 
     dry_run = kwargs['dry_run']
-    log_level = log.level(kwargs['verbose'], kwargs['debug'])
-    logger = log.get_logger(level=log_level)
-
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
+
+    log_level = log.get_level(kwargs['verbose'])
+    LOG = log.get_logger(level=log_level)
     paths, root = _get_paths(subdirs, root)
 
     config = get_collection_config(root)
@@ -488,7 +478,6 @@ def _compare(**kwargs):
         extensions=extensions,
         glob=kwargs['glob'],
         dry_run=dry_run,
-        logger=logger,
     )
 
     for path in paths:

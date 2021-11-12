@@ -4,7 +4,6 @@ https://github.com/RhetTbull/osxphotos/blob/master/osxphotos/exiftool.py
 
 import atexit
 import json
-import logging
 import os
 from pathlib import Path
 import re
@@ -12,6 +11,8 @@ import shutil
 import subprocess
 from abc import ABC, abstractmethod
 from functools import lru_cache  # pylint: disable=syntax-error
+
+from ordigi import LOG
 
 # exiftool -stay_open commands outputs this EOF marker after command is run
 EXIFTOOL_STAYOPEN_EOF = "{ready}"
@@ -58,16 +59,16 @@ class _ExifToolProc:
 
         return cls.instance
 
-    def __init__(self, exiftool=None, logger=logging.getLogger()):
+    def __init__(self, exiftool=None):
         """construct _ExifToolProc singleton object or return instance of already created object
         exiftool: optional path to exiftool binary (if not provided, will search path to find it)"""
 
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
         self._exiftool = exiftool or get_exiftool_path()
         if hasattr(self, "_process_running") and self._process_running:
             # already running
             if exiftool is not None and exiftool != self._exiftool:
-                self.logger.warning(
+                self.log.warning(
                     f"exiftool subprocess already running, "
                     f"ignoring exiftool={exiftool}"
                 )
@@ -99,7 +100,7 @@ class _ExifToolProc:
         """start exiftool in batch mode"""
 
         if self._process_running:
-            self.logger.warning("exiftool already running: {self._process}")
+            self.log.warning("exiftool already running: {self._process}")
             return
 
         # open exiftool process
@@ -155,7 +156,6 @@ class ExifTool:
         exiftool=None,
         overwrite=True,
         flags=None,
-        logger=logging.getLogger(),
     ):
         """Create ExifTool object
 
@@ -176,7 +176,7 @@ class ExifTool:
         self.error = None
         # if running as a context manager, self._context_mgr will be True
         self._context_mgr = False
-        self._exiftoolproc = _ExifToolProc(exiftool=exiftool, logger=logger)
+        self._exiftoolproc = _ExifToolProc(exiftool=exiftool)
         self._read_exif()
 
     @property
@@ -402,17 +402,17 @@ class ExifToolCaching(ExifTool):
 
     _singletons: dict[Path, ExifTool]  = {}
 
-    def __new__(cls, filepath, exiftool=None, logger=logging.getLogger()):
+    def __new__(cls, filepath, exiftool=None):
         """create new object or return instance of already created singleton"""
         if filepath not in cls._singletons:
             cls._singletons[filepath] = _ExifToolCaching(
-                filepath, exiftool=exiftool, logger=logger
+                filepath, exiftool=exiftool
             )
         return cls._singletons[filepath]
 
 
 class _ExifToolCaching(ExifTool):
-    def __init__(self, filepath, exiftool=None, logger=logging.getLogger()):
+    def __init__(self, filepath, exiftool=None):
         """Create read-only ExifTool object that caches values
 
         Args:
@@ -425,7 +425,7 @@ class _ExifToolCaching(ExifTool):
         self._json_cache = None
         self._asdict_cache = {}
         super().__init__(
-            filepath, exiftool=exiftool, overwrite=False, flags=None, logger=logger
+            filepath, exiftool=exiftool, overwrite=False, flags=None
         )
 
     def run_commands(self, *commands, no_file=False):

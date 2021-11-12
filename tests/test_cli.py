@@ -25,10 +25,7 @@ class TestOrdigi:
     def setup_class(cls, sample_files_paths):
         cls.runner = CliRunner()
         cls.src_path, cls.file_paths = sample_files_paths
-        cls.logger_options = (
-            '--debug',
-            '--verbose',
-        )
+        cls.logger_options = (('--verbose', 'DEBUG'),)
         cls.filter_options = (
             ('--exclude', '.DS_Store'),
             ('--ignore-tags', 'CreateDate'),
@@ -45,7 +42,7 @@ class TestOrdigi:
 
     def assert_cli(self, command, attributes):
         result = self.runner.invoke(command, [*attributes])
-        assert result.exit_code == 0
+        assert result.exit_code == 0, attributes
 
     def assert_options(self, command, bool_options, arg_options, paths):
         for bool_option in bool_options:
@@ -62,7 +59,6 @@ class TestOrdigi:
 
     def test_sort(self):
         bool_options = (
-            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--album-from-folder',
@@ -73,6 +69,7 @@ class TestOrdigi:
         )
 
         arg_options = (
+            *self.logger_options,
             *self.filter_options,
             ('--path-format', '{%Y}/{folder}/{name}.{ext}'),
 
@@ -86,32 +83,22 @@ class TestOrdigi:
         self.assert_all_options(cli._sort, bool_options, arg_options, paths)
 
     def assert_init(self):
-        for bool_option in self.logger_options:
-            result = self.runner.invoke(
-                    cli._init, [bool_option, str(self.src_path
-            )])
-            assert result.exit_code == 0, bool_option
+        for opt, arg in self.logger_options:
+            self.assert_cli(cli._init, [opt, arg, str(self.src_path)])
 
     def assert_update(self):
         file_path = Path(ORDIGI_PATH, 'samples/test_exif/photo.cr2')
         dest_path = self.src_path / 'photo_moved.cr2'
         shutil.copyfile(file_path, dest_path)
-        for bool_option in self.logger_options:
-            result = self.runner.invoke(
-                    cli._update, [bool_option, str(self.src_path
-            )])
-            assert result.exit_code == 0, bool_option
+        for opt, arg in self.logger_options:
+            self.assert_cli(cli._update, [opt, arg, str(self.src_path)])
 
     def assert_check(self):
-        for bool_option in self.logger_options:
-            result = self.runner.invoke(
-                    cli._check, [bool_option, str(self.src_path
-            )])
-            assert result.exit_code == 0, bool_option
+        for opt, arg in self.logger_options:
+            self.assert_cli(cli._check, [opt, arg, str(self.src_path)])
 
     def assert_clean(self):
         bool_options = (
-            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--delete-excluded',
@@ -121,6 +108,7 @@ class TestOrdigi:
         )
 
         arg_options = (
+            *self.logger_options,
             *self.filter_options,
             ('--dedup-regex', r'\d{4}-\d{2}'),
         )
@@ -142,7 +130,6 @@ class TestOrdigi:
 
     def test_import(self, tmp_path):
         bool_options = (
-            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--album-from-folder',
@@ -153,6 +140,7 @@ class TestOrdigi:
         )
 
         arg_options = (
+            *self.logger_options,
             *self.filter_options,
             ('--path-format', '{%Y}/{folder}/{stem}.{ext}'),
 
@@ -168,7 +156,6 @@ class TestOrdigi:
 
     def test_compare(self):
         bool_options = (
-            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--find-duplicates',
@@ -176,6 +163,7 @@ class TestOrdigi:
         )
 
         arg_options = (
+            *self.logger_options,
             *self.filter_options,
             # ('--similar-to', ''),
             ('--similarity', '65'),

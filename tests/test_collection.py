@@ -6,16 +6,17 @@ import re
 import pytest
 import inquirer
 
+from ordigi import LOG
 from ordigi import constants
 from ordigi.collection import Collection, FPath, Paths
 from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
 from ordigi.geolocation import GeoLocation
-from ordigi import log
 from ordigi.media import Media, ReadExif
 from ordigi import utils
 from .conftest import randomize_files, randomize_db
 from ordigi.summary import Summary
 
+LOG.setLevel(10)
 
 class TestFPath:
 
@@ -23,13 +24,12 @@ class TestFPath:
     def setup_class(cls, sample_files_paths):
         cls.src_path, cls.file_paths = sample_files_paths
         cls.path_format = constants.DEFAULT_PATH + '/' + constants.DEFAULT_NAME
-        cls.logger = log.get_logger(level=10)
 
     def test_get_part(self, tmp_path):
         """
         Test all parts
         """
-        fpath = FPath(self.path_format, 4, self.logger)
+        fpath = FPath(self.path_format, 4)
         # Item to search for:
         items = fpath.get_items()
         masks = [
@@ -107,7 +107,7 @@ class TestFPath:
 
     def test_get_early_morning_photos_date(self):
         date = datetime(2021, 10, 16, 2, 20, 40)
-        fpath = FPath(self.path_format, 4, self.logger)
+        fpath = FPath(self.path_format, 4)
         part = fpath.get_early_morning_photos_date(date, '%Y-%m-%d')
         assert part == '2021-10-15'
 
@@ -121,7 +121,6 @@ class TestCollection:
     def setup_class(cls, sample_files_paths):
         cls.src_path, cls.file_paths = sample_files_paths
         cls.path_format = constants.DEFAULT_PATH + '/' + constants.DEFAULT_NAME
-        cls.logger = log.get_logger(level=10)
 
     def teardown_class(self):
         terminate_exiftool()
@@ -138,8 +137,7 @@ class TestCollection:
         assert summary.success_table.sum('sort') == nb
 
     def test_sort_files(self, tmp_path):
-        collection = Collection(tmp_path, album_from_folder=True,
-                logger=self.logger)
+        collection = Collection(tmp_path, album_from_folder=True)
         loc = GeoLocation()
         summary = collection.sort_files([self.src_path],
                 self.path_format, loc, imp='copy')
@@ -235,7 +233,7 @@ class TestCollection:
     def test_sort_similar_images(self, tmp_path):
         path = tmp_path / 'collection'
         shutil.copytree(self.src_path, path)
-        collection = Collection(path, logger=self.logger)
+        collection = Collection(path)
         loc = GeoLocation()
         summary = collection.init(loc)
         summary = collection.sort_similar_images(path, similarity=60)
@@ -247,7 +245,7 @@ class TestCollection:
     def test_fill_data(self, tmp_path, monkeypatch):
         path = tmp_path / 'collection'
         shutil.copytree(self.src_path, path)
-        collection = Collection(path, logger=self.logger)
+        collection = Collection(path)
         # loc = GeoLocation()
 
 #         def mockreturn(prompt, theme):

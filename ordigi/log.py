@@ -1,22 +1,26 @@
+"""Logging module"""
+
 import logging
 
 
-def level(verbose, debug):
-    if debug:
-        return logging.DEBUG
-    elif verbose:
-        return logging.INFO
+def get_level(verbose):
+    """Return int logging level from string"""
+    if verbose.isnumeric():
+        return int(verbose)
 
-    return logging.WARNING
+    return int(logging.getLevelName(verbose))
 
 
 def get_logger(name='ordigi', level=30):
+    """Get configured logger"""
     if level > 10:
-        format='%(levelname)s:%(message)s'
+        log_format='%(levelname)s:%(message)s'
     else:
-        format='%(levelname)s:%(name)s:%(message)s'
+        log_format='%(levelname)s:%(name)s:%(message)s'
 
-    logging.basicConfig(format=format, level=level)
+    logging.basicConfig(format=log_format, level=level)
     logging.getLogger('asyncio').setLevel(level)
     logger = logging.getLogger(name)
+    logger.setLevel(level)
+
     return logger

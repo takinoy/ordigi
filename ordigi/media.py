@@ -1,4 +1,3 @@
-import logging
 import mimetypes
 import os
 import re
@@ -7,6 +6,7 @@ import sys
 from dateutil import parser
 import inquirer
 
+from ordigi import LOG
 from ordigi.exiftool import ExifTool, ExifToolCaching
 from ordigi import utils
 from ordigi import request
@@ -76,13 +76,12 @@ class ReadExif(ExifMetadata):
             file_path,
             exif_metadata=None,
             ignore_tags=None,
-            logger=logging.getLogger(),
         ):
 
         super().__init__(file_path, ignore_tags)
 
         # Options
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
 
         if exif_metadata:
             self.exif_metadata = exif_metadata
@@ -93,7 +92,7 @@ class ReadExif(ExifMetadata):
     def get_exif_metadata(self):
         """Get metadata from exiftool."""
 
-        return ExifToolCaching(self.file_path, logger=self.logger).asdict()
+        return ExifToolCaching(self.file_path).asdict()
 
     def get_key_values(self, key):
         """
@@ -150,14 +149,13 @@ class WriteExif(ExifMetadata):
             file_path,
             metadata,
             ignore_tags=None,
-            logger=logging.getLogger(),
             ):
 
         super().__init__(file_path, ignore_tags)
 
         self.metadata = metadata
 
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
 
     def set_value(self, tag, value):
         """Set value of a tag.
@@ -165,7 +163,7 @@ class WriteExif(ExifMetadata):
         :returns: value (str)
         """
         # TODO overwrite mode check if fail
-        return ExifTool(self.file_path, logger=self.logger).setvalue(tag, value)
+        return ExifTool(self.file_path).setvalue(tag, value)
 
     def set_key_values(self, key, value):
         """Set tags values for given key"""
@@ -240,21 +238,19 @@ class Media(ReadExif):
         album_from_folder=False,
         ignore_tags=None,
         interactive=False,
-        logger=logging.getLogger(),
         use_date_filename=False,
         use_file_dates=False,
     ):
         super().__init__(
             file_path,
             ignore_tags=ignore_tags,
-            logger=logger,
         )
 
         self.src_dir = src_dir
 
         self.album_from_folder = album_from_folder
         self.interactive = interactive
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
         self.metadata = None
         self.use_date_filename = use_date_filename
         self.use_file_dates = use_file_dates
@@ -292,7 +288,7 @@ class Media(ReadExif):
                 value = re.sub(regex, r'\g<1>-\g<2>-\g<3>', value)
             return parser.parse(value)
         except BaseException or parser._parser.ParserError as e:
-            self.logger.warning(e.args, value)
+            self.log.warning(e.args, value)
             return None
 
     def _get_date_media_interactive(self, choices, default):
@@ -338,7 +334,7 @@ class Media(ReadExif):
         date_modified = self.metadata['date_modified']
         if self.metadata['date_original']:
             if date_filename and date_filename != date_original:
-                self.logger.warning(
+                self.log.warning(
                     f"{filename} time mark is different from {date_original}"
                 )
                 if self.interactive:
@@ -353,14 +349,14 @@ class Media(ReadExif):
 
             return self.metadata['date_original']
 
-        self.logger.warning(f"could not find original date for {self.file_path}")
+        self.log.warning(f"could not find original date for {self.file_path}")
 
         if self.use_date_filename and date_filename:
-            self.logger.info(
+            self.log.info(
                 f"use date from filename:{date_filename} for {self.file_path}"
             )
             if date_created and date_filename > date_created:
-                self.logger.warning(
+                self.log.warning(
                     f"{filename} time mark is more recent than {date_created}"
                 )
                 if self.interactive:
@@ -376,13 +372,13 @@ class Media(ReadExif):
 
         if self.use_file_dates:
             if date_created:
-                self.logger.warning(
+                self.log.warning(
                     f"use date created:{date_created} for {self.file_path}"
                 )
                 return date_created
 
             if date_modified:
-                self.logger.warning(
+                self.log.warning(
                     f"use date modified:{date_modified} for {self.file_path}"
                 )
                 return date_modified
@@ -485,12 +481,12 @@ class Media(ReadExif):
             file_checksum = self.metadata['checksum']
             # Check if checksum match
             if db_checksum and db_checksum != file_checksum:
-                self.logger.error(f'{self.file_path} checksum has changed')
-                self.logger.error('(modified or corrupted file).')
-                self.logger.error(
+                self.log.error(f'{self.file_path} checksum has changed')
+                self.log.error('(modified or corrupted file).')
+                self.log.error(
                     f'file_checksum={file_checksum},\ndb_checksum={db_checksum}'
                 )
-                self.logger.info(
+                self.log.info(
                     'Use --reset-cache, check database integrity or try to restore the file'
                 )
                 # We d'ont want to silently ignore or correct this without
@@ -620,7 +616,6 @@ class Medias:
         db=None,
         interactive=False,
         ignore_tags=None,
-        logger=logging.getLogger(),
         use_date_filename=False,
         use_file_dates=False,
     ):
@@ -637,7 +632,7 @@ class Medias:
         self.album_from_folder = album_from_folder
         self.ignore_tags = ignore_tags
         self.interactive = interactive
-        self.logger = logger.getChild(self.__class__.__name__)
+        self.log = LOG.getChild(self.__class__.__name__)
         self.use_date_filename = use_date_filename
         self.use_file_dates = use_file_dates
 
@@ -653,7 +648,6 @@ class Medias:
             self.album_from_folder,
             self.ignore_tags,
             self.interactive,
-            self.logger,
             self.use_date_filename,
             self.use_file_dates,
         )
@@ -677,7 +671,7 @@ class Medias:
             for src_path in paths:
                 if self.root not in src_path.parents:
                     if not imp:
-                        self.logger.error(f"""{src_path} not in {self.root}
+                        self.log.error(f"""{src_path} not in {self.root}
                                 collection, use `ordigi import`""")
                         sys.exit(1)
 
@@ -693,7 +687,6 @@ class Medias:
             file_path,
             metadata,
             ignore_tags=self.ignore_tags,
-            logger=self.logger
         )
 
         updated = False
