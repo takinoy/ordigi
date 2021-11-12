@@ -54,11 +54,11 @@ class Image:
             # things like mode, size, and other properties required to decode the file,
             # but the rest of the file is not processed until later.
             try:
-                im = img.open(self.img_path)
+                image = img.open(self.img_path)
             except (IOError, UnidentifiedImageError):
                 return False
 
-            if im.format is None:
+            if image.format is None:
                 return False
 
         return True
@@ -93,26 +93,20 @@ class Images:
         'rw2',
     )
 
-    def __init__(self, images=set(), hash_size=8):
+    def __init__(self, images, hash_size=8):
         self.images = images
         self.duplicates = []
         self.hash_size = hash_size
         self.log = LOG.getChild(self.__class__.__name__)
-        if PYHEIF == False:
+        if not PYHEIF:
             self.log.info("No module named 'pyheif_pillow_opener'")
-
-    def add_images(self, file_paths):
-        for img_path in file_paths:
-            image = Image(img_path)
-            if image.is_image():
-                self.images.add(image)
 
     def get_images_hashes(self):
         """Get image hashes"""
         # Searching for duplicates.
         for image in self.images:
-            with img.open(image.img_path) as img:
-                yield imagehash.average_hash(img, self.hash_size)
+            with img.open(image.img_path) as i:
+                yield imagehash.average_hash(i, self.hash_size)
 
     def find_duplicates(self, img_path):
         """Find duplicates"""
@@ -159,27 +153,27 @@ class Images:
 
         return similarity_img
 
-    def find_similar(self, image, similarity=80):
+    def find_similar(self, image0, similarity=80):
         """
         Find similar images
         :returns: img_path generator
         """
-        hash1 = image.get_hash()
+        hash1 = image0.get_hash()
 
         if hash1 is None:
-            return None
+            return
 
-        self.log.info(f'Finding similar images to {image.img_path}')
+        self.log.info(f"Finding similar images to {image0.img_path}")
 
         threshold = 1 - similarity / 100
         diff_limit = int(threshold * (self.hash_size ** 2))
 
-        for img in self.images:
-            if not img.img_path.is_file():
+        for image in self.images:
+            if not image.img_path.is_file():
                 continue
-            if img.img_path == image.img_path:
+            if image.img_path == image0.img_path:
                 continue
-            hash2 = img.get_hash()
+            hash2 = image.get_hash()
             # Be sure that hash are not None
             if hash2 is None:
                 continue
@@ -188,6 +182,6 @@ class Images:
             if img_diff <= diff_limit:
                 similarity_img = self.similarity(img_diff)
                 self.log.info(
-                    f'{img.img_path} image found {similarity_img}% similar to {image}'
+                    f"{image.img_path} image found {similarity_img}% similar to {image0.img_path}"
                 )
-                yield img.img_path
+                yield image.img_path
