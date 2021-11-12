@@ -7,9 +7,8 @@ import sys
 
 import click
 
-from ordigi import LOG
+from ordigi import log, LOG
 from ordigi.config import Config
-from ordigi import log
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 
@@ -161,7 +160,7 @@ def _import(**kwargs):
     according to ordigi.conf preferences.
     """
     log_level = log.get_level(kwargs['verbose'])
-    LOG = log.get_logger(level=log_level)
+    log.console(LOG, level=log_level)
 
     root = kwargs['dest']
     src_paths = kwargs['src']
@@ -231,7 +230,7 @@ def _sort(**kwargs):
     according to ordigi.conf preferences.
     """
     log_level = log.get_level(kwargs['verbose'])
-    LOG = log.get_logger(level=log_level)
+    log.console(LOG, level=log_level)
 
     subdirs = kwargs['subdirs']
     root = kwargs['dest']
@@ -318,7 +317,7 @@ def _clean(**kwargs):
     dry_run = kwargs['dry_run']
     folders = kwargs['folders']
     log_level = log.get_level(kwargs['verbose'])
-    LOG = log.get_logger(level=log_level)
+    log.console(LOG, level=log_level)
 
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
@@ -376,7 +375,7 @@ def _init(**kwargs):
     config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.get_level(kwargs['verbose'])
-    LOG = log.get_logger(level=log_level)
+    log.console(LOG, level=log_level)
 
     loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
     collection = Collection(root, exclude=opt['exclude'])
@@ -397,7 +396,7 @@ def _update(**kwargs):
     config = get_collection_config(root)
     opt = config.get_options()
     log_level = log.get_level(kwargs['verbose'])
-    LOG = log.get_logger(level=log_level)
+    log.console(LOG, level=log_level)
 
     loc = GeoLocation(opt['geocoder'], opt['prefer_english_names'], opt['timeout'])
     collection = Collection(root, exclude=opt['exclude'])
@@ -417,7 +416,7 @@ def _check(**kwargs):
     root = Path(kwargs['path']).expanduser().absolute()
 
     log_level = log.get_level(kwargs['verbose'])
-    LOG = log.get_logger(level=log_level)
+    log.console(LOG, level=log_level)
     config = get_collection_config(root)
     opt = config.get_options()
     collection = Collection(root, exclude=opt['exclude'])
@@ -429,7 +428,7 @@ def _check(**kwargs):
         if summary.errors:
             sys.exit(1)
     else:
-        LOG.error('Db data is not accurate run `ordigi update`')
+        LOG.logger.error('Db data is not accurate run `ordigi update`')
         sys.exit(1)
 
 
@@ -463,7 +462,7 @@ def _compare(**kwargs):
     root = kwargs['collection']
 
     log_level = log.get_level(kwargs['verbose'])
-    LOG = log.get_logger(level=log_level)
+    log.console(LOG, level=log_level)
     paths, root = _get_paths(subdirs, root)
 
     config = get_collection_config(root)

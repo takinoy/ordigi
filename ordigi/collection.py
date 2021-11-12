@@ -886,7 +886,6 @@ class Collection(SortMedias):
         """Remove empty subdir after moving files"""
         parents = set()
         for directory in directories:
-            self.log.info("remove empty subdirs")
             if not directory.is_dir():
                 continue
 
@@ -897,6 +896,7 @@ class Collection(SortMedias):
             files = os.listdir(directory)
             if len(files) == 0:
                 self.fileio.rmdir(directory)
+                self.log.info(f"remove empty subdir: {directory}")
 
             if self.root in directory.parent.parents:
                 parents.add(directory.parent)

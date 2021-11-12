@@ -55,7 +55,7 @@ class Config:
             elif 'dirs_path' and 'name' in self.conf['Path']:
                 return self.conf['Path']['dirs_path'] + '/' + self.conf['Path']['name']
 
-        return constants.DEFAULT_PATH + '/' + constants.DEFAULT_NAME
+        return constants.DEFAULT_PATH_FORMAT
 
     def get_options(self):
         """Get config options
