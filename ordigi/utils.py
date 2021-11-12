@@ -37,7 +37,8 @@ def distance_between_two_points(lat1, lon1, lat2, lon2):
     return r * sqrt(x * x + y * y)
 
 
-def get_date_regex(string, user_regex=None):
+def get_date_regex(user_regex=None):
+    """Return date regex generator"""
     if user_regex:
         regex = {'a': re.compile(user_regex)}
     else:
@@ -63,13 +64,14 @@ def get_date_regex(string, user_regex=None):
 
 
 def get_date_from_string(string, user_regex=None):
+    """Retrieve date stamp from string"""
     # If missing datetime from EXIF data check if filename is in datetime format.
     # For this use a user provided regex if possible.
     # Otherwise assume a filename such as IMG_20160915_123456.jpg as default.
 
     matches = []
-    for i, rx in get_date_regex(string, user_regex).items():
-        match = re.findall(rx, string)
+    for i, regex in get_date_regex(user_regex).items():
+        match = re.findall(regex, string)
         if match != []:
             if i == 'c':
                 match = [('20' + match[0][0], match[0][1], match[0][2])]
@@ -80,7 +82,7 @@ def get_date_from_string(string, user_regex=None):
             if len(match) != 1:
                 # The time string is not uniq
                 continue
-            matches.append((match[0], rx))
+            matches.append((match[0], regex))
             # We want only the first match for the moment
             break
 
@@ -89,11 +91,6 @@ def get_date_from_string(string, user_regex=None):
         try:
             # Convert str to int
             date_object = tuple(map(int, matches[0][0]))
-
-            time = False
-            if len(date_object) > 3:
-                time = True
-
             date = datetime(*date_object)
         except (KeyError, ValueError):
             return None

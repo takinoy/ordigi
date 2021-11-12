@@ -135,7 +135,7 @@ class FPath:
         elif item == 'name':
             # Remove date prefix added to the name.
             part = stem
-            for regex in utils.get_date_regex(stem).values():
+            for regex in utils.get_date_regex().values():
                 part = re.sub(regex, '', part)
         elif item == 'date':
             date = metadata['date_media']
