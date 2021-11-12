@@ -15,26 +15,27 @@ def checksum(file_path, blocksize=65536):
     :returns: str or None
     """
     hasher = hashlib.sha256()
-    with open(file_path, 'rb') as f:
-        buf = f.read(blocksize)
+    with open(file_path, 'rb') as file:
+        buf = file.read(blocksize)
 
         while len(buf) > 0:
             hasher.update(buf)
-            buf = f.read(blocksize)
+            buf = file.read(blocksize)
         return hasher.hexdigest()
     return None
 
 
 def distance_between_two_points(lat1, lon1, lat2, lon2):
-    # As threshold is quite small use simple math
+    """Return distance between two points"""
     # From http://stackoverflow.com/questions/15736995/how-can-i-quickly-estimate-the-distance-between-two-latitude-longitude-points  # noqa
+
     # convert decimal degrees to radians
     lat1, lon1, lat2, lon2 = list(map(radians, [lat1, lon1, lat2, lon2]))
 
-    r = 6371000  # radius of the earth in m
+    rad = 6371000  # radius of the earth in m
     x = (lon2 - lon1) * cos(0.5 * (lat2 + lat1))
     y = lat2 - lat1
-    return r * sqrt(x * x + y * y)
+    return rad * sqrt(x * x + y * y)
 
 
 def get_date_regex(user_regex=None):
