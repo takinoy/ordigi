@@ -141,3 +141,16 @@ def camel2snake(name):
     return name[0].lower() + re.sub(
         r'(?!^)[A-Z]', lambda x: '_' + x.group(0).lower(), name[1:]
     )
+
+
+import os
+import platform
+import subprocess
+
+def open_file(path):
+    if platform.system() == "Windows":
+        os.startfile(path)
+    elif platform.system() == "Darwin":
+        subprocess.Popen(["open", path])
+    else:
+        subprocess.Popen(["xdg-open", path])

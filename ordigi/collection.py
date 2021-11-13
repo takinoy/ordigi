@@ -333,10 +333,10 @@ class Paths:
 
     def check(self, path):
         """
-        :param: str path
+        Check if path exist
+        :param: Path path
         :return: Path path
         """
-        # some error checking
         if not path.exists():
             self.log.error(f'Directory {path} does not exist')
             sys.exit(1)
@@ -696,19 +696,40 @@ class Collection(SortMedias):
         root,
         album_from_folder=False,
         cache=False,
-        day_begins=0,
         dry_run=False,
         exclude=None,
         extensions=None,
         glob='**/*',
         interactive=False,
         ignore_tags=None,
-        max_deep=None,
         use_date_filename=False,
         use_file_dates=False,
     ):
 
-        # Modules
+        day_begins=0
+        max_deep=None
+
+        # Options
+        self.day_begins = day_begins
+        self.log = LOG.getChild(self.__class__.__name__)
+        self.glob = glob
+
+        # Check if collection path is valid
+        if not root.exists():
+            self.log.error(f'Collection path {root} does not exist')
+            sys.exit(1)
+
+        # def get_collection_config(root):
+        #     return Config(root.joinpath('.ordigi', 'ordigi.conf'))
+
+        # TODO Collection options
+        # config = get_collection_config(root)
+        # opt = config.get_options()
+        # exclude = _get_exclude(opt, kwargs['exclude'])
+        # path_format = opt['path_format']
+        # if kwargs['path_format']:
+        #     path_format = kwargs['path_format']
+
         self.db = CollectionDb(root)
         self.fileio = FileIO(dry_run)
         self.paths = Paths(
@@ -741,19 +762,8 @@ class Collection(SortMedias):
             interactive,
         )
 
-        # Arguments
-        if not self.root.exists():
-            self.log.error(f'Directory {self.root} does not exist')
-            sys.exit(1)
-
-        # Options
-        self.day_begins = day_begins
-        self.glob = glob
-        self.log = LOG.getChild(self.__class__.__name__)
-
-        self.summary = Summary(self.root)
-
         # Attributes
+        self.summary = Summary(self.root)
         self.theme = request.load_theme()
 
     def get_collection_files(self, exclude=True):

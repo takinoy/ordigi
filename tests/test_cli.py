@@ -40,9 +40,9 @@ class TestOrdigi:
             '--use-file-dates',
         )
 
-    def assert_cli(self, command, attributes):
+    def assert_cli(self, command, attributes, state=0):
         result = self.runner.invoke(command, [*attributes])
-        assert result.exit_code == 0, attributes
+        assert result.exit_code == state, (command, attributes)
 
     def assert_options(self, command, bool_options, arg_options, paths):
         for bool_option in bool_options:
@@ -56,6 +56,21 @@ class TestOrdigi:
         self.assert_cli(command, [
             *bool_options, *arg_options_list, *paths,
         ])
+
+    def test_commands(self):
+        # Check if fail if path not exist
+        commands = [
+            cli._check,
+            cli._clean,
+            cli._compare,
+            cli._import,
+            cli._init,
+            cli._sort,
+            cli._update,
+        ]
+
+        for command in commands:
+            self.assert_cli(command, ['not_exist'], state=1)
 
     def test_sort(self):
         bool_options = (
