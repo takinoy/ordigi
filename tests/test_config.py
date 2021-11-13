@@ -50,11 +50,16 @@ class TestConfig:
             config = Config(conf_path)
         assert e.typename == 'MissingSectionHeaderError'
 
-    def test_get_path_definition(self, conf):
-        """
-        Get path definition from config
-        """
-        config = Config(conf=conf)
-        path = config.get_path_definition()
-        assert path == '%u{%Y-%m}/{city}|{city}-{%Y}/{folders[:1]}/{folder}/{%Y-%m-%b-%H-%M-%S}-{basename}.%l{ext}'
+    # def test_get_path_definition(self, conf):
+    #     """
+    #     Get path definition from config
+    #     """
+    #     config = Config(conf=conf)
+    #     path = config.get_path_definition()
+    #     assert path == '%u{%Y-%m}/{city}|{city}-{%Y}/{folders[:1]}/{folder}/{%Y-%m-%b-%H-%M-%S}-{basename}.%l{ext}'
 
+    def test_get_options(self, conf):
+        config = Config(conf=conf)
+        options = config.get_options()
+        assert isinstance(options, dict)
+        # assert isinstance(options['Path'], dict)

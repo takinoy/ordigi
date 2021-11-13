@@ -8,7 +8,6 @@ import sys
 import click
 
 from ordigi import constants, log, LOG
-from ordigi.config import Config
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 
@@ -114,13 +113,6 @@ def add_options(options):
         return func
 
     return _add_options
-
-
-def _get_exclude(opt, exclude):
-    # if no exclude list was passed in we check if there's a config
-    if len(exclude) == 0:
-        exclude = opt['exclude']
-    return set(exclude)
 
 
 def _get_paths(paths, root):

@@ -14,6 +14,7 @@ from pathlib import Path, PurePath
 import inquirer
 
 from ordigi import LOG
+from ordigi.config import Config
 from ordigi.database import Sqlite
 from ordigi.media import Medias
 from ordigi.images import Image, Images
@@ -220,6 +221,9 @@ class FPath:
         Returns file path.
         """
         path_format = self.path_format
+
+        # Each element in the list represents a folder.
+        # Fallback folders are supported and are nested lists.
         path = []
         path_parts = path_format.split('/')
         for path_part in path_parts:
@@ -706,50 +710,58 @@ class Collection(SortMedias):
         use_file_dates=False,
     ):
 
-        day_begins=0
-        max_deep=None
+        # TODO move to cli
+        cli_options = {
+            'album_from_folder': album_from_folder,
+            'cache': cache,
+            'dry_run': dry_run,
+            'exclude': exclude,
+            'extensions': extensions,
+            'glob': '**/*',
+            'interactive': interactive,
+            'ignore_tags': ignore_tags,
+            'use_date_filename': use_date_filename,
+            'use_file_dates': use_file_dates,
+        }
 
-        # Options
-        self.day_begins = day_begins
         self.log = LOG.getChild(self.__class__.__name__)
-        self.glob = glob
 
         # Check if collection path is valid
         if not root.exists():
             self.log.error(f'Collection path {root} does not exist')
             sys.exit(1)
 
-        # def get_collection_config(root):
-        #     return Config(root.joinpath('.ordigi', 'ordigi.conf'))
+        self.root = root
 
-        # TODO Collection options
-        # config = get_collection_config(root)
-        # opt = config.get_options()
-        # exclude = _get_exclude(opt, kwargs['exclude'])
-        # path_format = opt['path_format']
-        # if kwargs['path_format']:
-        #     path_format = kwargs['path_format']
+        # Get config options
+        config = self.get_config()
+        self.opt = config.get_options()
+
+        # Set client options
+        for option, value in cli_options.items():
+            self.opt[option] = value
+        self._set_cli_option('exclude', exclude)
 
         self.db = CollectionDb(root)
-        self.fileio = FileIO(dry_run)
+        self.fileio = FileIO(self.opt['dry_run'])
         self.paths = Paths(
-            exclude,
-            extensions,
-            glob,
-            interactive,
-            max_deep,
+            self.opt['exclude'],
+            self.opt['extensions'],
+            self.opt['glob'],
+            self.opt['interactive'],
+            self.opt['max_deep'],
         )
 
         self.medias = Medias(
             self.paths,
             root,
-            album_from_folder,
-            cache,
+            self.opt['album_from_folder'],
+            self.opt['cache'],
             self.db,
-            interactive,
-            ignore_tags,
-            use_date_filename,
-            use_file_dates,
+            self.opt['interactive'],
+            self.opt['ignore_tags'],
+            self.opt['use_date_filename'],
+            self.opt['use_file_dates'],
         )
 
         # Features
@@ -758,13 +770,22 @@ class Collection(SortMedias):
             self.medias,
             root,
             self.db,
-            dry_run,
-            interactive,
+            self.opt['dry_run'],
+            self.opt['interactive'],
         )
 
         # Attributes
         self.summary = Summary(self.root)
         self.theme = request.load_theme()
+
+    def get_config(self):
+        """Get collection config"""
+        return Config(self.root.joinpath('.ordigi', 'ordigi.conf'))
+
+    def _set_cli_option(self, option, cli_option):
+        """if client option is set overwrite collection option value"""
+        if cli_option:
+            self.opt['option'] = cli_option
 
     def get_collection_files(self, exclude=True):
         if exclude:
@@ -772,7 +793,7 @@ class Collection(SortMedias):
 
         paths = Paths(
             exclude,
-            interactive=self.interactive,
+            interactive=self.opt['interactive'],
         )
         for file_path in paths.get_files(self.root):
             yield file_path
@@ -932,7 +953,7 @@ class Collection(SortMedias):
         files = os.listdir(directory)
         if len(files) == 0 and remove_root:
             self.log.info(f"Removing empty folder: {directory}")
-            if not self.dry_run:
+            if not self.opt['dry_run']:
                 os.rmdir(directory)
             self.summary.append('remove', True, directory)
 
@@ -948,11 +969,14 @@ class Collection(SortMedias):
         # Check db
         self._init_check_db(loc)
 
+        # if path format client option is set overwrite it
+        self._set_cli_option('path_format', path_format)
+
         # Get medias data
         subdirs = set()
         for src_path, metadata in self.medias.get_metadatas(src_dirs, imp=imp, loc=loc):
             # Get the destination path according to metadata
-            fpath = FPath(path_format, self.day_begins)
+            fpath = FPath(path_format, self.opt['day_begins'])
             metadata['file_path'] = fpath.get_path(metadata)
             subdirs.add(src_path.parent)
 

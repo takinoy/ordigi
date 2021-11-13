@@ -1,15 +1,80 @@
+import json
+import re
+
 from configparser import RawConfigParser
 from os import path
 from ordigi import constants
 from geopy.geocoders import options as gopt
 
 
+# TODO make one method???
+def check_option(getoption):
+    """Check option type int or boolean"""
+    try:
+        getoption
+    except ValueError as e:
+        # TODO
+        return None
+    else:
+        return getoption
+
+def check_json(getoption):
+    """Check if json string is valid"""
+    try:
+        getoption
+    except json.JSONDecodeError as e:
+        # TODO
+        return None
+    else:
+        return getoption
+
+def check_re(getoption):
+    """Check if regex string is valid"""
+    try:
+        getoption
+    except re.error as e:
+        # TODO
+        return None
+    else:
+        return getoption
+
+
 class Config:
     """Manage config file"""
 
-    def __init__(self, conf_path=constants.CONFIG_FILE, conf={}):
+    # Initialize with default options
+    options: dict = {
+        'Console': {
+            'dry_run': False,
+            'interactive': False,
+        },
+        'Database': {
+            'cache': False,
+            'album_from_folder': False,
+            'ignore_tags': None,
+            'use_date_filename': False,
+            'use_file_dates': False,
+        },
+        'Filters': {
+            'exclude': None,
+            'extensions': None,
+            'glob': '**/*',
+            'max_deep': None,
+        },
+        'Geolocation': {
+            'geocoder': constants.DEFAULT_GEOCODER,
+            'prefer_english_names': False,
+            'timeout': gopt.default_timeout,
+        },
+        'Path': {
+            'day_begins': 0,
+            'path_format': constants.DEFAULT_PATH_FORMAT,
+        },
+    }
+
+    def __init__(self, conf_path=constants.CONFIG_FILE, conf=None):
         self.conf_path = conf_path
-        if conf == {}:
+        if conf is None:
             self.conf = self.load_config()
             if self.conf == {}:
                 # Fallback to default config
@@ -33,66 +98,94 @@ class Config:
         conf.read(self.conf_path)
         return conf
 
-    def get_option(self, option, section):
-
+    def is_option(self, section, option):
+        """Get ConfigParser options"""
         if section in self.conf and option in self.conf[section]:
-            return self.conf[section][option]
+            return True
 
         return False
 
-    def get_path_definition(self):
-        """Returns a list of folder definitions.
+    @check_option
+    def _getboolean(self, section, option):
+        return self.conf.getboolean(section, option)
+    getboolean = check_option(_getboolean)
 
-        Each element in the list represents a folder.
-        Fallback folders are supported and are nested lists.
+    @check_option
+    def _getint(self, section, option):
+        return self.conf.getint(section, option)
+    getint = check_option(_getint)
 
-        :returns: string
-        """
+    @check_json
+    def _getjson(self, section, option):
+        return json.loads(self.conf.get(section, option))
+    getjson = check_json(_getjson)
 
-        if 'Path' in self.conf:
-            if 'format' in self.conf['Path']:
-                return self.conf['Path']['format']
-            elif 'dirs_path' and 'name' in self.conf['Path']:
-                return self.conf['Path']['dirs_path'] + '/' + self.conf['Path']['name']
+    @check_re
+    def _getre(self, section, option):
+        return re.compile(self.conf.get(section, option))
+    getre = check_re(_getre)
 
-        return constants.DEFAULT_PATH_FORMAT
+    def get_option(self, section, option):
+        bool_options = {
+            'cache',
+            'dry_run',
+            'prefer_english_names',
+            'album_from_folder',
+            'interactive',
+            'use_date_filename',
+            'use_file_dates',
+        }
 
-    def get_options(self):
-        """Get config options
-        :returns: dict
-        """
+        int_options = {
+            'day_begins',
+            'max_deep',
+            'timeout',
+        }
 
-        options = {}
-        geocoder = self.get_option('geocoder', 'Geolocation')
-        if geocoder and geocoder in ('Nominatim',):
-            options['geocoder'] = geocoder
-        else:
-            options['geocoder'] = constants.DEFAULT_GEOCODER
+        string_options = {
+            'glob',
+            'geocoder',
+        }
 
-        prefer_english_names = self.get_option('prefer_english_names', 'Geolocation')
-        if prefer_english_names:
-            options['prefer_english_names'] = bool(prefer_english_names)
-        else:
-            options['prefer_english_names'] = False
+        multi_options = {
+            'exclude',
+            'extensions',
+            'ignore_tags',
+        }
 
-        timeout = self.get_option('timeout', 'Geolocation')
-        if timeout:
-            options['timeout'] = timeout
-        else:
-            options['timeout'] = gopt.default_timeout
+        value = self.options[section][option]
+        if self.is_option(section, option):
+            if option in bool_options:
+                return self.getboolean(section, option)
+            if option in int_options:
+                return self.getint(section, option)
+            if option == 'geocoder' and value in ('Nominatim',):
+                return self.conf[section][option]
+            if option == 'glob':
+                return self.conf[section][option]
+            if option == 'path_format':
+                return self.getre(section, option)
+            if option in multi_options:
+                return set(self.getjson(section, option))
 
-        options['path_format'] = self.get_path_definition()
+            return value
 
-        options['day_begins'] = 0
-        options['max_deep'] = None
-        if 'Path' in self.conf:
-            if 'day_begins' in self.conf['Path']:
-                options['day_begins'] = int(self.conf['Path']['day_begins'])
-            if 'max_deep' in self.conf['Path']:
-                options['max_deep'] = int(self.conf['Path']['max_deep'])
+        if self.is_option('Path', 'name') and self.is_option('dirs_path', option):
+            # Path format is split in two parts
+            value = self.conf['Path']['dirs_path'] + '/' + self.conf['Path']['name']
 
-        options['exclude'] = []
-        if 'Exclusions' in self.conf:
-            options['exclude'] = [value for key, value in self.conf.items('Exclusions')]
+        return value
 
-        return options
+    def get_options(self) -> dict:
+        """Get config options"""
+
+        old_options = {}
+        for section in self.options:
+            for option in self.options[section]:
+                # Option is in section
+                # TODO make a function
+                value = self.get_option(section, option)
+                old_options[option] = value
+                self.options[section][option] = value
+
+        return old_options
