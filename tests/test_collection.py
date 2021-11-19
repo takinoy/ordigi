@@ -137,7 +137,8 @@ class TestCollection:
         assert summary.success_table.sum('sort') == nb
 
     def test_sort_files(self, tmp_path):
-        collection = Collection(tmp_path, album_from_folder=True)
+        cli_options = {'album_from_folder': True}
+        collection = Collection(tmp_path, cli_options=cli_options)
         loc = GeoLocation()
         summary = collection.sort_files([self.src_path],
                 self.path_format, loc, imp='copy')
@@ -150,14 +151,20 @@ class TestCollection:
         assert not summary.errors
 
         # check if album value are set
-        paths = Paths(glob='**/*').get_files(tmp_path)
+        filters = {
+            'exclude': None,
+            'extensions': None,
+            'glob': '**/*',
+            'max_deep': None,
+        }
+        paths = Paths(filters).get_files(tmp_path)
         for file_path in paths:
             if '.db' not in str(file_path):
                 media = Media(file_path, tmp_path, album_from_folder=True)
                 for value in ReadExif(file_path).get_key_values('album'):
                     assert value != '' or None
 
-        collection = Collection(tmp_path, album_from_folder=True)
+        collection = Collection(tmp_path, cli_options=cli_options)
         # Try to change path format and sort files again
         path = '{city}/{%Y}-{name}.%l{ext}'
         summary = collection.sort_files([tmp_path],
@@ -222,8 +229,13 @@ class TestCollection:
                 shutil.copyfile(dest_path, src_path)
 
     def test_get_files(self):
-        exclude={'**/*.dng',}
-        paths = Paths(exclude=exclude, max_deep=1)
+        filters = {
+            'exclude': {'**/*.dng',},
+            'extensions': None,
+            'glob': '**/*',
+            'max_deep': 1,
+        }
+        paths = Paths(filters)
         paths = list(paths.get_files(self.src_path))
         assert len(paths) == 9
         assert Path(self.src_path, 'test_exif/photo.dng') not in paths

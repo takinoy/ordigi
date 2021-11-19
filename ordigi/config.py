@@ -42,36 +42,6 @@ def check_re(getoption):
 class Config:
     """Manage config file"""
 
-    # Initialize with default options
-    options: dict = {
-        'Console': {
-            'dry_run': False,
-            'interactive': False,
-        },
-        'Database': {
-            'cache': False,
-            'album_from_folder': False,
-            'ignore_tags': None,
-            'use_date_filename': False,
-            'use_file_dates': False,
-        },
-        'Filters': {
-            'exclude': None,
-            'extensions': None,
-            'glob': '**/*',
-            'max_deep': None,
-        },
-        'Geolocation': {
-            'geocoder': constants.DEFAULT_GEOCODER,
-            'prefer_english_names': False,
-            'timeout': gopt.default_timeout,
-        },
-        'Path': {
-            'day_begins': 0,
-            'path_format': constants.DEFAULT_PATH_FORMAT,
-        },
-    }
-
     def __init__(self, conf_path=constants.CONFIG_FILE, conf=None):
         self.conf_path = conf_path
         if conf is None:
@@ -82,6 +52,39 @@ class Config:
                 self.conf = self.load_config()
         else:
             self.conf = conf
+
+        self.options = self.set_default_options()
+
+    def set_default_options(self) -> dict:
+        # Initialize with default options
+        return {
+            'Exif': {
+                'album_from_folder': False,
+                'cache': False,
+                'ignore_tags': None,
+                'use_date_filename': False,
+                'use_file_dates': False,
+            },
+            'Filters': {
+                'exclude': None,
+                'extensions': None,
+                'glob': '**/*',
+                'max_deep': None,
+            },
+            'Geolocation': {
+                'geocoder': constants.DEFAULT_GEOCODER,
+                'prefer_english_names': False,
+                'timeout': gopt.default_timeout,
+            },
+            'Path': {
+                'day_begins': 0,
+                'path_format': constants.DEFAULT_PATH_FORMAT,
+            },
+            'Terminal': {
+                'dry_run': False,
+                'interactive': False,
+            },
+        }
 
     def write(self, conf):
         with open(self.conf_path, 'w') as conf_file:
@@ -125,7 +128,7 @@ class Config:
         return re.compile(self.conf.get(section, option))
     getre = check_re(_getre)
 
-    def get_option(self, section, option):
+    def get_config_option(self, section, option):
         bool_options = {
             'cache',
             'dry_run',
@@ -176,16 +179,13 @@ class Config:
 
         return value
 
-    def get_options(self) -> dict:
+    def get_config_options(self) -> dict:
         """Get config options"""
 
-        old_options = {}
         for section in self.options:
             for option in self.options[section]:
                 # Option is in section
-                # TODO make a function
-                value = self.get_option(section, option)
-                old_options[option] = value
+                value = self.get_config_option(section, option)
                 self.options[section][option] = value
 
-        return old_options
+        return self.options

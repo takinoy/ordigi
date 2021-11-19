@@ -308,28 +308,21 @@ class FileIO:
 class Paths:
     """Get filtered files paths"""
 
-    def __init__(
-        self,
-        exclude=None,
-        extensions=None,
-        glob='**/*',
-        interactive=False,
-        max_deep=None,
-    ):
+    def __init__(self, filters, interactive=False):
 
-        # Options
-        self.exclude = exclude
+        self.filters = filters
 
-        if extensions and '%media' in extensions:
-            extensions.remove('%media')
-            self.extensions = extensions.union(Medias.extensions)
-        else:
-            self.extensions = extensions
+        self.extensions = self.filters['extensions']
+        if not self.extensions:
+            self.extensions = set()
+        elif '%media' in self.extensions:
+            self.extensions.remove('%media')
+            self.extensions = self.extensions.union(Medias.extensions)
 
-        self.glob = glob
+        self.glob = self.filters['glob']
+
         self.interactive = interactive
         self.log = LOG.getChild(self.__class__.__name__)
-        self.max_deep = max_deep
         self.paths_list = []
 
         # Attributes
@@ -382,10 +375,11 @@ class Paths:
             if path / '.ordigi' in file_path.parents:
                 continue
 
-            if self.max_deep is not None:
-                if level > self.max_deep:
+            if self.filters['max_deep'] is not None:
+                if level > self.filters['max_deep']:
                     continue
 
+            self.exclude = self.filters['exclude']
             if self.exclude:
                 matched = False
                 for exclude in self.exclude:
@@ -695,34 +689,10 @@ class SortMedias:
 class Collection(SortMedias):
     """Class of the media collection."""
 
-    def __init__(
-        self,
-        root,
-        album_from_folder=False,
-        cache=False,
-        dry_run=False,
-        exclude=None,
-        extensions=None,
-        glob='**/*',
-        interactive=False,
-        ignore_tags=None,
-        use_date_filename=False,
-        use_file_dates=False,
-    ):
+    def __init__(self, root, cli_options=None):
 
-        # TODO move to cli
-        cli_options = {
-            'album_from_folder': album_from_folder,
-            'cache': cache,
-            'dry_run': dry_run,
-            'exclude': exclude,
-            'extensions': extensions,
-            'glob': '**/*',
-            'interactive': interactive,
-            'ignore_tags': ignore_tags,
-            'use_date_filename': use_date_filename,
-            'use_file_dates': use_file_dates,
-        }
+        if not cli_options:
+            cli_options = {}
 
         self.log = LOG.getChild(self.__class__.__name__)
 
@@ -734,34 +704,30 @@ class Collection(SortMedias):
         self.root = root
 
         # Get config options
-        config = self.get_config()
-        self.opt = config.get_options()
+        self.opt = self.get_config_options()
 
         # Set client options
         for option, value in cli_options.items():
-            self.opt[option] = value
-        self._set_cli_option('exclude', exclude)
+            for section in self.opt:
+                self.opt[section][option] = value
+
+        self.exclude = self.opt['Filters']['exclude']
+        if not self.exclude:
+            self.exclude = set()
 
         self.db = CollectionDb(root)
-        self.fileio = FileIO(self.opt['dry_run'])
+        self.fileio = FileIO(self.opt['Terminal']['dry_run'])
         self.paths = Paths(
-            self.opt['exclude'],
-            self.opt['extensions'],
-            self.opt['glob'],
-            self.opt['interactive'],
-            self.opt['max_deep'],
+            self.opt['Filters'],
+            interactive=self.opt['Terminal']['interactive'],
         )
 
         self.medias = Medias(
             self.paths,
             root,
-            self.opt['album_from_folder'],
-            self.opt['cache'],
+            self.opt['Exif'],
             self.db,
-            self.opt['interactive'],
-            self.opt['ignore_tags'],
-            self.opt['use_date_filename'],
-            self.opt['use_file_dates'],
+            self.opt['Terminal']['interactive'],
         )
 
         # Features
@@ -770,30 +736,37 @@ class Collection(SortMedias):
             self.medias,
             root,
             self.db,
-            self.opt['dry_run'],
-            self.opt['interactive'],
+            self.opt['Terminal']['dry_run'],
+            self.opt['Terminal']['interactive'],
         )
 
         # Attributes
         self.summary = Summary(self.root)
         self.theme = request.load_theme()
 
-    def get_config(self):
+    def get_config_options(self):
         """Get collection config"""
-        return Config(self.root.joinpath('.ordigi', 'ordigi.conf'))
+        config =  Config(self.root.joinpath('.ordigi', 'ordigi.conf'))
 
-    def _set_cli_option(self, option, cli_option):
+        return config.get_config_options()
+
+    def _set_option(self, section, option, cli_option):
         """if client option is set overwrite collection option value"""
         if cli_option:
-            self.opt['option'] = cli_option
+            self.opt[section][option] = cli_option
 
     def get_collection_files(self, exclude=True):
         if exclude:
-            exclude = self.paths.exclude
+            exclude = self.exclude
 
         paths = Paths(
-            exclude,
-            interactive=self.opt['interactive'],
+            filters = {
+                'exclude': exclude,
+                'extensions': None,
+                'glob': '**/*',
+                'max_deep': None,
+            },
+            interactive=self.opt['Terminal']['interactive'],
         )
         for file_path in paths.get_files(self.root):
             yield file_path
@@ -905,7 +878,7 @@ class Collection(SortMedias):
         """Remove excluded files in collection"""
         # get all files
         for file_path in self.get_collection_files(exclude=False):
-            for exclude in self.paths.exclude:
+            for exclude in self.exclude:
                 if fnmatch(file_path, exclude):
                     self.fileio.remove(file_path)
                     self.summary.append('remove', True, file_path)
@@ -953,7 +926,7 @@ class Collection(SortMedias):
         files = os.listdir(directory)
         if len(files) == 0 and remove_root:
             self.log.info(f"Removing empty folder: {directory}")
-            if not self.opt['dry_run']:
+            if not self.opt['Terminal']['dry_run']:
                 os.rmdir(directory)
             self.summary.append('remove', True, directory)
 
@@ -970,13 +943,13 @@ class Collection(SortMedias):
         self._init_check_db(loc)
 
         # if path format client option is set overwrite it
-        self._set_cli_option('path_format', path_format)
+        self._set_option('Path', 'path_format', path_format)
 
         # Get medias data
         subdirs = set()
         for src_path, metadata in self.medias.get_metadatas(src_dirs, imp=imp, loc=loc):
             # Get the destination path according to metadata
-            fpath = FPath(path_format, self.opt['day_begins'])
+            fpath = FPath(path_format, self.opt['Path']['day_begins'])
             metadata['file_path'] = fpath.get_path(metadata)
             subdirs.add(src_path.parent)
 

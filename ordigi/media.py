@@ -611,13 +611,9 @@ class Medias:
         self,
         paths,
         root,
-        album_from_folder=False,
-        cache=False,
+        exif_options,
         db=None,
         interactive=False,
-        ignore_tags=None,
-        use_date_filename=False,
-        use_file_dates=False,
     ):
 
         # Modules
@@ -628,13 +624,11 @@ class Medias:
         self.root = root
 
         # Options
-        self.cache = cache
-        self.album_from_folder = album_from_folder
-        self.ignore_tags = ignore_tags
+        self.exif_opt = exif_options
+        self.album_from_folder = self.exif_opt['album_from_folder']
+        self.ignore_tags = self.exif_opt['ignore_tags']
         self.interactive = interactive
         self.log = LOG.getChild(self.__class__.__name__)
-        self.use_date_filename = use_date_filename
-        self.use_file_dates = use_file_dates
 
         # Attributes
         # List to store medias datas
@@ -648,16 +642,17 @@ class Medias:
             self.album_from_folder,
             self.ignore_tags,
             self.interactive,
-            self.use_date_filename,
-            self.use_file_dates,
+            self.exif_opt['use_date_filename'],
+            self.exif_opt['use_file_dates'],
         )
 
         return media
 
     def get_metadata(self, file_path, src_dir, loc=None):
         media = self.get_media(file_path, src_dir)
-        media.get_metadata(self.root, loc, self.db.sqlite,
-                self.cache)
+        media.get_metadata(
+            self.root, loc, self.db.sqlite, self.exif_opt['cache']
+        )
 
         return media.metadata
 

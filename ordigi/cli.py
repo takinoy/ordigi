@@ -184,7 +184,6 @@ def _check(**kwargs):
 def _clean(**kwargs):
     """Remove empty folders"""
 
-    dry_run = kwargs['dry_run']
     folders = kwargs['folders']
     log_level = log.get_level(kwargs['verbose'])
     log.console(LOG, level=log_level)
@@ -195,10 +194,12 @@ def _clean(**kwargs):
 
     collection = Collection(
         root,
-        dry_run=dry_run,
-        exclude=kwargs['exclude'],
-        extensions=kwargs['ext'],
-        glob=kwargs['glob'],
+        {
+            "dry_run": kwargs['dry_run'],
+            "exclude": kwargs['exclude'],
+            "extensions": kwargs['ext'],
+            "glob": kwargs['glob'],
+        },
     )
 
     # TODO
@@ -253,7 +254,6 @@ def _compare(**kwargs):
     Sort similar images in directories
     """
 
-    dry_run = kwargs['dry_run']
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
 
@@ -263,10 +263,12 @@ def _compare(**kwargs):
 
     collection = Collection(
         root,
-        exclude=kwargs['exclude'],
-        extensions=kwargs['ext'],
-        glob=kwargs['glob'],
-        dry_run=dry_run,
+        {
+            "exclude": kwargs['exclude'],
+            "extensions": kwargs['ext'],
+            "glob": kwargs['glob'],
+            "dry_run": kwargs['dry_run'],
+        },
     )
 
     for path in paths:
@@ -338,16 +340,18 @@ def _import(**kwargs):
 
     collection = Collection(
         root,
-        kwargs['album_from_folder'],
-        False,
-        kwargs['dry_run'],
-        kwargs['exclude'],
-        kwargs['ext'],
-        kwargs['glob'],
-        kwargs['interactive'],
-        kwargs['ignore_tags'],
-        kwargs['use_date_filename'],
-        kwargs['use_file_dates'],
+        {
+            'album_from_folder': kwargs['album_from_folder'],
+            'cache': False,
+            'ignore_tags': kwargs['ignore_tags'],
+            'use_date_filename': kwargs['use_date_filename'],
+            'use_file_dates': kwargs['use_file_dates'],
+            'exclude': kwargs['exclude'],
+            'extensions': kwargs['ext'],
+            'glob': kwargs['glob'],
+            'dry_run': kwargs['dry_run'],
+            'interactive': kwargs['interactive'],
+        }
     )
 
     # TODO retrieve collection.opt
@@ -396,16 +400,18 @@ def _sort(**kwargs):
 
     collection = Collection(
         root,
-        kwargs['album_from_folder'],
-        cache,
-        kwargs['dry_run'],
-        kwargs['exclude'],
-        kwargs['ext'],
-        kwargs['glob'],
-        kwargs['interactive'],
-        kwargs['ignore_tags'],
-        kwargs['use_date_filename'],
-        kwargs['use_file_dates'],
+        {
+            'album_from_folder': kwargs['album_from_folder'],
+            'cache': cache,
+            'ignore_tags': kwargs['ignore_tags'],
+            'use_date_filename': kwargs['use_date_filename'],
+            'use_file_dates': kwargs['use_file_dates'],
+            'exclude': kwargs['exclude'],
+            'extensions': kwargs['ext'],
+            'glob': kwargs['glob'],
+            'dry_run': kwargs['dry_run'],
+            'interactive': kwargs['interactive'],
+        }
     )
 
     # TODO retrieve collection.opt
