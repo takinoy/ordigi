@@ -8,6 +8,7 @@ from pathlib import Path
 #: If True, debug messages will be printed.
 debug = False
 
+
 # Ordigi settings directory.
 def get_config_dir(name):
     if 'XDG_CONFIG_HOME' in environ:
@@ -18,6 +19,7 @@ def get_config_dir(name):
         confighome = Path(environ['HOME'], '.config')
 
     return confighome / name
+
 
 APPLICATION_DIRECTORY = get_config_dir('ordigi')
 

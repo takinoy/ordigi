@@ -2,12 +2,10 @@ import json
 import re
 
 from configparser import RawConfigParser
-from os import path
 from ordigi import constants
 from geopy.geocoders import options as gopt
 
 
-# TODO make one method???
 def check_option(getoption):
     """Check option type int or boolean"""
     try:
@@ -18,6 +16,7 @@ def check_option(getoption):
     else:
         return getoption
 
+
 def check_json(getoption):
     """Check if json string is valid"""
     try:
@@ -27,6 +26,7 @@ def check_json(getoption):
         return None
     else:
         return getoption
+
 
 def check_re(getoption):
     """Check if regex string is valid"""
@@ -165,9 +165,9 @@ class Config:
             if option == 'geocoder' and value in ('Nominatim',):
                 return self.conf[section][option]
             if option == 'glob':
-                return self.conf[section][option]
-            if option == 'path_format':
                 return self.getre(section, option)
+            if option == 'path_format':
+                return self.conf[section][option]
             if option in multi_options:
                 return set(self.getjson(section, option))
 

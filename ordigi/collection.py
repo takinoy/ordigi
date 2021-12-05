@@ -58,9 +58,9 @@ class FPath:
     def get_early_morning_photos_date(self, date, mask):
         """check for early hour photos to be grouped with previous day"""
 
-        for i in '%H', '%M', '%S','%I', '%p', '%f':
+        for i in '%H', '%M', '%S', '%I', '%p', '%f':
+            # D'ont change date format if datestring contain hour, minutes or seconds.
             if i in mask:
-                # D'ont change date format if datestring contain hour, minutes or seconds...
                 return date.strftime(mask)
 
         if date.hour < self.day_begins:
@@ -127,6 +127,7 @@ class FPath:
         # Each item has its own custom logic and we evaluate a single item and return
         # the evaluated string.
         part = ''
+
         filename = metadata['filename']
         stem = os.path.splitext(filename)[0]
         if item == 'stem':
@@ -515,7 +516,6 @@ class SortMedias:
             else:
                 self.summary.append('sort', False, src_path, dest_path)
 
-
     def sort_file(self, src_path, dest_path, metadata, imp=False):
         """Sort file and register it to db"""
         if imp == 'copy':
@@ -545,7 +545,7 @@ class SortMedias:
             directory_path = self.root / relpath
             parts = directory_path.relative_to(self.root).parts
             for i, _ in enumerate(parts):
-                dir_path = self.root / Path(*parts[0 : i + 1])
+                dir_path = self.root / Path(*parts[0: i + 1])
                 if dir_path.is_file():
                     self.log.warning(f'Target directory {dir_path} is a file')
                     # Rename the src_file
@@ -664,8 +664,9 @@ class SortMedias:
                 pass
 
         if conflicts != []:
-            for files_data, conflict in self._solve_conflicts(conflicts,
-                remove_duplicates):
+            for files_data, conflict in self._solve_conflicts(
+                conflicts, remove_duplicates
+            ):
 
                 src_path, dest_path, metadata = files_data
                 if not conflict:
@@ -746,7 +747,7 @@ class Collection(SortMedias):
 
     def get_config_options(self):
         """Get collection config"""
-        config =  Config(self.root.joinpath('.ordigi', 'ordigi.conf'))
+        config = Config(self.root.joinpath('.ordigi', 'ordigi.conf'))
 
         return config.get_config_options()
 
@@ -760,7 +761,7 @@ class Collection(SortMedias):
             exclude = self.exclude
 
         paths = Paths(
-            filters = {
+            filters={
                 'exclude': exclude,
                 'extensions': None,
                 'glob': '**/*',
@@ -839,7 +840,7 @@ class Collection(SortMedias):
                         metadata['src_path'] = row['SrcPath']
                         # Check if row FilePath is a subpath of relpath
                         if relpath.startswith(row['FilePath']):
-                            path = os.path.relpath(relpath, row['FilePath'])
+                            path = os.path.relpath(rlpath, row['FilePath'])
                             metadata['subdirs'] = row['Subdirs'] + path
                         metadata['Filename'] = row['Filename']
                         break
@@ -859,7 +860,7 @@ class Collection(SortMedias):
             checksum = utils.checksum(file_path)
             relpath = file_path.relative_to(self.root)
             if checksum == self.db.sqlite.get_checksum(relpath):
-                self.summary.append('check',True, file_path)
+                self.summary.append('check', True, file_path)
             else:
                 self.log.error('{file_path} is corrupted')
                 self.summary.append('check', False, file_path)
@@ -933,9 +934,9 @@ class Collection(SortMedias):
         return self.summary
 
     def sort_files(
-            self, src_dirs, path_format, loc,
-            imp=False, remove_duplicates=False
-        ):
+        self, src_dirs, path_format, loc,
+        imp=False, remove_duplicates=False
+    ):
         """
         Sort files into appropriate folder
         """

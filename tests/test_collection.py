@@ -217,7 +217,7 @@ class TestCollection:
             src_checksum = utils.checksum(src_path)
             summary = collection.sort_file(
                 src_path, dest_path, media.metadata, imp=imp
-                )
+            )
             assert not summary.errors
             # Ensure files remain the same
             assert collection._checkcomp(dest_path, src_checksum)

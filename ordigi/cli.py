@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-import os
 from pathlib import Path
-import re
 import sys
 
 import click
@@ -94,13 +92,14 @@ _sort_options = [
         help="Use filename date for media original date.",
     ),
     click.option(
-       '--use-file-dates',
+        '--use-file-dates',
         '-F',
         default=False,
         is_flag=True,
         help="Use file date created or modified for media original date.",
     ),
 ]
+
 
 def print_help(command):
     click.echo(command.get_help(click.Context(command)))
@@ -127,7 +126,33 @@ def _get_paths(paths, root):
     return paths, root
 
 
-@click.command('check')
+def _cli_get_location(collection):
+    gopt = collection.opt['Geolocation']
+    return GeoLocation(
+        {
+            'geocoder': gopt['geocoder'],
+            'prefer_english_names': gopt['prefer_english_names'],
+            'timeout': gopt['timeout'],
+        }
+    )
+
+
+def _cli_sort(collection, src_paths, import_mode, remove_duplicates):
+    loc = _cli_get_location(collection)
+
+    path_format = collection.opt['Path']['path_format']
+
+    return collection.sort_files(
+        src_paths, path_format, loc, import_mode, remove_duplicates
+    )
+
+
+@click.group()
+def cli(**kwargs):
+    pass
+
+
+@cli.command('check')
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def _check(**kwargs):
@@ -152,7 +177,7 @@ def _check(**kwargs):
         sys.exit(1)
 
 
-@click.command('clean')
+@cli.command('clean')
 @add_options(_logger_options)
 @add_options(_dry_run_options)
 @add_options(_filter_options)
@@ -202,9 +227,11 @@ def _clean(**kwargs):
         },
     )
 
-    # TODO
+    # os.path.join(
+    # TODO make function to remove duplicates
+    # path_format = collection.opt['Path']['path_format']
     # summary = collection.sort_files(
-    #     paths, remove_duplicates=kwargs['remove_duplicates']
+    #     paths, path_format, None, remove_duplicates=kwargs['remove_duplicates']
     # )
 
     if kwargs['path_string']:
@@ -229,7 +256,7 @@ def _clean(**kwargs):
         sys.exit(1)
 
 
-@click.command('compare')
+@cli.command('compare')
 @add_options(_logger_options)
 @add_options(_dry_run_options)
 @add_options(_filter_options)
@@ -283,7 +310,7 @@ def _compare(**kwargs):
         sys.exit(1)
 
 
-@click.command('init')
+@cli.command('init')
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def _init(**kwargs):
@@ -296,11 +323,7 @@ def _init(**kwargs):
 
     collection = Collection(root)
 
-    # TODO retrieve collection.opt
-    geocoder='Nominatim'
-    prefer_english_names=False
-    timeout=1
-    loc = GeoLocation(geocoder, prefer_english_names, timeout)
+    loc = _cli_get_location(collection)
 
     summary = collection.init(loc)
 
@@ -308,7 +331,7 @@ def _init(**kwargs):
         summary.print()
 
 
-@click.command('import')
+@cli.command('import')
 @add_options(_logger_options)
 @add_options(_input_options)
 @add_options(_dry_run_options)
@@ -333,11 +356,6 @@ def _import(**kwargs):
 
     src_paths, root = _get_paths(kwargs['src'], kwargs['dest'])
 
-    if kwargs['copy']:
-        import_mode = 'copy'
-    else:
-        import_mode = 'move'
-
     collection = Collection(
         root,
         {
@@ -351,19 +369,16 @@ def _import(**kwargs):
             'glob': kwargs['glob'],
             'dry_run': kwargs['dry_run'],
             'interactive': kwargs['interactive'],
+            'path_format': kwargs['path_format'],
+
         }
     )
 
-    # TODO retrieve collection.opt
-    # Use loc function
-    geocoder='Nominatim'
-    prefer_english_names=False
-    timeout=1
-    loc = GeoLocation(geocoder, prefer_english_names, timeout)
-
-    summary = collection.sort_files(
-        src_paths, kwargs['path_format'], loc, import_mode, kwargs['remove_duplicates']
-    )
+    if kwargs['copy']:
+        import_mode = 'copy'
+    else:
+        import_mode = 'move'
+    summary = _cli_sort(collection, src_paths, import_mode, kwargs['remove_duplicates'])
 
     if log_level < 30:
         summary.print()
@@ -371,7 +386,8 @@ def _import(**kwargs):
     if summary.errors:
         sys.exit(1)
 
-@click.command('sort')
+
+@cli.command('sort')
 @add_options(_logger_options)
 @add_options(_input_options)
 @add_options(_dry_run_options)
@@ -414,15 +430,7 @@ def _sort(**kwargs):
         }
     )
 
-    # TODO retrieve collection.opt
-    geocoder='Nominatim'
-    prefer_english_names=False
-    timeout=1
-    loc = GeoLocation(geocoder, prefer_english_names, timeout)
-
-    summary = collection.sort_files(
-        paths, kwargs['path_format'], loc, kwargs['remove_duplicates']
-    )
+    summary = _cli_sort(collection, paths, False, kwargs['remove_duplicates'])
 
     if kwargs['clean']:
         collection.remove_empty_folders(root)
@@ -434,7 +442,7 @@ def _sort(**kwargs):
         sys.exit(1)
 
 
-@click.command('update')
+@cli.command('update')
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def _update(**kwargs):
@@ -445,26 +453,13 @@ def _update(**kwargs):
     log_level = log.get_level(kwargs['verbose'])
     log.console(LOG, level=log_level)
 
-    geocoder='Nominatim'
-    prefer_english_names=False
-    timeout=1
-    loc = GeoLocation(geocoder, prefer_english_names, timeout)
     collection = Collection(root)
+    loc = _cli_get_location(collection)
     summary = collection.update(loc)
 
     if log_level < 30:
         summary.print()
 
 
-@click.group()
-def main(**kwargs):
-    pass
-
-
-main.add_command(_clean)
-main.add_command(_check)
-main.add_command(_compare)
-main.add_command(_init)
-main.add_command(_import)
-main.add_command(_sort)
-main.add_command(_update)
+if __name__ == '__main__':
+    cli()
