@@ -427,7 +427,11 @@ class Paths:
                 default=self.paths_list,
             ),
         ]
-        return inquirer.prompt(questions, theme=self.theme)['selection']
+        prompt = inquirer.prompt(questions, theme=self.theme)
+        if prompt:
+            return prompt['selection']
+
+        sys.exit()
 
     def get_paths_list(self, path):
         self.paths_list = list(self.get_files(path))

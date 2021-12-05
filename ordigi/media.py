@@ -301,8 +301,10 @@ class Media(ReadExif):
                 default=default,
             ),
         ]
-        # import ipdb; ipdb.set_trace()
         answers = inquirer.prompt(choices_list, theme=self.theme)
+
+        if not answers:
+            sys.exit()
 
         if not answers['date_list']:
             prompt = [
@@ -414,6 +416,9 @@ class Media(ReadExif):
         ]
 
         answers = inquirer.prompt(choices_list, theme=self.theme)
+        if not answers:
+            sys.exit()
+
         if not answers['album']:
             answers = inquirer.prompt(prompt, theme=self.theme)
             return answers['custom']
