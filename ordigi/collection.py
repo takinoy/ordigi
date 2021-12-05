@@ -3,6 +3,7 @@ Collection methods.
 """
 from copy import copy
 from datetime import datetime, timedelta
+from distutils.dir_util import copy_tree
 import filecmp
 from fnmatch import fnmatch
 import os
@@ -298,6 +299,12 @@ class FileIO:
             os.remove(path)
 
         self.log.info(f'remove: {path}')
+
+    def mkdir(self, directory):
+        if not self.dry_run:
+            directory.mkdir(exist_ok=True)
+
+        self.log.info(f'create dir: {directory}')
 
     def rmdir(self, directory):
         if not self.dry_run:
@@ -699,14 +706,8 @@ class Collection(SortMedias):
         if not cli_options:
             cli_options = {}
 
-        self.log = LOG.getChild(self.__class__.__name__)
-
-        # Check if collection path is valid
-        if not root.exists():
-            self.log.error(f'Collection path {root} does not exist')
-            sys.exit(1)
-
         self.root = root
+        self.log = LOG.getChild(self.__class__.__name__)
 
         # Get config options
         self.opt = self.get_config_options()
@@ -720,8 +721,11 @@ class Collection(SortMedias):
         if not self.exclude:
             self.exclude = set()
 
-        self.db = CollectionDb(root)
         self.fileio = FileIO(self.opt['Terminal']['dry_run'])
+
+        self.root_is_valid()
+
+        self.db = CollectionDb(root)
         self.paths = Paths(
             self.opt['Filters'],
             interactive=self.opt['Terminal']['interactive'],
@@ -748,6 +752,16 @@ class Collection(SortMedias):
         # Attributes
         self.summary = Summary(self.root)
         self.theme = request.load_theme()
+
+    def root_is_valid(self):
+        """Check if collection path is valid"""
+        if self.root.exists():
+            if not self.root.is_dir():
+                self.log.error(f'Collection path {self.root} is not a directory')
+                sys.exit(1)
+        else:
+            self.log.error(f'Collection path {self.root} does not exist')
+            sys.exit(1)
 
     def get_config_options(self):
         """Get collection config"""
@@ -810,12 +824,39 @@ class Collection(SortMedias):
 
         return True
 
+    def check(self):
+        if self.db.sqlite.is_empty('metadata'):
+            self.log.error('Db data does not exist run `ordigi init`')
+            sys.exit(1)
+        elif not self.check_db():
+            self.log.error('Db data is not accurate run `ordigi update`')
+            sys.exit(1)
+
     def _init_check_db(self, loc=None):
         if self.db.sqlite.is_empty('metadata'):
             self.init(loc)
         elif not self.check_db():
             self.log.error('Db data is not accurate run `ordigi update`')
             sys.exit(1)
+
+    def clone(self, dest_path):
+        """Clone collection in another location"""
+        self.check()
+
+        if not self.dry_run:
+            copy_tree(str(self.root), str(dest_path))
+
+        self.log.info(f'copy: {self.root} -> {dest_path}')
+
+        if not self.dry_run:
+            dest_collection = Collection(
+                dest_path, {'cache': True, 'dry_run': self.dry_run}
+            )
+
+            if not dest_collection.check_db():
+                self.summary.append('check', False)
+
+        return self.summary
 
     def update(self, loc):
         """Update collection db"""
@@ -866,7 +907,7 @@ class Collection(SortMedias):
             if checksum == self.db.sqlite.get_checksum(relpath):
                 self.summary.append('check', True, file_path)
             else:
-                self.log.error('{file_path} is corrupted')
+                self.log.error(f'{file_path} is corrupted')
                 self.summary.append('check', False, file_path)
 
         return self.summary

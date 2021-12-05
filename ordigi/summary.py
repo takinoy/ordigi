@@ -1,6 +1,7 @@
 # import pandas as pd
 from tabulate import tabulate
 
+
 class Tables:
     """Create table and display result in Pandas DataFrame"""
 
@@ -34,6 +35,7 @@ class Tables:
         errors_headers = self.columns
         return tabulate(self.table, headers=errors_headers)
 
+
 class Summary:
     """Result summary of ordigi program call"""
 
@@ -61,7 +63,7 @@ class Summary:
                 self.errors_table.append(action, file_path, dest_path)
 
         if not success:
-            self.errors +=1
+            self.errors += 1
 
     def print(self):
         """Print summary"""

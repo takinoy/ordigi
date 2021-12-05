@@ -38,6 +38,10 @@ def distance_between_two_points(lat1, lon1, lat2, lon2):
     return rad * sqrt(x * x + y * y)
 
 
+def empty_dir(dir_path):
+    return not next(os.scandir(dir_path), None)
+
+
 def get_date_regex(user_regex=None):
     """Return date regex generator"""
     if user_regex:

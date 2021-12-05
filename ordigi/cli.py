@@ -8,6 +8,7 @@ import click
 from ordigi import constants, log, LOG
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
+from ordigi import utils
 
 _logger_options = [
     click.option(
@@ -173,7 +174,7 @@ def _check(**kwargs):
         if summary.errors:
             sys.exit(1)
     else:
-        LOG.logger.error('Db data is not accurate run `ordigi update`')
+        LOG.error('Db data is not accurate run `ordigi update`')
         sys.exit(1)
 
 
@@ -248,6 +249,39 @@ def _clean(**kwargs):
             collection.remove_excluded_files()
 
     summary = collection.summary
+
+    if log_level < 30:
+        summary.print()
+
+    if summary.errors:
+        sys.exit(1)
+
+
+@cli.command('clone')
+@add_options(_logger_options)
+@add_options(_dry_run_options)
+@click.argument('src', required=True, nargs=1, type=click.Path())
+@click.argument('dest', required=True, nargs=1, type=click.Path())
+def _clone(**kwargs):
+    """Clone media collection to another location"""
+
+    log_level = log.get_level(kwargs['verbose'])
+    log.console(LOG, level=log_level)
+
+    src_path = Path(kwargs['src']).expanduser().absolute()
+    dest_path = Path(kwargs['dest']).expanduser().absolute()
+
+    dry_run = kwargs['dry_run']
+
+    src_collection = Collection(
+        src_path, {'cache': True, 'dry_run': dry_run}
+    )
+
+    if dest_path.exists() and not utils.empty_dir(dest_path):
+        LOG.error(f'Destination collection path {dest_path} must be empty directory')
+        sys.exit(1)
+
+    summary = src_collection.clone(dest_path)
 
     if log_level < 30:
         summary.print()

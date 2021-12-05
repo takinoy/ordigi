@@ -72,6 +72,8 @@ class TestOrdigi:
         for command in commands:
             self.assert_cli(command, ['not_exist'], state=1)
 
+        self.assert_cli(cli._clone, ['not_exist'], state=2)
+
     def test_sort(self):
         bool_options = (
             # '--interactive',
@@ -96,6 +98,20 @@ class TestOrdigi:
 
         self.assert_options(cli._sort, bool_options, arg_options, paths)
         self.assert_all_options(cli._sort, bool_options, arg_options, paths)
+
+    def test_clone(self, tmp_path):
+
+        arg_options = (
+            *self.logger_options,
+
+        )
+
+        paths = (str(self.src_path), str(tmp_path))
+
+        self.assert_cli(cli._init, [str(self.src_path)])
+        self.assert_cli(cli._clone, ['--dry-run', '--verbose', 'DEBUG', *paths])
+        self.assert_cli(cli._clone, paths)
+
 
     def assert_init(self):
         for opt, arg in self.logger_options:

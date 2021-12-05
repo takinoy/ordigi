@@ -2,17 +2,17 @@
 
 from configparser import RawConfigParser
 import os
-import pytest
 from pathlib import Path, PurePath
 import random
 import shutil
-import string
 import tempfile
 
-from ordigi.config import Config
+import pytest
+
 from ordigi.exiftool import _ExifToolProc
 
 ORDIGI_PATH = Path(__file__).parent.parent
+
 
 @pytest.fixture(autouse=True)
 def reset_singletons():
@@ -33,7 +33,6 @@ def sample_files_paths(tmpdir_factory):
 
 def randomize_files(dest_dir):
     # Get files randomly
-    paths = Path(dest_dir).glob('*')
     for path, subdirs, files in os.walk(dest_dir):
         if '.ordigi' in path:
             continue
@@ -50,7 +49,7 @@ def randomize_files(dest_dir):
 
 def randomize_db(dest_dir):
     # alterate database
-    file_path = Path(str(dest_dir), '.ordigi', str(dest_dir.name) + '.db')
+    file_path = Path(str(dest_dir), '.ordigi', 'collection.db')
     with open(file_path, 'wb') as fout:
         fout.write(os.urandom(random.randrange(128, 2048)))
 

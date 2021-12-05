@@ -1,19 +1,13 @@
 from datetime import datetime
-import json
 import os
 from pathlib import Path
 import sqlite3
 import sys
 
-from shutil import copyfile
-from time import strftime
-
-from ordigi import constants
 from ordigi.utils import distance_between_two_points
 
 
 class Sqlite:
-
     """Methods for interacting with Sqlite database"""
 
     def __init__(self, target_dir):
@@ -30,7 +24,7 @@ class Sqlite:
         self.db_type = 'SQLite format 3'
         self.types = {'text': (str, datetime), 'integer': (int,), 'real': (float,)}
 
-        self.filename = Path(db_dir, target_dir.name + '.db')
+        self.filename = Path(db_dir, 'collection.db')
         self.con = sqlite3.connect(self.filename)
         # Allow selecting column by name
         self.con.row_factory = sqlite3.Row
