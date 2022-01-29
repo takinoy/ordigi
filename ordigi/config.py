@@ -60,7 +60,7 @@ class Config:
         return {
             'Exif': {
                 'album_from_folder': False,
-                'cache': False,
+                'cache': True,
                 'ignore_tags': None,
                 'use_date_filename': False,
                 'use_file_dates': False,

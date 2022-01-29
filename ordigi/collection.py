@@ -979,8 +979,7 @@ class Collection(SortMedias):
         return self.summary
 
     def sort_files(
-        self, src_dirs, path_format, loc,
-        imp=False, remove_duplicates=False
+        self, src_dirs, path_format, loc, imp=False, remove_duplicates=False
     ):
         """
         Sort files into appropriate folder

@@ -137,7 +137,7 @@ class TestCollection:
         assert summary.success_table.sum('sort') == nb
 
     def test_sort_files(self, tmp_path):
-        cli_options = {'album_from_folder': True}
+        cli_options = {'album_from_folder': True, 'cache': False}
         collection = Collection(tmp_path, cli_options=cli_options)
         loc = GeoLocation()
         summary = collection.sort_files([self.src_path],
@@ -160,24 +160,22 @@ class TestCollection:
         paths = Paths(filters).get_files(tmp_path)
         for file_path in paths:
             if '.db' not in str(file_path):
-                media = Media(file_path, tmp_path, album_from_folder=True)
                 for value in ReadExif(file_path).get_key_values('album'):
                     assert value != '' or None
 
         collection = Collection(tmp_path, cli_options=cli_options)
         # Try to change path format and sort files again
-        path = '{city}/{%Y}-{name}.%l{ext}'
-        summary = collection.sort_files([tmp_path],
-                self.path_format, loc)
+        path_format = 'test_exif/{city}/{%Y}-{name}.%l{ext}'
+        summary = collection.sort_files([tmp_path], path_format, loc)
 
-        self.assert_sort(summary, 24)
+        self.assert_sort(summary, 27)
 
         shutil.copytree(tmp_path / 'test_exif', tmp_path / 'test_exif_copy')
         collection.summary = Summary(tmp_path)
         assert collection.summary.success_table.sum() == 0
         summary = collection.update(loc)
-        assert summary.success_table.sum('update') == 2
-        assert summary.success_table.sum() == 2
+        assert summary.success_table.sum('update') == 30
+        assert summary.success_table.sum() == 30
         assert not summary.errors
         collection.summary = Summary(tmp_path)
         summary = collection.update(loc)

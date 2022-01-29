@@ -12,7 +12,6 @@ from ordigi import utils
 from ordigi import request
 
 
-
 class ExifMetadata:
 
     def __init__(self, file_path, ignore_tags=None):
@@ -20,6 +19,7 @@ class ExifMetadata:
         if ignore_tags is None:
             ignore_tags = set()
         self.ignore_tags = ignore_tags
+        self.log = LOG.getChild(self.__class__.__name__)
         self.tags_keys = self.get_tags()
 
     def get_tags(self) -> dict:
@@ -67,6 +67,27 @@ class ExifMetadata:
 
         return tags_keys
 
+    def get_date_format(self, value):
+        """
+        Formatting date attribute.
+        :returns: datetime object or None
+        """
+        # We need to parse a string to datetime format.
+        # EXIF DateTimeOriginal and EXIF DateTime are both stored
+        #   in %Y:%m:%d %H:%M:%S format
+        if value is None:
+            return None
+
+        try:
+            # correct nasty formated date
+            regex = re.compile(r'(\d{4}):(\d{2}):(\d{2})')
+            if re.match(regex, value) is not None:  # noqa
+                value = re.sub(regex, r'\g<1>-\g<2>-\g<3>', value)
+            return parser.parse(value)
+        except BaseException or parser._parser.ParserError as e:
+            self.log.warning(e.args, value)
+            return None
+
 
 class ReadExif(ExifMetadata):
     """Read exif metadata to file"""
@@ -76,7 +97,7 @@ class ReadExif(ExifMetadata):
             file_path,
             exif_metadata=None,
             ignore_tags=None,
-        ):
+    ):
 
         super().__init__(file_path, ignore_tags)
 
@@ -96,7 +117,7 @@ class ReadExif(ExifMetadata):
 
     def get_key_values(self, key):
         """
-        Get the first value of a tag set
+        Get tags values of a key
         :returns: str or None if no exif tag
         """
         if self.exif_metadata is None:
@@ -224,6 +245,7 @@ class WriteExif(ExifMetadata):
         # TODO use tag key
         return self.set_value('Album', self.file_path.parent.name)
 
+
 class Media(ReadExif):
     """
     Extract matadatas from exiftool and sort them to dict structure
@@ -257,7 +279,6 @@ class Media(ReadExif):
 
         self.theme = request.load_theme()
 
-
     def get_mimetype(self):
         """
         Get the mimetype of the file.
@@ -269,27 +290,6 @@ class Media(ReadExif):
             return None
 
         return mimetype[0]
-
-    def get_date_format(self, value):
-        """
-        Formatting date attribute.
-        :returns: datetime object or None
-        """
-        # We need to parse a string to datetime format.
-        # EXIF DateTimeOriginal and EXIF DateTime are both stored
-        #   in %Y:%m:%d %H:%M:%S format
-        if value is None:
-            return None
-
-        try:
-            # correct nasty formated date
-            regex = re.compile(r'(\d{4}):(\d{2}):(\d{2})')
-            if re.match(regex, value) is not None:  # noqa
-                value = re.sub(regex, r'\g<1>-\g<2>-\g<3>', value)
-            return parser.parse(value)
-        except BaseException or parser._parser.ParserError as e:
-            self.log.warning(e.args, value)
-            return None
 
     def _get_date_media_interactive(self, choices, default):
         print(f"Date conflict for file: {self.file_path}")
