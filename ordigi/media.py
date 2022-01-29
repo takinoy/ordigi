@@ -107,10 +107,14 @@ class ReadExif(ExifMetadata):
         if exif_metadata:
             self.exif_metadata = exif_metadata
         else:
-            self.exif_metadata = self.get_exif_metadata()
-
+            self.exif_metadata = self.get_exif_metadata_caching()
 
     def get_exif_metadata(self):
+        """Get metadata from exiftool."""
+
+        return ExifToolCaching(self.file_path).asdict()
+
+    def get_exif_metadata_caching(self):
         """Get metadata from exiftool."""
 
         return ExifToolCaching(self.file_path).asdict()

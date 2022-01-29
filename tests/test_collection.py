@@ -9,7 +9,7 @@ import inquirer
 from ordigi import LOG
 from ordigi import constants
 from ordigi.collection import Collection, FPath, Paths
-from ordigi.exiftool import ExifToolCaching, exiftool_is_running, terminate_exiftool
+from ordigi.exiftool import ExifTool, ExifToolCaching, exiftool_is_running, terminate_exiftool
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media, ReadExif
 from ordigi import utils
@@ -267,4 +267,8 @@ class TestCollection:
         # check if db value is set
         date = collection.db.sqlite.get_metadata_data('test_exif/photo.rw2',
             'DateOriginal')
+        assert date == '2021-03-12 08:12:35'
+        # Check if exif value is set
+        file_path = path.joinpath('test_exif/photo.rw2')
+        date = ExifTool(file_path).asdict()['EXIF:DateTimeOriginal']
         assert date == '2021-03-12 08:12:35'
