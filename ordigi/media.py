@@ -96,6 +96,7 @@ class ReadExif(ExifMetadata):
             self,
             file_path,
             exif_metadata=None,
+            cache=True,
             ignore_tags=None,
     ):
 
@@ -103,11 +104,14 @@ class ReadExif(ExifMetadata):
 
         # Options
         self.log = LOG.getChild(self.__class__.__name__)
+        self.cache = cache
 
         if exif_metadata:
             self.exif_metadata = exif_metadata
-        else:
+        elif self.cache:
             self.exif_metadata = self.get_exif_metadata_caching()
+        else:
+            self.exif_metadata = self.get_exif_metadata()
 
     def get_exif_metadata(self):
         """Get metadata from exiftool."""
@@ -264,11 +268,13 @@ class Media(ReadExif):
         album_from_folder=False,
         ignore_tags=None,
         interactive=False,
+        cache=True,
         use_date_filename=False,
         use_file_dates=False,
     ):
         super().__init__(
             file_path,
+            cache=True,
             ignore_tags=ignore_tags,
         )
 
@@ -278,6 +284,7 @@ class Media(ReadExif):
         self.interactive = interactive
         self.log = LOG.getChild(self.__class__.__name__)
         self.metadata = None
+        self.cache = cache
         self.use_date_filename = use_date_filename
         self.use_file_dates = use_file_dates
 
@@ -651,6 +658,7 @@ class Medias:
             self.album_from_folder,
             self.ignore_tags,
             self.interactive,
+            self.exif_opt['cache'],
             self.exif_opt['use_date_filename'],
             self.exif_opt['use_file_dates'],
         )

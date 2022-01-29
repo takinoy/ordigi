@@ -1,12 +1,9 @@
 from datetime import datetime
-import os
-import pytest
 from pathlib import Path
 import re
-import shutil
-import tempfile
 
-from ordigi import constants
+import pytest
+
 from ordigi.media import Media
 from ordigi.exiftool import ExifTool, ExifToolCaching
 from ordigi.utils import get_date_from_string
@@ -19,13 +16,23 @@ class TestMedia:
     @pytest.fixture(autouse=True)
     def setup_class(cls, sample_files_paths):
         cls.src_path, cls.file_paths = sample_files_paths
-        cls.ignore_tags = ('EXIF:CreateDate', 'File:FileModifyDate',
-                'File:FileAccessDate', 'EXIF:Make', 'Composite:LightValue')
+        cls.ignore_tags = (
+            'EXIF:CreateDate',
+            'File:FileModifyDate',
+            'File:FileAccessDate',
+            'EXIF:Make',
+            'Composite:LightValue'
+        )
 
     def get_media(self):
         for file_path in self.file_paths:
-            self.exif_data = ExifTool(file_path).asdict()
-            yield file_path, Media(file_path, self.src_path, album_from_folder=True, ignore_tags=self.ignore_tags)
+            yield file_path, Media(
+                file_path,
+                self.src_path,
+                album_from_folder=True,
+                cache=False,
+                ignore_tags=self.ignore_tags,
+            )
 
     def test_get_metadata(self, tmp_path):
         for file_path, media in self.get_media():
@@ -33,7 +40,7 @@ class TestMedia:
             for root in self.src_path, tmp_path:
                 media.get_metadata(root)
                 assert isinstance(media.metadata, dict), media.metadata
-                #check if all tags key are present
+                # check if all tags key are present
                 for tags_key, tags in media.tags_keys.items():
                     assert tags_key in media.metadata
                     for tag in tags:
@@ -52,7 +59,7 @@ class TestMedia:
                         assert value is None
 
                     if key == 'album':
-                        for album in  media.get_key_values('album'):
+                        for album in media.get_key_values('album'):
                             if album is not None and album != '':
                                 assert value == album
                                 break
@@ -68,14 +75,15 @@ class TestMedia:
                             has_exif_data = True
                             assert media.has_exif_data()
                             break
-                if has_exif_data == False:
+                if not has_exif_data:
                     assert not media.has_exif_data()
 
     def test_get_date_media(self):
         for file_path in self.file_paths:
             exif_data = ExifToolCaching(str(file_path)).asdict()
-            media = Media(file_path, self.src_path, use_date_filename=True,
-                    use_file_dates=True)
+            media = Media(
+                file_path, self.src_path, use_date_filename=True, use_file_dates=True
+            )
             media.get_metadata(self.src_path)
             date_media = media.get_date_media()
 
