@@ -17,7 +17,7 @@ import inquirer
 from ordigi import LOG
 from ordigi.config import Config
 from ordigi.database import Sqlite
-from ordigi.media import Medias
+from ordigi.media import Medias, WriteExif
 from ordigi.images import Image, Images
 from ordigi import request
 from ordigi.summary import Summary
@@ -258,7 +258,7 @@ class CollectionDb:
     def __init__(self, root):
         self.sqlite = Sqlite(root)
 
-    def _format_row_data(self, table, metadata):
+    def _set_row_data(self, table, metadata):
         row_data = {}
         for title in self.sqlite.tables[table]['header']:
             key = utils.camel2snake(title)
@@ -268,10 +268,10 @@ class CollectionDb:
 
     def add_file_data(self, metadata):
         """Save metadata informations to db"""
-        loc_values = self._format_row_data('location', metadata)
+        loc_values = self._set_row_data('location', metadata)
         metadata['location_id'] = self.sqlite.add_row('location', loc_values)
 
-        row_data = self._format_row_data('metadata', metadata)
+        row_data = self._set_row_data('metadata', metadata)
         self.sqlite.add_row('metadata', row_data)
 
 
@@ -797,7 +797,7 @@ class Collection(SortMedias):
             metadata['file_path'] = os.path.relpath(file_path, self.root)
 
             self.db.add_file_data(metadata)
-            self.summary.append('update', file_path)
+            self.summary.append('update', True, file_path)
 
         return self.summary
 
@@ -1114,7 +1114,7 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def fill_metadata(self, path, key, loc=None, overwrite=False):
+    def edit_metadata(self, path, key, loc=None, overwrite=False):
         """Fill metadata and exif data for given key"""
         self._init_check_db()
 
@@ -1135,7 +1135,11 @@ class Collection(SortMedias):
         paths = self.paths.get_paths_list(path)
 
         for file_path in paths:
-            media = self.medias.get_media(file_path, self.root, loc)
+            media = self.medias.get_media(file_path, self.root)
+            media.get_metadata(
+                self.root, loc, self.db.sqlite, False
+            )
+            media.metadata['file_path'] = os.path.relpath(file_path, self.root)
             print()
             value = media.metadata[key]
             if overwrite or not value:
@@ -1152,20 +1156,27 @@ class Collection(SortMedias):
                 # Validate value
                 if key in ('date_original', 'date_created', 'date_modified'):
                     # Check date format
-                    value = str(media.get_date_format(answer['value']))
+                    value = media.get_date_format(answer['value'])
                 else:
                     if not answer[key].isalnum():
                         print("Invalid entry, use alphanumeric chars")
                         value = inquirer.prompt(prompt, theme=self.theme)
 
-                # print(f"{key}='{value}'")
-
-                media.metadata[key] = value
-                # Update database
-                self.db.add_file_data(media.metadata)
-                # Update exif data
-                media.set_key_values(key, value)
-
-                self.summary.append('update', False, file_path)
+                result = False
+                if value:
+                    media.metadata[key] = value
+                    # Update database
+                    self.db.add_file_data(media.metadata)
+                    # Update exif data
+                    exif = WriteExif(
+                        file_path,
+                        media.metadata,
+                        ignore_tags=self.opt['Exif']['ignore_tags'],
+                    )
+                    result = exif.set_key_values(key, value)
+                if result:
+                    self.summary.append('update', True, file_path)
+                else:
+                    self.summary.append('update', False, file_path)
 
         return self.summary

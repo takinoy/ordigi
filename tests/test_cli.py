@@ -70,7 +70,10 @@ class TestOrdigi:
         ]
 
         for command in commands:
-            self.assert_cli(command, ['not_exist'], state=1)
+            if command.name == 'edit':
+                self.assert_cli(command, ['-k', 'date_original', 'not_exist'], state=1)
+            else:
+                self.assert_cli(command, ['not_exist'], state=1)
 
         self.assert_cli(cli._clone, ['not_exist'], state=2)
 
@@ -201,6 +204,9 @@ class TestOrdigi:
         )
 
         paths = (str(self.src_path),)
+
+        # Workaround
+        self.assert_cli(cli._update, paths)
 
         self.assert_cli(cli._compare, paths)
         self.assert_options(cli._compare, bool_options, arg_options, paths)

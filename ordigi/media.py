@@ -184,7 +184,7 @@ class WriteExif(ExifMetadata):
         :returns: value (str)
         """
         # TODO overwrite mode check if fail
-        return ExifTool(self.file_path).setvalue(tag, value)
+        return ExifTool(self.file_path, overwrite=True).setvalue(tag, value)
 
     def set_key_values(self, key, value):
         """Set tags values for given key"""

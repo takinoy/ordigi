@@ -251,24 +251,20 @@ class TestCollection:
         # Summary is created and there is no errors
         assert not summary.errors
 
-    @pytest.mark.skip()
-    def test_fill_data(self, tmp_path, monkeypatch):
+    # @pytest.mark.skip()
+    def test_edit_metadata(self, tmp_path, monkeypatch):
         path = tmp_path / 'collection'
         shutil.copytree(self.src_path, path)
-        collection = Collection(path)
+        collection = Collection(path, {'cache': False})
         # loc = GeoLocation()
 
-#         def mockreturn(prompt, theme):
-#             return {'value': '03-12-2021 08:12:35'}
+        def mockreturn(prompt, theme):
+            return {'value': '03-12-2021 08:12:35'}
 
-#         monkeypatch.setattr(inquirer, 'prompt', mockreturn)
-#         collection.fill_data(path, 'date_original')
-#         # check if db value is set
-#         import ipdb; ipdb.set_trace()
-#         date = collection.db.get_metadata_data('test_exif/invalid.invalid',
-#                 'DateOriginal')
-#         assert date == '2021-03-12 08:12:35'
-        # Check if exif value is set
+        monkeypatch.setattr(inquirer, 'prompt', mockreturn)
 
-
-        collection.fill_data(path, 'date_original', edit=True)
+        collection.edit_metadata(path, 'date_original', overwrite=True)
+        # check if db value is set
+        date = collection.db.sqlite.get_metadata_data('test_exif/photo.rw2',
+            'DateOriginal')
+        assert date == '2021-03-12 08:12:35'
