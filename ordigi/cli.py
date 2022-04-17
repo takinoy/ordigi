@@ -15,7 +15,7 @@ _logger_options = [
         '--verbose',
         '-v',
         default='WARNING',
-        help='True if you want to see details of file processing',
+        help='Log level [WARNING,INFO,DEBUG,NOTSET]',
     ),
 ]
 
@@ -121,13 +121,13 @@ def add_options(options):
 def _get_paths(paths, root):
     root = Path(root).expanduser().absolute()
     if not paths:
-        paths = {root}
+        absolute_paths = {root}
     else:
-        paths = set()
+        absolute_paths = set()
         for path in paths:
-            paths.add(Path(path).expanduser().absolute())
+            absolute_paths.add(Path(path).expanduser().absolute())
 
-    return paths, root
+    return absolute_paths, root
 
 
 def _cli_get_location(collection):
