@@ -42,6 +42,21 @@ def empty_dir(dir_path):
     return not next(os.scandir(dir_path), None)
 
 
+def filename_filter(filename):
+    """
+    Take a string and return a valid filename constructed from the string.
+    """
+    blacklist = '/\\:*"<>|'
+    if filename is None:
+        return filename
+
+    # Remove blacklisted chars.
+    for char in blacklist:
+        filename = filename.replace(char, '')
+
+    return filename
+
+
 def get_date_regex(user_regex=None):
     """Return date regex generator"""
     if user_regex:
@@ -145,7 +160,6 @@ def camel2snake(name):
     return name[0].lower() + re.sub(
         r'(?!^)[A-Z]', lambda x: '_' + x.group(0).lower(), name[1:]
     )
-
 
 import os
 import platform

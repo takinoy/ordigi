@@ -43,9 +43,9 @@ class FPath:
             'camera_make': '{camera_make}',
             'camera_model': '{camera_model}',
             'city': '{city}',
-            'custom': '{".*"}',
+            'custom': r'{".*"}',
             'country': '{country}',
-            'date': '{(%[a-zA-Z][^a-zA-Z]*){1,8}}',  # search for date format string
+            'date': r'{(%[a-zA-Z][^a-zA-Z]*){1,8}}',  # search for date format string
             'ext': '{ext}',
             'folder': '{folder}',
             'folders': r'{folders(\[[0-9:]{0,3}\])?}',
@@ -144,15 +144,16 @@ class FPath:
             date = metadata['date_media']
             # early morning photos can be grouped with previous day
             if date is not None:
-                part = self.get_early_morning_photos_date(date, mask)
-        elif item == 'folder':
-            folder = os.path.basename(metadata['subdirs'])
-            if folder != metadata['src_dir']:
-                part = folder
-        elif item == 'folders':
+                part = str(self.get_early_morning_photos_date(date, mask))
+        elif item in ('folder', 'folders'):
             folders = Path(metadata['subdirs']).parts
-            folders = self._get_folders(folders, mask)
-            part = os.path.join(*folders)
+            if folders:
+                if item == 'folder':
+                    folder = folders[-1]
+                    part = folder
+                else:
+                    folders = self._get_folders(folders, mask)
+                    part = os.path.join(*folders)
 
         elif item in (
             'album',
@@ -169,14 +170,14 @@ class FPath:
                 mask = 'default'
 
             if metadata[mask]:
-                part = metadata[mask]
+                part = str(metadata[mask])
         elif item in 'custom':
             # Fallback string
             part = mask[1:-1]
 
         return part
 
-    def _set_case(self, regex, part, this_part):
+    def _substitute(self, regex, part, this_part):
         # Capitalization
         u_regex = '%u' + regex
         l_regex = '%l' + regex
@@ -193,7 +194,9 @@ class FPath:
         for item, regex in self.items.items():
             matched = re.search(regex, this_part)
             if matched:
+                self.log.debug(f'item: {item}, mask: {matched.group()[1:-1]}')
                 part = self.get_part(item, matched.group()[1:-1], metadata)
+                self.log.debug(f'part: {part}')
 
                 part = part.strip()
 
@@ -207,7 +210,7 @@ class FPath:
                         this_part = re.sub(
                             self.whitespace_regex, self.whitespace_sub, this_part
                         )
-                    this_part = self._set_case(regex, part, this_part)
+                    this_part = self._substitute(regex, part, this_part)
 
         # remove alternate parts inside bracket separated by |
         regex = r'[-_ .]?\(\|\)'
@@ -227,6 +230,9 @@ class FPath:
             regex = '[-_ .]'
             if re.match(regex, this_part[0]):
                 this_part = this_part[1:]
+
+            # Remove unwanted chars in filename
+            this_part = utils.filename_filter(this_part)
 
         return this_part
 
@@ -256,7 +262,7 @@ class FPath:
 
         # If last path is empty or start with dot
         if part == '' or re.match(r'^\..*', part):
-            path.append(metadata['filename'])
+            path.append(utils.filename_filter(metadata['filename']))
 
         return os.path.join(*path)
 
