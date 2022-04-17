@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import sys
 
+from ordigi import LOG
 from ordigi.utils import distance_between_two_points
 
 
@@ -22,6 +23,7 @@ class Sqlite:
                 pass
 
         self.db_type = 'SQLite format 3'
+        self.log = LOG.getChild(self.__class__.__name__)
         self.types = {'text': (str, datetime), 'integer': (int,), 'real': (float,)}
 
         self.filename = Path(db_dir, 'collection.db')
@@ -40,6 +42,7 @@ class Sqlite:
             'DateOriginal': 'text',
             'DateCreated': 'text',
             'DateModified': 'text',
+            'FileModifyDate': 'text',
             'CameraMake': 'text',
             'CameraModel': 'text',
             'OriginalName': 'text',
@@ -119,8 +122,13 @@ class Sqlite:
         return False
 
     def _run(self, query, n=0):
-        result = False
-        result = self.cur.execute(query).fetchone()
+        self.log.debug(f"Sqlite run '{query}'")
+
+        try:
+            result = self.cur.execute(query).fetchone()
+        except sqlite3.DatabaseError as e:
+            self.log.error(e)
+            result = False
 
         if result:
             return result[n]
@@ -217,12 +225,19 @@ class Sqlite:
 
         return self.add_row(table, row_data)
 
+
+    def escape_quote(self, string):
+        return string.translate(str.maketrans({"'":  r"''"}))
+
+
     def get_checksum(self, file_path):
-        query = f"select Checksum from metadata where FilePath='{file_path}'"
+        file_path_e = self.escape_quote(str(file_path))
+        query = f"select Checksum from metadata where FilePath='{file_path_e}'"
         return self._run(query)
 
     def get_metadata_data(self, file_path, data):
-        query = f"select {data} from metadata where FilePath='{file_path}'"
+        file_path_e = self.escape_quote(str(file_path))
+        query = f"select {data} from metadata where FilePath='{file_path_e}'"
         return self._run(query)
 
     def match_location(self, latitude, longitude):
