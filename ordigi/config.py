@@ -173,9 +173,10 @@ class Config:
 
             return value
 
-        if self.is_option('Path', 'name') and self.is_option('dirs_path', option):
-            # Path format is split in two parts
-            value = self.conf['Path']['dirs_path'] + '/' + self.conf['Path']['name']
+        if option == 'path_format':
+            if self.is_option('Path', 'name') and self.is_option('Path', 'dirs_path'):
+                # Path format is split in two parts
+                value = self.conf['Path']['dirs_path'] + '/' + self.conf['Path']['name']
 
         return value
 

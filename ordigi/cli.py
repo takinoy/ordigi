@@ -77,7 +77,7 @@ _sort_options = [
     click.option(
         '--path-format',
         '-p',
-        default=constants.DEFAULT_PATH_FORMAT,
+        default=None,
         help='Custom featured path format',
     ),
     click.option(
@@ -145,6 +145,7 @@ def _cli_sort(collection, src_paths, import_mode, remove_duplicates):
     loc = _cli_get_location(collection)
 
     path_format = collection.opt['Path']['path_format']
+    LOG.debug(f'path_format: {path_format}')
 
     return collection.sort_files(
         src_paths, path_format, loc, import_mode, remove_duplicates

@@ -209,6 +209,19 @@ class FPath:
                         )
                     this_part = self._set_case(regex, part, this_part)
 
+        # remove alternate parts inside bracket separated by |
+        regex = r'[-_ .]?\(\|\)'
+        if re.search(regex, this_part):
+            # Delete substitute part and separator if empty
+            this_part = re.sub(regex, '', this_part)
+        elif re.search(r'\(.*\)', this_part):
+            regex = r'\(\|'
+            this_part = re.sub(regex, '', this_part)
+            regex = r'\|.*\)'
+            this_part = re.sub(regex, '', this_part)
+            regex = r'\)'
+            this_part = re.sub(regex, '', this_part)
+
         # Delete separator char at the begining of the string if any:
         if this_part:
             regex = '[-_ .]'
@@ -229,22 +242,17 @@ class FPath:
         path = []
         path_parts = path_format.split('/')
         for path_part in path_parts:
-            this_parts = path_part.split('|')
-            for this_part in this_parts:
-                part = self.get_path_part(this_part, metadata)
+            part = self.get_path_part(path_part, metadata)
 
-                if part != '':
-                    # Check if all masks are substituted
-                    if True in [c in part for c in '{}']:
-                        self.log.error(
-                            f"Format path part invalid: {this_part}"
-                        )
-                        sys.exit(1)
+            if part != '':
+                # Check if all masks are substituted
+                if True in [c in part for c in '{}']:
+                    self.log.error(
+                        f"Format path part invalid: {this_part}"
+                    )
+                    sys.exit(1)
 
-                    path.append(part)
-                    # We break as soon as we have a value to append
-                    break
-                # Else we continue for fallbacks
+                path.append(part)
 
         # If last path is empty or start with dot
         if part == '' or re.match(r'^\..*', part):
@@ -714,8 +722,9 @@ class Collection(SortMedias):
 
         # Set client options
         for option, value in cli_options.items():
-            for section in self.opt:
-                self.opt[section][option] = value
+            if value not in (None, ()):
+                for section in self.opt:
+                    self.opt[section][option] = value
 
         self.exclude = self.opt['Filters']['exclude']
         if not self.exclude:
@@ -885,7 +894,7 @@ class Collection(SortMedias):
                         metadata['src_path'] = row['SrcPath']
                         # Check if row FilePath is a subpath of relpath
                         if relpath.startswith(row['FilePath']):
-                            path = os.path.relpath(rlpath, row['FilePath'])
+                            path = os.path.relpath(relpath, row['FilePath'])
                             metadata['subdirs'] = row['Subdirs'] + path
                         metadata['Filename'] = row['Filename']
                         break
@@ -994,6 +1003,7 @@ class Collection(SortMedias):
         subdirs = set()
         for src_path, metadata in self.medias.get_metadatas(src_dirs, imp=imp, loc=loc):
             # Get the destination path according to metadata
+            self.log.info(f'src_path: {src_path}')
             fpath = FPath(path_format, self.opt['Path']['day_begins'])
             metadata['file_path'] = fpath.get_path(metadata)
             subdirs.add(src_path.parent)
