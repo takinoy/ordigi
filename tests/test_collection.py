@@ -251,7 +251,6 @@ class TestCollection:
         # Summary is created and there is no errors
         assert not summary.errors
 
-    # @pytest.mark.skip()
     def test_edit_metadata(self, tmp_path, monkeypatch):
         path = tmp_path / 'collection'
         shutil.copytree(self.src_path, path)
@@ -263,7 +262,7 @@ class TestCollection:
 
         monkeypatch.setattr(inquirer, 'prompt', mockreturn)
 
-        collection.edit_metadata(path, 'date_original', overwrite=True)
+        collection.edit_metadata({path}, {'date_original'}, overwrite=True)
         # check if db value is set
         date = collection.db.sqlite.get_metadata_data('test_exif/photo.rw2',
             'DateOriginal')

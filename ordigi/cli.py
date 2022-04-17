@@ -346,6 +346,87 @@ def _compare(**kwargs):
         sys.exit(1)
 
 
+@cli.command('edit')
+@add_options(_logger_options)
+@add_options(_filter_options)
+@click.option(
+    '--key',
+    '-k',
+    default=None,
+    multiple=True,
+    # TODO Allow edit all values
+    required=True,
+    help="Select exif tags groups to edit",
+)
+@click.argument('subdirs', required=False, nargs=-1, type=click.Path())
+@click.argument('path', required=True, nargs=1, type=click.Path())
+def _edit(**kwargs):
+    """Edit EXIF metadata in files or directories"""
+
+    log_level = log.get_level(kwargs['verbose'])
+    log.console(LOG, level=log_level)
+
+    paths, root = _get_paths(kwargs['subdirs'], kwargs['path'])
+
+    collection = Collection(
+        root,
+        {
+            'cache': True,
+            'ignore_tags': kwargs['ignore_tags'],
+            'exclude': kwargs['exclude'],
+            'extensions': kwargs['ext'],
+            'glob': kwargs['glob'],
+        }
+    )
+
+    location = False
+    keys = set()
+    for key in kwargs['key']:
+        if key not in (
+            'album',
+            'camera_make',
+            'camera_model',
+            'coordinates',
+            'date_original',
+            'date_created',
+            'date_modified',
+            'latitude',
+            'longitude',
+            'latitude_ref',
+            'longitude_ref',
+            'original_name',
+            'title',
+        ):
+            LOG.error(f"key '{key}' is not valid")
+            sys.exit(1)
+
+        if key in (
+            'latitude',
+            'longitude',
+            'latitude_ref',
+            'longitude_ref',
+        ):
+            location = True
+
+        if key == 'coordinates':
+            keys.update(['latitude', 'longitude'])
+        else:
+            keys.add(key)
+
+    if location:
+        loc = _cli_get_location(collection)
+    else:
+        loc = None
+
+    summary = collection.edit_metadata(paths, keys, loc, overwrite=True)
+
+    if log_level < 30:
+        summary.print()
+
+    if summary.errors:
+        sys.exit(1)
+
+
 @cli.command('init')
 @add_options(_logger_options)
 @click.argument('path', required=True, nargs=1, type=click.Path())
@@ -365,6 +446,9 @@ def _init(**kwargs):
 
     if log_level < 30:
         summary.print()
+
+    if summary.errors:
+        sys.exit(1)
 
 
 @cli.command('import')

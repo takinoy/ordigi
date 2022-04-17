@@ -665,16 +665,20 @@ class Medias:
 
         return media
 
-    def get_metadata(self, file_path, src_dir, loc=None):
+    def get_media_data(self, file_path, src_dir, loc=None):
         media = self.get_media(file_path, src_dir)
         media.get_metadata(
             self.root, loc, self.db.sqlite, self.exif_opt['cache']
         )
 
-        return media.metadata
+        return media
 
-    def get_metadatas(self, src_dirs, imp=False, loc=None):
-        """Get medias data"""
+    def get_metadata(self, src_path, src_dir, loc=None):
+        """Get metadata"""
+        return self.get_media_data(src_path, src_dir, loc).metadata
+
+    def get_paths(self, src_dirs, imp=False):
+        """Get paths"""
         for src_dir in src_dirs:
             src_dir = self.paths.check(src_dir)
             paths = self.paths.get_paths_list(src_dir)
@@ -687,10 +691,23 @@ class Medias:
                                 collection, use `ordigi import`""")
                         sys.exit(1)
 
-                # Get file metadata
-                metadata = self.get_metadata(src_path, src_dir, loc)
+                yield src_dir, src_path
 
-                yield src_path, metadata
+    def get_medias_datas(self, src_dirs, imp=False, loc=None):
+        """Get medias datas"""
+        for src_dir, src_path in self.get_paths(src_dirs, imp=imp):
+            # Get file metadata
+            media = self.get_media_data(src_path, src_dir, loc)
+
+            yield src_path, media
+
+    def get_metadatas(self, src_dirs, imp=False, loc=None):
+        """Get medias data"""
+        for src_dir, src_path in self.get_paths(src_dirs, imp=imp):
+            # Get file metadata
+            metadata = self.get_metadata(src_path, src_dir, loc)
+
+            yield src_path, metadata
 
     def update_exif_data(self, metadata):
 

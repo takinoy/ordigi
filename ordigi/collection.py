@@ -543,6 +543,7 @@ class SortMedias:
 
     def sort_file(self, src_path, dest_path, metadata, imp=False):
         """Sort file and register it to db"""
+
         if imp == 'copy':
             self.fileio.copy(src_path, dest_path)
         else:
@@ -1130,69 +1131,50 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def edit_metadata(self, path, key, loc=None, overwrite=False):
-        """Fill metadata and exif data for given key"""
+    def edit_metadata(self, paths, keys, loc=None, overwrite=False):
+        """Edit metadata and exif data for given key"""
         self._init_check_db()
 
-        if key in (
-                'latitude',
-                'longitude',
-                'latitude_ref',
-                'longitude_ref',
-                ):
-            print(f"Set {key} alone is not allowed")
-            return None
-
-        if overwrite:
-            print(f"Edit {key} values:")
-        else:
-            print(f"Fill empty {key} values:")
-
-        paths = self.paths.get_paths_list(path)
-
-        for file_path in paths:
-            media = self.medias.get_media(file_path, self.root)
-            media.get_metadata(
-                self.root, loc, self.db.sqlite, False
-            )
+        for file_path, media in self.medias.get_medias_datas(paths, loc=loc):
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
-            print()
-            value = media.metadata[key]
-            if overwrite or not value:
-                print(f"FILE: '{file_path}'")
-            if overwrite:
-                print(f"{key}: '{value}'")
-            if overwrite or not value:
-                # Prompt value for given key for file_path
-                # utils.open_file()
-                prompt = [
-                    inquirer.Text('value', message=key),
-                ]
-                answer = inquirer.prompt(prompt, theme=self.theme)
-                # Validate value
-                if key in ('date_original', 'date_created', 'date_modified'):
-                    # Check date format
-                    value = media.get_date_format(answer['value'])
-                else:
-                    if not answer[key].isalnum():
-                        print("Invalid entry, use alphanumeric chars")
-                        value = inquirer.prompt(prompt, theme=self.theme)
+            for key in keys:
+                print()
+                value = media.metadata[key]
+                if overwrite or not value:
+                    print(f"FILE: '{file_path}'")
+                if overwrite:
+                    print(f"{key}: '{value}'")
+                if overwrite or not value:
+                    # Prompt value for given key for file_path
+                    prompt = [
+                        inquirer.Text('value', message=key),
+                    ]
+                    answer = inquirer.prompt(prompt, theme=self.theme)
+                    # answer = {'value': '03-12-2021 08:12:35'}
+                    # Validate value
+                    if key in ('date_original', 'date_created', 'date_modified'):
+                        # Check date format
+                        value = media.get_date_format(answer['value'])
+                    else:
+                        if not answer[key].isalnum():
+                            print("Invalid entry, use alphanumeric chars")
+                            value = inquirer.prompt(prompt, theme=self.theme)
 
-                result = False
-                if value:
-                    media.metadata[key] = value
-                    # Update database
-                    self.db.add_file_data(media.metadata)
-                    # Update exif data
-                    exif = WriteExif(
-                        file_path,
-                        media.metadata,
-                        ignore_tags=self.opt['Exif']['ignore_tags'],
-                    )
-                    result = exif.set_key_values(key, value)
-                if result:
-                    self.summary.append('update', True, file_path)
-                else:
-                    self.summary.append('update', False, file_path)
+                    result = False
+                    if value:
+                        media.metadata[key] = value
+                        # Update database
+                        self.db.add_file_data(media.metadata)
+                        # Update exif data
+                        exif = WriteExif(
+                            file_path,
+                            media.metadata,
+                            ignore_tags=self.opt['Exif']['ignore_tags'],
+                        )
+                        result = exif.set_key_values(key, value)
+                    if result:
+                        self.summary.append('update', True, file_path)
+                    else:
+                        self.summary.append('update', False, file_path)
 
         return self.summary

@@ -2,6 +2,7 @@ import shutil
 from click.testing import CliRunner
 from pathlib import Path
 import pytest
+import inquirer
 
 from ordigi import cli
 
@@ -62,6 +63,7 @@ class TestOrdigi:
             cli._check,
             cli._clean,
             cli._compare,
+            cli._edit,
             cli._import,
             cli._init,
             cli._sort,
@@ -75,6 +77,32 @@ class TestOrdigi:
                 self.assert_cli(command, ['not_exist'], state=1)
 
         self.assert_cli(cli._clone, ['not_exist'], state=2)
+
+    def test_edit(self, monkeypatch):
+
+        bool_options = ()
+
+        arg_options = (
+            *self.logger_options,
+            *self.filter_options,
+        )
+
+        def mockreturn(prompt, theme):
+            return {'value': '03-12-2021 08:12:35'}
+
+        monkeypatch.setattr(inquirer, 'prompt', mockreturn)
+
+        args = (
+            '--key',
+            'date_original',
+            str(self.src_path.joinpath('test_exif/photo.png')),
+            str(self.src_path),
+        )
+
+        self.assert_cli(cli._edit, args)
+
+        # self.assert_options(cli._edit, bool_options, arg_options, args)
+        # self.assert_all_options(cli._edit, bool_options, arg_options, args)
 
     def test_sort(self):
         bool_options = (
