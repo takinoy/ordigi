@@ -31,10 +31,10 @@ _dry_run_options = [
         default=False,
         is_flag=True,
         help='Dry run only, no change made to the filesystem.',
-    )
+    ),
 ]
 
-_filter_options = [
+_exclude_options = [
     click.option(
         '--exclude',
         '-E',
@@ -42,6 +42,9 @@ _filter_options = [
         multiple=True,
         help='Directories or files to exclude.',
     ),
+]
+
+_filter_options = [
     click.option(
         '--ext',
         '-e',
@@ -222,7 +225,6 @@ def _clean(**kwargs):
         root,
         {
             "dry_run": kwargs['dry_run'],
-            "exclude": kwargs['exclude'],
             "extensions": kwargs['ext'],
             "glob": kwargs['glob'],
         },
@@ -325,7 +327,6 @@ def _compare(**kwargs):
     collection = Collection(
         root,
         {
-            "exclude": kwargs['exclude'],
             "extensions": kwargs['ext'],
             "glob": kwargs['glob'],
             "dry_run": kwargs['dry_run'],
@@ -369,6 +370,7 @@ def _init(**kwargs):
 @add_options(_logger_options)
 @add_options(_input_options)
 @add_options(_dry_run_options)
+@add_options(_exclude_options)
 @add_options(_filter_options)
 @add_options(_sort_options)
 @click.option(
@@ -456,7 +458,6 @@ def _sort(**kwargs):
             'ignore_tags': kwargs['ignore_tags'],
             'use_date_filename': kwargs['use_date_filename'],
             'use_file_dates': kwargs['use_file_dates'],
-            'exclude': kwargs['exclude'],
             'extensions': kwargs['ext'],
             'glob': kwargs['glob'],
             'dry_run': kwargs['dry_run'],

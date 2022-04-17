@@ -27,7 +27,6 @@ class TestOrdigi:
         cls.src_path, cls.file_paths = sample_files_paths
         cls.logger_options = (('--verbose', 'DEBUG'),)
         cls.filter_options = (
-            ('--exclude', '.DS_Store'),
             ('--ignore-tags', 'CreateDate'),
             ('--ext', 'jpg'),
             ('--glob', '*'),
@@ -175,6 +174,7 @@ class TestOrdigi:
 
         arg_options = (
             *self.logger_options,
+            ('--exclude', '.DS_Store'),
             *self.filter_options,
             ('--path-format', '{%Y}/{folder}/{stem}.{ext}'),
 

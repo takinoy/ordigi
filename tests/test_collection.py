@@ -143,10 +143,10 @@ class TestCollection:
         summary = collection.sort_files([self.src_path],
                 self.path_format, loc, imp='copy')
 
-        self.assert_import(summary, 30)
+        self.assert_import(summary, 29)
 
         summary = collection.check_files()
-        assert summary.success_table.sum('import') == 30
+        assert summary.success_table.sum('import') == 29
         assert summary.success_table.sum('update') == 0
         assert not summary.errors
 
@@ -174,8 +174,8 @@ class TestCollection:
         collection.summary = Summary(tmp_path)
         assert collection.summary.success_table.sum() == 0
         summary = collection.update(loc)
-        assert summary.success_table.sum('update') == 30
-        assert summary.success_table.sum() == 30
+        assert summary.success_table.sum('update') == 29
+        assert summary.success_table.sum() == 29
         assert not summary.errors
         collection.summary = Summary(tmp_path)
         summary = collection.update(loc)
