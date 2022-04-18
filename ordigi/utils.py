@@ -1,7 +1,10 @@
 from math import radians, cos, sqrt
 from datetime import datetime
 import hashlib
+import os
+import platform
 import re
+import subprocess
 
 
 def checksum(file_path, blocksize=65536):
@@ -83,14 +86,17 @@ def get_date_regex(user_regex=None):
     return regex
 
 
-def get_date_from_string(string, user_regex=None):
+DATE_REGEX = get_date_regex()
+
+
+def get_date_from_string(string):
     """Retrieve date stamp from string"""
     # If missing datetime from EXIF data check if filename is in datetime format.
     # For this use a user provided regex if possible.
     # Otherwise assume a filename such as IMG_20160915_123456.jpg as default.
 
     matches = []
-    for i, regex in get_date_regex(user_regex).items():
+    for i, regex in DATE_REGEX.items():
         match = re.findall(regex, string)
         if match != []:
             if i == 'c':
@@ -116,6 +122,13 @@ def get_date_from_string(string, user_regex=None):
             return None
 
         return date
+
+
+def match_date_regex(regex, value):
+    if re.match(regex, value) is not None:
+        return re.sub(regex, r'\g<1>-\g<2>-\g<3>-', value)
+
+    return value
 
 
 def split_part(dedup_regex, path_part, items=None):
@@ -161,9 +174,6 @@ def camel2snake(name):
         r'(?!^)[A-Z]', lambda x: '_' + x.group(0).lower(), name[1:]
     )
 
-import os
-import platform
-import subprocess
 
 def open_file(path):
     if platform.system() == "Windows":

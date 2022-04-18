@@ -103,6 +103,8 @@ class TestMedia:
                 assert date_media == media.metadata['date_created']
             elif media.metadata['date_modified']:
                 assert date_media == media.metadata['date_modified']
+            elif media.metadata['file_modify_date']:
+                assert date_media == media.metadata['file_modify_date']
 
         # Will be changed to get_metadata
         # check if metatadata type are correct

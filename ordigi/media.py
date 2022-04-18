@@ -37,7 +37,13 @@ class ExifMetadata:
             'QuickTime:CreationDate-und-US',
             'QuickTime:MediaCreateDate',
         ]
-        tags_keys['date_modified'] = ['File:FileModifyDate', 'QuickTime:ModifyDate']
+        tags_keys['date_modified'] = [
+            'EXIF:ModifyDate',
+            'QuickTime:ModifyDate',
+        ]
+        tags_keys['file_modify_date'] = [
+            'File:FileModifyDate',
+        ]
         tags_keys['camera_make'] = ['EXIF:Make', 'QuickTime:Make']
         tags_keys['camera_model'] = ['EXIF:Model', 'QuickTime:Model']
         tags_keys['album'] = ['XMP-xmpDM:Album', 'XMP:Album']
@@ -80,9 +86,13 @@ class ExifMetadata:
 
         try:
             # correct nasty formated date
-            regex = re.compile(r'(\d{4}):(\d{2}):(\d{2})')
-            if re.match(regex, value) is not None:  # noqa
-                value = re.sub(regex, r'\g<1>-\g<2>-\g<3>', value)
+            regex = re.compile(r'(\d{4}):(\d{2}):(\d{2})[-_ .]')
+            if re.match(regex, value):
+                value = re.sub(regex, r'\g<1>-\g<2>-\g<3> ', value)
+            else:
+                regex = re.compile(r'(\d{4})(\d{2})(\d{2})[-_ .]?(\d{2})?(\d{2})?(\d{2})?')
+                if re.match(regex, value):
+                    value = re.sub(regex, r'\g<1>-\g<2>-\g<3> \g<4>:\g<5>:\g<6>', value)
             return parser.parse(value)
         except BaseException or parser._parser.ParserError as e:
             self.log.warning(e.args, value)
@@ -338,13 +348,15 @@ class Media(ReadExif):
         stem = os.path.splitext(filename)[0]
         date_original = self.metadata['date_original']
         if self.metadata['original_name']:
-            date_filename = self.get_date_format(self.metadata['original_name'])
+            date_filename = utils.get_date_from_string(self.metadata['original_name'])
         else:
-            date_filename = self.get_date_format(stem)
+            date_filename = utils.get_date_from_string(stem)
+            self.log.debug(f'date_filename: {date_filename}')
 
         date_original = self.metadata['date_original']
         date_created = self.metadata['date_created']
         date_modified = self.metadata['date_modified']
+        file_modify_date = self.metadata['file_modify_date']
         if self.metadata['date_original']:
             if date_filename and date_filename != date_original:
                 self.log.warning(
@@ -372,6 +384,8 @@ class Media(ReadExif):
                 self.log.warning(
                     f"{filename} time mark is more recent than {date_created}"
                 )
+                return date_created
+
                 if self.interactive:
                     choices = [
                         (f"date filename:'{date_filename}'", date_filename),
@@ -383,18 +397,24 @@ class Media(ReadExif):
 
             return date_filename
 
-        if self.use_file_dates:
-            if date_created:
-                self.log.warning(
-                    f"use date created:{date_created} for {self.file_path}"
-                )
-                return date_created
+        if date_created:
+            self.log.warning(
+                f"use date created:{date_created} for {self.file_path}"
+            )
+            return date_created
 
-            if date_modified:
+        if date_modified:
+            self.log.warning(
+                f"use date modified:{date_modified} for {self.file_path}"
+            )
+            return date_modified
+
+        if self.use_file_dates:
+            if file_modify_date:
                 self.log.warning(
-                    f"use date modified:{date_modified} for {self.file_path}"
+                    f"use date modified:{file_modify_date} for {self.file_path}"
                 )
-                return date_modified
+                return file_modify_date
 
         elif self.interactive:
             choices = []
@@ -404,6 +424,10 @@ class Media(ReadExif):
                 choices.append((f"date created:'{date_created}'", date_created))
             if date_modified:
                 choices.append((f"date modified:'{date_modified}'", date_modified))
+            if file_modify_date:
+                choices.append(
+                    (f"date modified:'{file_modify_date}'", file_modify_date)
+                )
             choices.append(("custom", None))
             default = date_filename
             return self._get_date_media_interactive(choices, default)
