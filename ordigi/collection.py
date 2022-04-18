@@ -686,7 +686,7 @@ class SortMedias:
                 conflicts.append((src_path, dest_path, metadata))
             elif conflict == 3:
                 # Same file checksum
-                if imp == 'move':
+                if imp in (False, 'move'):
                     self.fileio.remove(src_path)
             elif conflict == 2:
                 # File already sorted
@@ -707,7 +707,7 @@ class SortMedias:
                     self._set_summary(False, src_path, dest_path, imp)
                 elif conflict == 3:
                     # Same file checksum
-                    if imp == 'move':
+                    if imp in (False, 'move'):
                         self.fileio.remove(src_path)
                 elif conflict == 2:
                     # File already sorted
