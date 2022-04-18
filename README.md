@@ -93,8 +93,8 @@ pattern.
 
 Default folder structure:
 ```
-dirs_path={%Y}/{%m-%b}-{city}-{folder}
-name={%Y%m%d-%H%M%S}-%u{original_name}.%l{ext}|{%Y%m%d-%H%M%S}-%u{basename}.%l{ext}
+dirs_path=<%Y>/<%m-%b>-<city>-<folder>
+name=<%Y%m%d-%H%M%S>-<%u<original_name>|%u<basename>>.%l<ext>
 ```
 
 Example folder structure:
@@ -115,7 +115,7 @@ Example folder structure:
     │   └── 20150927_014138-_dsc8705.nef
 ```
 
-The folder structure use standard unix path separator (`/`). Fallback folder part can be optionally specified using a pipe (`|`) separator.
+The folder structure use standard unix path separator (`/`). Fallback folder part can be optionally specified using a pipe separator and brackets (`<.*|.*>`).
 
 Valid keywords are:
 

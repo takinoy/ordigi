@@ -38,22 +38,22 @@ class FPath:
     def get_items(self):
         """Return features items of Fpath class"""
         return {
-            'album': '{album}',
-            'stem': '{stem}',
-            'camera_make': '{camera_make}',
-            'camera_model': '{camera_model}',
-            'city': '{city}',
-            'custom': r'{".*"}',
-            'country': '{country}',
-            'date': r'{(%[a-zA-Z][^a-zA-Z]*){1,8}}',  # search for date format string
-            'ext': '{ext}',
-            'folder': '{folder}',
-            'folders': r'{folders(\[[0-9:]{0,3}\])?}',
-            'location': '{location}',
-            'name': '{name}',
-            'original_name': '{original_name}',
-            'state': '{state}',
-            'title': '{title}',
+            'album': '<album>',
+            'stem': '<stem>',
+            'camera_make': '<camera_make>',
+            'camera_model': '<camera_model>',
+            'city': '<city>',
+            'custom': r'<".*">',
+            'country': '<country>',
+            'date': r'<(%[a-zA-Z][^a-zA-Z]*){1,8}>',  # search for date format string
+            'ext': '<ext>',
+            'folder': '<folder>',
+            'folders': r'<folders(\[[0-9:]{0,3}\])?>',
+            'location': '<location>',
+            'name': '<name>',
+            'original_name': '<original_name>',
+            'state': '<state>',
+            'title': '<title>',
         }
 
     def get_early_morning_photos_date(self, date, mask):
@@ -140,6 +140,9 @@ class FPath:
             part = stem
             for regex in utils.get_date_regex().values():
                 part = re.sub(regex, '', part)
+                # Delete separator
+                if re.search('^[-_ .]', part):
+                    part = part[1:]
         elif item == 'date':
             date = metadata['date_media']
             # early morning photos can be grouped with previous day
@@ -194,7 +197,7 @@ class FPath:
         for item, regex in self.items.items():
             matched = re.search(regex, this_part)
             if matched:
-                self.log.debug(f'item: {item}, mask: {matched.group()[1:-1]}')
+                self.log.debug(f'item: {item}, mask: <matched.group()[1:-1]>')
                 part = self.get_part(item, matched.group()[1:-1], metadata)
                 self.log.debug(f'part: {part}')
 
@@ -213,16 +216,16 @@ class FPath:
                     this_part = self._substitute(regex, part, this_part)
 
         # remove alternate parts inside bracket separated by |
-        regex = r'[-_ .]?\(\|\)'
+        regex = r'[-_ .]?\<\|\>'
         if re.search(regex, this_part):
             # Delete substitute part and separator if empty
             this_part = re.sub(regex, '', this_part)
-        elif re.search(r'\(.*\)', this_part):
-            regex = r'\(\|'
+        elif re.search(r'\<.*\>', this_part):
+            regex = r'\<\|'
             this_part = re.sub(regex, '', this_part)
-            regex = r'\|.*\)'
+            regex = r'\|.*\>'
             this_part = re.sub(regex, '', this_part)
-            regex = r'\)'
+            regex = r'\>'
             this_part = re.sub(regex, '', this_part)
 
         # Delete separator char at the begining of the string if any:
@@ -238,7 +241,7 @@ class FPath:
 
     def get_path(self, metadata: dict) -> list:
         """
-        path_format: {%Y-%d-%m}/%u{city}/{album}
+        path_format: <%Y-%d-%m>/%u<city>/<album>
         Returns file path.
         """
         path_format = self.path_format
@@ -252,9 +255,9 @@ class FPath:
 
             if part != '':
                 # Check if all masks are substituted
-                if True in [c in part for c in '{}']:
+                if True in [c in part for c in '<>']:
                     self.log.error(
-                        f"Format path part invalid: {this_part}"
+                        f"Format path part invalid: {part}"
                     )
                     sys.exit(1)
 

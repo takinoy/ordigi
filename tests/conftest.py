@@ -60,8 +60,8 @@ def conf_path():
     conf = RawConfigParser() 
     conf['Path'] = {
             'day_begins': '4',
-            'dirs_path':'%u{%Y-%m}/{city}|{city}-{%Y}/{folders[:1]}/{folder}',
-            'name':'{%Y-%m-%b-%H-%M-%S}-{basename}.%l{ext}'
+            'dirs_path':'%u<%Y-%m>/<city>|<city>-<%Y>/<folders[:1]>/<folder>',
+            'name':'<%Y-%m-%b-%H-%M-%S>-<basename>.%l<ext>'
             }
     conf['Geolocation'] = {
             'geocoder': 'Nominatium'

@@ -32,8 +32,8 @@ class TestConfig:
         Read files from config and return variables
         """
         # test valid config file
-        assert conf['Path']['dirs_path'] == '%u{%Y-%m}/{city}|{city}-{%Y}/{folders[:1]}/{folder}'
-        assert conf['Path']['name'] == '{%Y-%m-%b-%H-%M-%S}-{basename}.%l{ext}'
+        assert conf['Path']['dirs_path'] == '%u<%Y-%m>/<city>|<city>-<%Y>/<folders[:1]>/<folder>'
+        assert conf['Path']['name'] == '<%Y-%m-%b-%H-%M-%S>-<basename>.%l<ext>'
         assert conf['Path']['day_begins'] == '4'
         assert conf['Geolocation']['geocoder'] == 'Nominatium'
 
@@ -56,7 +56,7 @@ class TestConfig:
     #     """
     #     config = Config(conf=conf)
     #     path = config.get_path_definition()
-    #     assert path == '%u{%Y-%m}/{city}|{city}-{%Y}/{folders[:1]}/{folder}/{%Y-%m-%b-%H-%M-%S}-{basename}.%l{ext}'
+    #     assert path == '%u<%Y-%m>/<city>|<city>-<%Y>/<folders[:1]>/<folder>/<%Y-%m-%b-%H-%M-%S>-<basename>.%l<ext>'
 
     def test_get_config_options(self, conf):
         config = Config(conf=conf)

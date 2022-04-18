@@ -33,24 +33,24 @@ class TestFPath:
         # Item to search for:
         items = fpath.get_items()
         masks = [
-                '{album}',
-                '{basename}',
-                '{camera_make}',
-                '{camera_model}',
-                '{city}',
-                '{"custom"}',
-                '{country}',
-                '{ext}',
-                '{folder}',
-                '{folders[1:3]}',
-                '{location}',
-                '{name}',
-                '{original_name}',
-                '{state}',
-                '{title}',
-                '{%Y-%m-%d}',
-                '{%Y-%m-%d_%H-%M-%S}',
-                '{%Y-%m-%b}'
+                '<album>',
+                '<basename>',
+                '<camera_make>',
+                '<camera_model>',
+                '<city>',
+                '<"custom">',
+                '<country>',
+                '<ext>',
+                '<folder>',
+                '<folders[1:3]>',
+                '<location>',
+                '<name>',
+                '<original_name>',
+                '<state>',
+                '<title>',
+                '<%Y-%m-%d>',
+                '<%Y-%m-%d_%H-%M-%S>',
+                '<%Y-%m-%b>'
                 ]
 
         for file_path in self.file_paths:
@@ -165,7 +165,7 @@ class TestCollection:
 
         collection = Collection(tmp_path, cli_options=cli_options)
         # Try to change path format and sort files again
-        path_format = 'test_exif/{city}/{%Y}-{name}.%l{ext}'
+        path_format = 'test_exif/<city>/<%Y>-<name>.%l<ext>'
         summary = collection.sort_files([tmp_path], path_format, loc)
 
         self.assert_sort(summary, 27)

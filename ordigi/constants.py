@@ -23,8 +23,8 @@ def get_config_dir(name):
 
 APPLICATION_DIRECTORY = get_config_dir('ordigi')
 
-DEFAULT_PATH = '{%Y-%m-%b}/{album}|{city}'
-DEFAULT_NAME = '{%Y-%m-%d_%H-%M-%S}-{name}-{title}.%l{ext}'
+DEFAULT_PATH = '<%Y-%m-%b>/<album>|<city>'
+DEFAULT_NAME = '<%Y-%m-%d_%H-%M-%S>-<name>-<title>.%l<ext>'
 DEFAULT_PATH_FORMAT = DEFAULT_PATH + '/' + DEFAULT_NAME
 DEFAULT_GEOCODER = 'Nominatim'
 
