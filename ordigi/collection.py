@@ -732,9 +732,16 @@ class Collection(SortMedias):
 
         # Set client options
         for option, value in cli_options.items():
-            if value not in (None, ()):
+            if value not in (None, set()):
                 for section in self.opt:
-                    self.opt[section][option] = value
+                    if option in self.opt[section]:
+                        if option == 'exclude':
+                            self.opt[section][option].union(set(value))
+                        elif option in ('ignore_tags', 'extensions'):
+                            self.opt[section][option] = set(value)
+                        else:
+                            self.opt[section][option] = value
+                        break
 
         self.exclude = self.opt['Filters']['exclude']
         if not self.exclude:

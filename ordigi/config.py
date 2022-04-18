@@ -66,7 +66,7 @@ class Config:
                 'use_file_dates': False,
             },
             'Filters': {
-                'exclude': None,
+                'exclude': set(),
                 'extensions': None,
                 'glob': '**/*',
                 'max_deep': None,

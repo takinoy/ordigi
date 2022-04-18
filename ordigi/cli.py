@@ -348,6 +348,7 @@ def _compare(**kwargs):
 
 @cli.command('edit')
 @add_options(_logger_options)
+@add_options(_exclude_options)
 @add_options(_filter_options)
 @click.option(
     '--key',
