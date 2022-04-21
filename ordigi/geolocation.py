@@ -78,6 +78,7 @@ class GeoLocation:
     def lookup_osm( self, lat, lon, timeout=options.default_timeout):
         """Get Geolocation address data from latitude and longitude"""
 
+        locator_reverse = None
         try:
             locator = Nominatim(user_agent='myGeocoder', timeout=timeout)
             coords = (lat, lon)
@@ -85,17 +86,17 @@ class GeoLocation:
                 lang = 'en'
             else:
                 lang = 'local'
-            locator_reverse = locator.reverse(coords, language=lang)
-            if locator_reverse is not None:
-                return locator_reverse.raw
-
-            return None
-
-        except geopy.exc.GeocoderUnavailable or geopy.exc.GeocoderServiceError as e:
-            self.log.error(e)
-            return None
+            try:
+                locator_reverse = locator.reverse(coords, language=lang)
+            except geopy.exc.GeocoderUnavailable or geopy.exc.GeocoderTimedOut as e:
+                self.log.error(e)
 
         # Fix *** TypeError: `address` must not be None
         except (TypeError, ValueError) as e:
             self.log.error(e)
-            return None
+        else:
+            if locator_reverse is not None:
+                return locator_reverse.raw
+
+
+        return None

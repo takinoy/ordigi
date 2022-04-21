@@ -133,11 +133,9 @@ def _get_paths(paths, root):
 def _cli_get_location(collection):
     gopt = collection.opt['Geolocation']
     return GeoLocation(
-        {
-            'geocoder': gopt['geocoder'],
-            'prefer_english_names': gopt['prefer_english_names'],
-            'timeout': gopt['timeout'],
-        }
+        gopt['geocoder'],
+        gopt['prefer_english_names'],
+        gopt['timeout'],
     )
 
 

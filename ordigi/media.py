@@ -291,14 +291,25 @@ class Media(ReadExif):
         self.src_dir = src_dir
 
         self.album_from_folder = album_from_folder
+        self.cache = cache
         self.interactive = interactive
         self.log = LOG.getChild(self.__class__.__name__)
         self.metadata = None
-        self.cache = cache
         self.use_date_filename = use_date_filename
         self.use_file_dates = use_file_dates
 
         self.theme = request.load_theme()
+
+        self.loc_keys = (
+            'latitude',
+            'longitude',
+            'latitude_ref',
+            'longitude_ref',
+            'city',
+            'state',
+            'country',
+            'default',
+        )
 
     def get_mimetype(self):
         """
@@ -537,35 +548,30 @@ class Media(ReadExif):
 
         return None, None
 
-    def _set_location_metadata(self, location_id, db, loc=None):
+    def _set_location_from_db(self, location_id, db):
 
         self.metadata['location_id'] = location_id
 
-        loc_keys = (
-            'latitude',
-            'longitude',
-            'latitude_ref',
-            'longitude_ref',
-            'city',
-            'state',
-            'country',
-            'default',
-        )
-
         if location_id:
-            for key in loc_keys:
+            for key in self.loc_keys:
                 # use str to convert non string format data like latitude and
                 # longitude
                 self.metadata[key] = str(
                     db.get_location_data(location_id, utils.snake2camel(key))
                 )
-        elif loc:
-            for key in 'latitude', 'longitude', 'latitude_ref', 'longitude_ref':
+        else:
+            for key in self.loc_keys:
                 self.metadata[key] = None
 
+    def _set_location_from_coordinates(self, loc):
+
+        self.metadata['location_id'] = None
+
+        if loc:
             place_name = loc.place_name(
                 self.metadata['latitude'], self.metadata['longitude']
             )
+            self.log.debug("location: {place_name['default']}")
             for key in ('city', 'state', 'country', 'default'):
                 # mask = 'city'
                 # place_name = {'default': u'Sunnyvale', 'city-random': u'Sunnyvale'}
@@ -573,9 +579,8 @@ class Media(ReadExif):
                     self.metadata[key] = place_name[key]
                 else:
                     self.metadata[key] = None
-
         else:
-            for key in loc_keys:
+            for key in self.loc_keys:
                 self.metadata[key] = None
 
     def _set_album_from_folder(self):
@@ -608,7 +613,9 @@ class Media(ReadExif):
             relpath, db_checksum = self._check_file(db, root)
         if db_checksum:
             location_id = self._set_metadata_from_db(db, relpath)
+            self._set_location_from_db(location_id, db)
         else:
+            # file not in db
             self.metadata['src_dir'] = str(self.src_dir)
             self.metadata['subdirs'] = str(
                 self.file_path.relative_to(self.src_dir).parent
@@ -616,10 +623,10 @@ class Media(ReadExif):
             self.metadata['filename'] = self.file_path.name
 
             self._set_metadata_from_exif()
+            self._set_location_from_coordinates(loc)
 
         self.metadata['date_media'] = self.get_date_media()
-
-        self._set_location_metadata(location_id, db, loc)
+        self.metadata['location_id'] = location_id
 
         if self.album_from_folder:
             self._set_album_from_folder()
