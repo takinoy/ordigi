@@ -285,11 +285,13 @@ class CollectionDb:
 
     def add_file_data(self, metadata):
         """Save metadata informations to db"""
-        loc_values = self._set_row_data('location', metadata)
-        metadata['location_id'] = self.sqlite.add_row('location', loc_values)
+        if metadata['latitude'] and metadata['longitude']:
+            loc_values = self._set_row_data('location', metadata)
+            metadata['location_id'] = self.sqlite.upsert_location(loc_values)
 
-        row_data = self._set_row_data('metadata', metadata)
-        self.sqlite.add_row('metadata', row_data)
+        if metadata['file_path']:
+            row_data = self._set_row_data('metadata', metadata)
+            self.sqlite.upsert_metadata(row_data)
 
 
 class FileIO:

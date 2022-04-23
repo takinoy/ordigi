@@ -63,19 +63,27 @@ class Sqlite:
         }
 
         self.tables = {
-            'metadata': {'header': metadata_header, 'primary_keys': ('FilePath',)},
-            'location': {
-                'header': location_header,
-                'primary_keys': ('Latitude', 'Longitude'),
-            },
+            'metadata': {'header': metadata_header},
+            'location': {'header': location_header},
         }
 
-        self.primary_metadata_keys = self.tables['metadata']['primary_keys']
-        self.primary_location_keys = self.tables['location']['primary_keys']
         # Create tables
         for table, d in self.tables.items():
             if not self.is_table(table):
-                self.create_table(table, d['header'], d['primary_keys'])
+                if table == 'metadata':
+                    # https://www.quackit.com/sqlite/tutorial/create_a_relationship.cfm
+                    self.create_table(
+                        table, d['header'],
+                        (
+                            "unique('FilePath')",
+                            "foreign key(LocationId) references location(Id)",
+                        ),
+                    )
+                elif table == 'location':
+                    self.create_table(
+                        table, d['header'],
+                        ("unique('Latitude', 'Longitude')",),
+                    )
 
     def is_Sqlite3(self, filename):
         if not os.path.isfile(filename):
@@ -142,16 +150,19 @@ class Sqlite:
         self.con.commit()
         return True
 
-    def create_table(self, table, header, primary_keys):
+    def create_table(self, table, header, statements=None):
         """
         :params: row data (dict), primary_key (tuple)
         :returns: bool
         """
         fieldset = []
+        fieldset.append("Id integer primary key autoincrement")
         for col, definition in header.items():
-            fieldset.append(f"'{col}' {definition}")
-        items = ', '.join(primary_keys)
-        fieldset.append(f"primary key ({items})")
+            fieldset.append(f"{col} {definition}")
+        # https://stackoverflow.com/questions/11719073/sqlite-insert-or-update-without-changing-rowid-value
+        if statements:
+            for statement in statements:
+                fieldset.append(statement)
 
         if len(fieldset) > 0:
             query = "create table {0} ({1})".format(table, ", ".join(fieldset))
@@ -161,27 +172,45 @@ class Sqlite:
 
         return False
 
-    def add_row(self, table, row_data):
-        """
-        :returns: lastrowid (int)
-        """
+    def check_row(self, table, row_data):
         header = self.tables[table]['header']
         if len(row_data) != len(header):
             raise ValueError(
-                f'''Table {table} length mismatch: row_data
-            {row_data}, header {header}'''
+                f"""Table {table} length mismatch: row_data
+            {row_data}, header {header}"""
             )
 
         columns = ', '.join(row_data.keys())
         placeholders = ', '.join('?' * len(row_data))
-        # If duplicate primary keys, row is replaced(updated) with new value
-        query = f'replace into {table} values ({placeholders})'
+
+        return columns, placeholders
+
+    def update_query(self, table, row_id, columns, placeholders):
+        """
+        :returns: query (str)
+        """
+        return f"""replace into {table} (Id, {columns})
+        values ((select id from {table} where id={row_id}), {placeholders})"""
+
+    def insert_query(self, table, columns, placeholders):
+        """
+        :returns: query (str)
+        """
+        return f"insert into {table} ({columns}) values ({placeholders})"
+
+    def upsert_row(self, table, row_data, columns, placeholders, row_id=None):
+        """
+        :returns: lastrowid (int)
+        https://www.sqlitetutorial.net/sqlite-replace-statement/
+        https://www.sqlite.org/lang_UPSERT.html
+        """
+        if row_id:
+            query = self.update_query(table, row_id, columns, placeholders)
+        else:
+            query = self.insert_query(table, columns, placeholders)
+
         values = []
         for key, value in row_data.items():
-            if key in self.tables[table]['primary_keys'] and value is None:
-                # Ignore entry is primary key is None
-                return None
-
             if isinstance(value, bool):
                 values.append(int(value))
             else:
@@ -191,6 +220,20 @@ class Sqlite:
         self.con.commit()
 
         return self.cur.lastrowid
+
+    def upsert_location(self, row_data):
+        # Check if row already exist
+        row_id = self.get_location(row_data['Latitude'], row_data['Longitude'], 'Id')
+        columns, placeholders = self.check_row('location', row_data)
+
+        return self.upsert_row('location', row_data, columns, placeholders, row_id)
+
+    def upsert_metadata(self, row_data):
+        # Check if row already exist
+        row_id = self.get_metadata(row_data['FilePath'], 'Id')
+        columns, placeholders = self.check_row('metadata', row_data)
+
+        return self.upsert_row('metadata', row_data, columns, placeholders, row_id)
 
     def get_header(self, row_data):
         """
@@ -207,23 +250,20 @@ class Sqlite:
 
         return sql_table
 
-    def build_table(self, table, row_data, primary_keys):
+    def build_table(self, table, row_data, statements=None):
         header = self.get_header(row_data)
-        return self.create_table(table, row_data, primary_keys)
+        return self.create_table(table, header, statements=None)
 
-    def build_row(self, table, row_data):
+    def check_table(self, table, row_data):
         """
         :params: row data (dict), primary_key (tuple)
         :returns: bool
         """
         if not self.tables[table]['header']:
-            result = self.build_table(
-                table, row_data, self.tables[table]['primary_keys']
-            )
-            if not result:
-                return False
+            self.log.error(f"Table {table} do not exist")
+            return False
 
-        return self.add_row(table, row_data)
+        return True
 
 
     def escape_quote(self, string):
@@ -235,9 +275,9 @@ class Sqlite:
         query = f"select Checksum from metadata where FilePath='{file_path_e}'"
         return self._run(query)
 
-    def get_metadata_data(self, file_path, data):
+    def get_metadata(self, file_path, column):
         file_path_e = self.escape_quote(str(file_path))
-        query = f"select {data} from metadata where FilePath='{file_path_e}'"
+        query = f"select {column} from metadata where FilePath='{file_path_e}'"
         return self._run(query)
 
     def match_location(self, latitude, longitude):
@@ -246,7 +286,7 @@ class Sqlite:
         return self._run(query)
 
     def get_location_data(self, location_id, data):
-        query = f"select '{data}' from location where ROWID='{location_id}'"
+        query = f"select {data} from location where Id='{location_id}'"
         return self._run(query)
 
     def get_location(self, latitude, longitude, column):
