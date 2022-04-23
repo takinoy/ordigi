@@ -28,7 +28,7 @@ class TestSqlite:
             'CameraMake': 'camera_make',
             'CameraModel': 'camera_model',
             'OriginalName':'original_name',
-            'SrcPath': 'src_path',
+            'SrcDir': 'src_dir',
             'Subdirs': 'subdirs',
             'Filename': 'filename'
         }
@@ -44,8 +44,8 @@ class TestSqlite:
             'Location': 'location'
         }
 
-        cls.sqlite.add_row('metadata', row_data)
-        cls.sqlite.add_row('location', location_data)
+        cls.sqlite.upsert_metadata(row_data)
+        cls.sqlite.upsert_location(location_data)
         # cls.sqlite.add_metadata_data('filename', 'ksinslsdosic', 'original_name', 'date_original', 'album', 1)
         # cls.sqlite.add_location(24.2, 7.3, 'city', 'state', 'country', 'location')
 
@@ -66,6 +66,7 @@ class TestSqlite:
         result = tuple(self.sqlite.cur.execute("""select * from metadata where
             rowid=1""").fetchone())
         assert result == (
+            1,
             'file_path',
             'checksum',
             'album',
@@ -79,7 +80,7 @@ class TestSqlite:
             'camera_make',
             'camera_model',
             'original_name',
-            'src_path',
+            'src_dir',
             'subdirs',
             'filename'
         )
@@ -96,7 +97,9 @@ class TestSqlite:
         result = tuple(self.sqlite.cur.execute("""select * from location where
             rowid=1""").fetchone())
         assert result == (
-            24.2, 7.3,
+            1,
+            24.2,
+            7.3,
             'latitude_ref',
             'longitude_ref',
             'city',

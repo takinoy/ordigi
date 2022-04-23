@@ -310,7 +310,9 @@ class Sqlite:
         value = None
         self.cur.execute('SELECT * FROM location')
         for row in self.cur:
-            distance = distance_between_two_points(latitude, longitude, row[0], row[1])
+            distance = distance_between_two_points(
+                latitude, longitude, row['Latitude'], row['Longitude']
+            )
             # Use if closer then threshold_km reuse lookup
             if distance < shorter_distance and distance <= threshold_m:
                 shorter_distance = distance
