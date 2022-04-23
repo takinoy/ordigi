@@ -218,7 +218,8 @@ class TestCollection:
             )
             assert not summary.errors
             # Ensure files remain the same
-            assert collection._checkcomp(dest_path, src_checksum)
+            if not imp:
+                assert collection._checkcomp(dest_path, src_checksum)
 
             if imp == 'copy':
                 assert src_path.exists()

@@ -519,7 +519,7 @@ class SortMedias:
 
         # change media file_path to dest_path
         if not self.dry_run:
-            updated = self.medias.update_exif_data(metadata)
+            updated = self.medias.update_exif_data(metadata, imp)
             if updated:
                 checksum = utils.checksum(dest_path)
                 metadata['checksum'] = checksum

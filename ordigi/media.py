@@ -62,7 +62,7 @@ class ExifMetadata:
         ]
         tags_keys['latitude_ref'] = ['EXIF:GPSLatitudeRef']
         tags_keys['longitude_ref'] = ['EXIF:GPSLongitudeRef']
-        tags_keys['original_name'] = ['XMP:OriginalFileName']
+        tags_keys['original_name'] = ['EXIF:OriginalFileName', 'XMP:OriginalFileName']
 
         # Remove ignored tag from list
         for tag_regex in self.ignore_tags:
@@ -742,7 +742,7 @@ class Medias:
 
             yield src_path, metadata
 
-    def update_exif_data(self, metadata):
+    def update_exif_data(self, metadata, imp=False):
 
         file_path = self.root / metadata['file_path']
         exif = WriteExif(
@@ -752,8 +752,8 @@ class Medias:
         )
 
         updated = False
-        if metadata['original_name'] in (None, ''):
-            exif.set_value('original_name', metadata['filename'])
+        if imp and metadata['original_name'] in (None, ''):
+            exif.set_key_values('original_name', metadata['filename'])
             updated = True
         if self.exif_opt['album_from_folder']:
             exif.set_album_from_folder()
