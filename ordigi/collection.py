@@ -524,7 +524,6 @@ class SortMedias:
                 checksum = utils.checksum(dest_path)
                 metadata['checksum'] = checksum
 
-        if not self.dry_run:
             self.db.add_file_data(metadata)
             if imp != 'copy' and self.root in src_path.parents:
                 self.db.sqlite.delete_filepath(str(src_path.relative_to(self.root)))

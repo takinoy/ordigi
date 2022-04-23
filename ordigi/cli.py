@@ -70,9 +70,17 @@ _filter_options = [
 _sort_options = [
     click.option(
         '--album-from-folder',
+        '-a',
         default=False,
         is_flag=True,
         help="Use images' folders as their album names.",
+    ),
+    click.option(
+        '--fill-date-original',
+        '-O',
+        default=False,
+        is_flag=True,
+        help="Fill date original from date media if not set",
     ),
     click.option(
         '--path-format',
@@ -550,6 +558,7 @@ def _sort(**kwargs):
         {
             'album_from_folder': kwargs['album_from_folder'],
             'cache': cache,
+            'fill_date_original': kwargs['fill_date_original'],
             'ignore_tags': kwargs['ignore_tags'],
             'use_date_filename': kwargs['use_date_filename'],
             'use_file_dates': kwargs['use_file_dates'],

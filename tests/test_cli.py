@@ -34,6 +34,7 @@ class TestOrdigi:
         )
         cls.sort_options = (
             '--album-from-folder',
+            '--fill-date-original',
             '--path-format',
             '--remove-duplicates',
             '--use-date-filename',

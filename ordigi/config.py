@@ -60,6 +60,7 @@ class Config:
         return {
             'Exif': {
                 'album_from_folder': False,
+                'fill_date_original': False,
                 'cache': True,
                 'ignore_tags': None,
                 'use_date_filename': False,
@@ -130,11 +131,12 @@ class Config:
 
     def get_config_option(self, section, option):
         bool_options = {
+            'album_from_folder',
+            'fill_date_original',
             'cache',
             'dry_run',
-            'prefer_english_names',
-            'album_from_folder',
             'interactive',
+            'prefer_english_names',
             'use_date_filename',
             'use_file_dates',
         }

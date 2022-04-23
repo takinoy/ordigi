@@ -674,7 +674,7 @@ class Medias:
 
         # Options
         self.exif_opt = exif_options
-        self.album_from_folder = self.exif_opt['album_from_folder']
+
         self.ignore_tags = self.exif_opt['ignore_tags']
         self.interactive = interactive
         self.log = LOG.getChild(self.__class__.__name__)
@@ -688,8 +688,8 @@ class Medias:
         media = Media(
             file_path,
             src_dir,
-            self.album_from_folder,
-            self.ignore_tags,
+            self.exif_opt['album_from_folder'],
+            self.exif_opt['ignore_tags'],
             self.interactive,
             self.exif_opt['cache'],
             self.exif_opt['use_date_filename'],
@@ -748,21 +748,25 @@ class Medias:
         exif = WriteExif(
             file_path,
             metadata,
-            ignore_tags=self.ignore_tags,
+            ignore_tags=self.exif_opt['ignore_tags'],
         )
 
         updated = False
-        if self.album_from_folder:
-            exif.set_album_from_folder()
-            updated = True
-        if metadata['original_name'] in (False, ''):
+        if metadata['original_name'] in (None, ''):
             exif.set_value('original_name', metadata['filename'])
             updated = True
-        if self.album_from_folder:
+        if self.exif_opt['album_from_folder']:
+            exif.set_album_from_folder()
             album = metadata['album']
             if album and album != '':
                 exif.set_value('album', album)
                 updated = True
+        if (
+                self.exif_opt['fill_date_original']
+                and metadata['date_original'] in (None, '')
+        ):
+            exif.set_key_values('date_original', metadata['date_media'])
+            updated = True
 
         if updated:
             return True
