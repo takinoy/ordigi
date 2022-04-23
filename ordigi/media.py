@@ -303,12 +303,12 @@ class Media(ReadExif):
         self.loc_keys = (
             'latitude',
             'longitude',
+            'location',
             'latitude_ref',
             'longitude_ref',
             'city',
             'state',
             'country',
-            'default',
         )
 
     def get_mimetype(self):
@@ -510,7 +510,7 @@ class Media(ReadExif):
                 continue
 
             label = utils.snake2camel(key)
-            value = db.get_metadata_data(relpath, label)
+            value = db.get_metadata(relpath, label)
             if 'date' in key:
                 formated_data = self.get_date_format(value)
             else:
@@ -518,10 +518,10 @@ class Media(ReadExif):
             self.metadata[key] = formated_data
         for key in 'src_dir', 'subdirs', 'filename':
             label = utils.snake2camel(key)
-            formated_data = db.get_metadata_data(relpath, label)
+            formated_data = db.get_metadata(relpath, label)
             self.metadata[key] = formated_data
 
-        return db.get_metadata_data(relpath, 'LocationId')
+        return db.get_metadata(relpath, 'LocationId')
 
     def _check_file(self, db, root):
         """Check if file_path is a subpath of root"""
@@ -548,7 +548,7 @@ class Media(ReadExif):
 
         return None, None
 
-    def _set_location_from_db(self, location_id, db):
+    def set_location_from_db(self, location_id, db):
 
         self.metadata['location_id'] = location_id
 
@@ -563,7 +563,7 @@ class Media(ReadExif):
             for key in self.loc_keys:
                 self.metadata[key] = None
 
-    def _set_location_from_coordinates(self, loc):
+    def set_location_from_coordinates(self, loc):
 
         self.metadata['location_id'] = None
 
@@ -572,11 +572,13 @@ class Media(ReadExif):
                 self.metadata['latitude'], self.metadata['longitude']
             )
             self.log.debug("location: {place_name['default']}")
-            for key in ('city', 'state', 'country', 'default'):
+            for key in ('city', 'state', 'country', 'location'):
                 # mask = 'city'
                 # place_name = {'default': u'Sunnyvale', 'city-random': u'Sunnyvale'}
                 if key in place_name:
                     self.metadata[key] = place_name[key]
+                elif key == 'location':
+                    self.metadata[key] = place_name['default']
                 else:
                     self.metadata[key] = None
         else:
@@ -613,7 +615,7 @@ class Media(ReadExif):
             relpath, db_checksum = self._check_file(db, root)
         if db_checksum:
             location_id = self._set_metadata_from_db(db, relpath)
-            self._set_location_from_db(location_id, db)
+            self.set_location_from_db(location_id, db)
         else:
             # file not in db
             self.metadata['src_dir'] = str(self.src_dir)
@@ -623,7 +625,7 @@ class Media(ReadExif):
             self.metadata['filename'] = self.file_path.name
 
             self._set_metadata_from_exif()
-            self._set_location_from_coordinates(loc)
+            self.set_location_from_coordinates(loc)
 
         self.metadata['date_media'] = self.get_date_media()
         self.metadata['location_id'] = location_id

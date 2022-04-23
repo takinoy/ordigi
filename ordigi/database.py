@@ -59,7 +59,7 @@ class Sqlite:
             'City': 'text',
             'State': 'text',
             'Country': 'text',
-            'Default': 'text',
+            'Location': 'text',
         }
 
         self.tables = {

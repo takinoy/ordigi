@@ -169,9 +169,6 @@ class FPath:
             'state',
             'title',
         ):
-            if item == 'location':
-                mask = 'default'
-
             if metadata[mask]:
                 part = str(metadata[mask])
         elif item in 'custom':
@@ -1168,22 +1165,48 @@ class Collection(SortMedias):
                         # Check date format
                         value = media.get_date_format(answer['value'])
                     else:
-                        if not answer[key].isalnum():
+                        value = answer['value']
+                        if not value.isalnum():
                             print("Invalid entry, use alphanumeric chars")
                             value = inquirer.prompt(prompt, theme=self.theme)
 
                     result = False
                     if value:
                         media.metadata[key] = value
+                        if key == 'location':
+                            coordinates = loc.coordinates_by_name(value)
+                            if coordinates:
+                                media.metadata['latitude'] = coordinates['latitude']
+                                media.metadata['longitude'] = coordinates['longitude']
+                                media.set_location_from_coordinates(loc)
+
                         # Update database
                         self.db.add_file_data(media.metadata)
                         # Update exif data
-                        exif = WriteExif(
-                            file_path,
-                            media.metadata,
-                            ignore_tags=self.opt['Exif']['ignore_tags'],
-                        )
-                        result = exif.set_key_values(key, value)
+                        if key in (
+                            'date_original',
+                            'album',
+                            'title',
+                            'latitude',
+                            'location',
+                            'longitude',
+                            'latitude_ref',
+                            'longitude_ref',
+                        ):
+                            exif = WriteExif(
+                                file_path,
+                                media.metadata,
+                                ignore_tags=self.opt['Exif']['ignore_tags'],
+                            )
+                            if key == 'location':
+                                result = exif.set_key_values(
+                                    'latitude', media.metadata['latitude']
+                                )
+                                result = exif.set_key_values(
+                                    'longitude', media.metadata['longitude']
+                                )
+                            else:
+                                result = exif.set_key_values(key, value)
                     if result:
                         self.summary.append('update', True, file_path)
                     else:

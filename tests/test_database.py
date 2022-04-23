@@ -41,13 +41,13 @@ class TestSqlite:
             'City': 'city',
             'State': 'state',
             'Country': 'country',
-            'Default': 'default'
+            'Location': 'location'
         }
 
         cls.sqlite.add_row('metadata', row_data)
         cls.sqlite.add_row('location', location_data)
         # cls.sqlite.add_metadata_data('filename', 'ksinslsdosic', 'original_name', 'date_original', 'album', 1)
-        # cls.sqlite.add_location(24.2, 7.3, 'city', 'state', 'country', 'default')
+        # cls.sqlite.add_location(24.2, 7.3, 'city', 'state', 'country', 'location')
 
         yield
 
@@ -88,14 +88,22 @@ class TestSqlite:
         assert not self.sqlite.get_checksum('invalid')
         assert self.sqlite.get_checksum('file_path') == 'checksum'
 
-    def test_get_metadata_data(self):
-        assert not self.sqlite.get_metadata_data('invalid', 'DateOriginal')
-        assert self.sqlite.get_metadata_data('file_path', 'Album') == 'album'
+    def test_get_metadata(self):
+        assert not self.sqlite.get_metadata('invalid', 'DateOriginal')
+        assert self.sqlite.get_metadata('file_path', 'Album') == 'album'
 
     def test_add_location(self):
         result = tuple(self.sqlite.cur.execute("""select * from location where
             rowid=1""").fetchone())
-        assert result == (24.2, 7.3, 'latitude_ref', 'longitude_ref', 'city', 'state', 'country', 'default')
+        assert result == (
+            24.2, 7.3,
+            'latitude_ref',
+            'longitude_ref',
+            'city',
+            'state',
+            'country',
+            'location',
+        )
 
     @pytest.mark.skip('TODO')
     def test_get_location_data(self, LocationId, data):
@@ -106,8 +114,8 @@ class TestSqlite:
         pass
 
     def test_get_location_nearby(self):
-        value = self.sqlite.get_location_nearby(24.2005, 7.3004, 'Default')
-        assert value == 'default'
+        value = self.sqlite.get_location_nearby(24.2005, 7.3004, 'Location')
+        assert value == 'location'
 
     @pytest.mark.skip('TODO')
     def test_delete_row(self, table, id):

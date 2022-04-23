@@ -353,8 +353,6 @@ def _compare(**kwargs):
     '-k',
     default=None,
     multiple=True,
-    # TODO Allow edit all values
-    required=True,
     help="Select exif tags groups to edit",
 )
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
@@ -378,39 +376,52 @@ def _edit(**kwargs):
         }
     )
 
+    editable_keys = (
+        'album',
+        'camera_make',
+        'camera_model',
+        'city',
+        'coordinates',
+        'country',
+        # 'date_created',
+        'date_media',
+        # 'date_modified',
+        'date_original',
+        'default',
+        'latitude',
+        'location',
+        'longitude',
+        'latitude_ref',
+        'longitude_ref',
+        'original_name',
+        'state',
+        'title',
+    )
+
+    if not kwargs['key']:
+        keys = set(editable_keys)
+    else:
+        keys = set(kwargs['key'])
+
     location = False
-    keys = set()
-    for key in kwargs['key']:
-        if key not in (
-            'album',
-            'camera_make',
-            'camera_model',
-            'coordinates',
-            'date_original',
-            'date_created',
-            'date_modified',
-            'latitude',
-            'longitude',
-            'latitude_ref',
-            'longitude_ref',
-            'original_name',
-            'title',
-        ):
+    for key in keys:
+        if key not in editable_keys:
             LOG.error(f"key '{key}' is not valid")
             sys.exit(1)
 
+        if key == 'coordinates':
+            keys.remove('coordinates')
+            keys.update(['latitude', 'longitude'])
+
         if key in (
+            'city',
             'latitude',
+            'location',
             'longitude',
             'latitude_ref',
             'longitude_ref',
         ):
             location = True
-
-        if key == 'coordinates':
-            keys.update(['latitude', 'longitude'])
-        else:
-            keys.add(key)
 
     if location:
         loc = _cli_get_location(collection)

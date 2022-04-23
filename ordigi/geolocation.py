@@ -98,5 +98,4 @@ class GeoLocation:
             if locator_reverse is not None:
                 return locator_reverse.raw
 
-
         return None

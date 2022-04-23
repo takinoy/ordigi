@@ -251,11 +251,10 @@ class TestCollection:
         # Summary is created and there is no errors
         assert not summary.errors
 
-    def test_edit_metadata(self, tmp_path, monkeypatch):
+    def test_edit_date_metadata(self, tmp_path, monkeypatch):
         path = tmp_path / 'collection'
         shutil.copytree(self.src_path, path)
         collection = Collection(path, {'cache': False})
-        # loc = GeoLocation()
 
         def mockreturn(prompt, theme):
             return {'value': '03-12-2021 08:12:35'}
@@ -264,10 +263,34 @@ class TestCollection:
 
         collection.edit_metadata({path}, {'date_original'}, overwrite=True)
         # check if db value is set
-        date = collection.db.sqlite.get_metadata_data('test_exif/photo.rw2',
-            'DateOriginal')
+        file_path = 'test_exif/photo.rw2'
+        date = collection.db.sqlite.get_metadata(file_path, 'DateOriginal')
         assert date == '2021-03-12 08:12:35'
         # Check if exif value is set
-        file_path = path.joinpath('test_exif/photo.rw2')
-        date = ExifTool(file_path).asdict()['EXIF:DateTimeOriginal']
+        path_file = path.joinpath(file_path)
+        date = ExifTool(path_file).asdict()['EXIF:DateTimeOriginal']
         assert date == '2021-03-12 08:12:35'
+
+    def test_edit_location_metadata(self, tmp_path, monkeypatch):
+        path = tmp_path / 'collection'
+        shutil.copytree(self.src_path, path)
+        collection = Collection(path, {'cache': False})
+        loc = GeoLocation()
+
+        def mockreturn(prompt, theme):
+            return {'value': 'lyon'}
+
+        monkeypatch.setattr(inquirer, 'prompt', mockreturn)
+
+        collection.edit_metadata({path}, {'location'}, loc, True)
+        # check if db value is set
+        file_path = 'test_exif/photo.rw2'
+        location_id = collection.db.sqlite.get_metadata(file_path, 'LocationId')
+        location = collection.db.sqlite.get_location_data(location_id, 'Location')
+        assert location_id, location == 'Lyon'
+        # Check if exif value is set
+        path_file = path.joinpath(file_path)
+        latitude = ExifTool(path_file).asdict()['EXIF:GPSLatitude']
+        longitude = ExifTool(path_file).asdict()['EXIF:GPSLongitude']
+        assert latitude == 45.7578136999889
+        assert longitude == 4.83201140001667
