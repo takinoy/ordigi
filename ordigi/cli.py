@@ -5,7 +5,7 @@ import sys
 
 import click
 
-from ordigi import constants, log, LOG
+from ordigi import log, LOG
 from ordigi.collection import Collection
 from ordigi.geolocation import GeoLocation
 from ordigi import utils
