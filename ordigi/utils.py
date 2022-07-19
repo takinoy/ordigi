@@ -69,7 +69,7 @@ def get_date_regex(user_regex=None):
             # regex to match date format type %Y%m%d, %y%m%d, %d%m%Y,
             # etc...
             'a': re.compile(
-                r'.*[_-]?(?P<year>\d{4})[_-]?(?P<month>\d{2})[_-]?(?P<day>\d{2})[_-]?(?P<hour>\d{2})[_-]?(?P<minute>\d{2})[_-]?(?P<second>\d{2})'
+                r'[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_.]?(?P<hour>\d{2})[-_.]?(?P<minute>\d{2})[-_.]?(?P<second>\d{2})'
             ),
             'b': re.compile(
                 r'[-_./](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_./]'

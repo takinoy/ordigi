@@ -143,6 +143,9 @@ class FPath:
                 # Delete separator
                 if re.search('^[-_ .]', part):
                     part = part[1:]
+                if part != stem:
+                    # We only want to match first result
+                    break
         elif item == 'date':
             date = metadata['date_media']
             # early morning photos can be grouped with previous day
