@@ -370,18 +370,20 @@ class Media(ReadExif):
         file_modify_date = self.metadata['file_modify_date']
         if self.metadata['date_original']:
             if date_filename and date_filename != date_original:
-                self.log.warning(
-                    f"{filename} time mark is different from {date_original}"
-                )
-                if self.interactive:
-                    # Ask for keep date taken, filename time, or neither
-                    choices = [
-                        (f"date original:'{date_original}'", date_original),
-                        (f"date filename:'{date_filename}'", date_filename),
-                        ("custom", None),
-                    ]
-                    default = f'{date_original}'
-                    return self._get_date_media_interactive(choices, default)
+                timedelta = abs(date_original - date_filename)
+                if timedelta.total_seconds() > 60:
+                    self.log.warning(
+                        f"{filename} time mark is different from {date_original}"
+                    )
+                    if self.interactive:
+                        # Ask for keep date taken, filename time, or neither
+                        choices = [
+                            (f"date original:'{date_original}'", date_original),
+                            (f"date filename:'{date_filename}'", date_filename),
+                            ("custom", None),
+                        ]
+                        default = f'{date_original}'
+                        return self._get_date_media_interactive(choices, default)
 
             return self.metadata['date_original']
 
@@ -392,9 +394,11 @@ class Media(ReadExif):
                 f"use date from filename:{date_filename} for {self.file_path}"
             )
             if date_created and date_filename > date_created:
-                self.log.warning(
-                    f"{filename} time mark is more recent than {date_created}"
-                )
+                timedelta = abs(date_created - date_filename)
+                if timedelta.total_seconds() > 60:
+                    self.log.warning(
+                        f"{filename} time mark is more recent than {date_created}"
+                    )
                 return date_created
 
                 if self.interactive:
