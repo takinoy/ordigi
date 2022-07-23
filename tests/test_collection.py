@@ -137,11 +137,12 @@ class TestCollection:
         assert summary.success_table.sum('sort') == nb
 
     def test_sort_files(self, tmp_path):
-        cli_options = {'album_from_folder': True, 'cache': False}
+        cli_options = {
+            'album_from_folder': True, 'cache': False, 'path_format': self.path_format
+        }
         collection = Collection(tmp_path, cli_options=cli_options)
         loc = GeoLocation()
-        summary = collection.sort_files([self.src_path],
-                self.path_format, loc, imp='copy')
+        summary = collection.sort_files([self.src_path], loc, imp='copy')
 
         self.assert_import(summary, 29)
 
@@ -166,16 +167,16 @@ class TestCollection:
         collection = Collection(tmp_path, cli_options=cli_options)
         # Try to change path format and sort files again
         path_format = 'test_exif/<city>/<%Y>-<name>.%l<ext>'
-        summary = collection.sort_files([tmp_path], path_format, loc)
+        summary = collection.sort_files([tmp_path], loc)
 
-        self.assert_sort(summary, 27)
+        self.assert_sort(summary, 23)
 
         shutil.copytree(tmp_path / 'test_exif', tmp_path / 'test_exif_copy')
         collection.summary = Summary(tmp_path)
         assert collection.summary.success_table.sum() == 0
         summary = collection.update(loc)
-        assert summary.success_table.sum('update') == 29
-        assert summary.success_table.sum() == 29
+        assert summary.success_table.sum('update') == 2
+        assert summary.success_table.sum() == 2
         assert not summary.errors
         collection.summary = Summary(tmp_path)
         summary = collection.update(loc)
@@ -195,12 +196,11 @@ class TestCollection:
         assert not summary.errors
 
     def test_sort_files_invalid_db(self, tmp_path):
-        collection = Collection(tmp_path)
+        collection = Collection(tmp_path, {'path_format': self.path_format})
         loc = GeoLocation()
         randomize_db(tmp_path)
         with pytest.raises(sqlite3.DatabaseError) as e:
-            summary = collection.sort_files([self.src_path],
-                    self.path_format, loc, imp='copy')
+            summary = collection.sort_files([self.src_path], loc, imp='copy')
 
     def test_sort_file(self, tmp_path):
         for imp in ('copy', 'move', False):

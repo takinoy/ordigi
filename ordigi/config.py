@@ -53,9 +53,9 @@ class Config:
         else:
             self.conf = conf
 
-        self.options = self.set_default_options()
+        self.options = self.get_default_options()
 
-    def set_default_options(self) -> dict:
+    def get_default_options(self) -> dict:
         # Initialize with default options
         return {
             'Exif': {
@@ -71,6 +71,7 @@ class Config:
                 'extensions': None,
                 'glob': '**/*',
                 'max_deep': None,
+                'remove_duplicates': False,
             },
             'Geolocation': {
                 'geocoder': constants.DEFAULT_GEOCODER,
@@ -137,6 +138,7 @@ class Config:
             'dry_run',
             'interactive',
             'prefer_english_names',
+            'remove_duplicates',
             'use_date_filename',
             'use_file_dates',
         }

@@ -207,7 +207,6 @@ class TestOrdigi:
             ('--exclude', '.DS_Store'),
             *self.filter_options,
             ('--path-format', '{%Y}/{folder}/{stem}.{ext}'),
-
         )
 
         paths = (str(self.src_path), str(tmp_path))

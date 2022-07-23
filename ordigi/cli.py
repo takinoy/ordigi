@@ -7,6 +7,7 @@ import click
 
 from ordigi import log, LOG
 from ordigi.collection import Collection
+from ordigi import constants
 from ordigi.geolocation import GeoLocation
 from ordigi import utils
 
@@ -85,7 +86,7 @@ _sort_options = [
     click.option(
         '--path-format',
         '-p',
-        default=None,
+        default=constants.DEFAULT_PATH_FORMAT,
         help='Custom featured path format',
     ),
     click.option(
@@ -147,15 +148,10 @@ def _cli_get_location(collection):
     )
 
 
-def _cli_sort(collection, src_paths, import_mode, remove_duplicates):
+def _cli_sort(collection, src_paths, import_mode):
     loc = _cli_get_location(collection)
 
-    path_format = collection.opt['Path']['path_format']
-    LOG.debug(f'path_format: {path_format}')
-
-    return collection.sort_files(
-        src_paths, path_format, loc, import_mode, remove_duplicates
-    )
+    return collection.sort_files(src_paths, loc, import_mode)
 
 
 @click.group()
@@ -231,24 +227,21 @@ def _clean(**kwargs):
     collection = Collection(
         root,
         {
-            "dry_run": kwargs['dry_run'],
-            "extensions": kwargs['ext'],
-            "glob": kwargs['glob'],
+            'dry_run': kwargs['dry_run'],
+            'extensions': kwargs['ext'],
+            'glob': kwargs['glob'],
+            'remove_duplicates': kwargs['remove_duplicates'],
         },
     )
 
     # os.path.join(
     # TODO make function to remove duplicates
     # path_format = collection.opt['Path']['path_format']
-    # summary = collection.sort_files(
-    #     paths, path_format, None, remove_duplicates=kwargs['remove_duplicates']
-    # )
+    # summary = collection.sort_files(paths, None)
 
     if kwargs['path_string']:
         dedup_regex = set(kwargs['dedup_regex'])
-        collection.dedup_path(
-            paths, dedup_regex, kwargs['remove_duplicates']
-        )
+        collection.dedup_path(paths, dedup_regex)
 
     for path in paths:
         if folders:
@@ -334,9 +327,10 @@ def _compare(**kwargs):
     collection = Collection(
         root,
         {
-            "extensions": kwargs['ext'],
-            "glob": kwargs['glob'],
-            "dry_run": kwargs['dry_run'],
+            'extensions': kwargs['ext'],
+            'glob': kwargs['glob'],
+            'dry_run': kwargs['dry_run'],
+            'remove_duplicates': kwargs['remove_duplicates'],
         },
     )
 
@@ -515,7 +509,7 @@ def _import(**kwargs):
             'dry_run': kwargs['dry_run'],
             'interactive': kwargs['interactive'],
             'path_format': kwargs['path_format'],
-
+            'remove_duplicates': kwargs['remove_duplicates'],
         }
     )
 
@@ -523,7 +517,7 @@ def _import(**kwargs):
         import_mode = 'copy'
     else:
         import_mode = 'move'
-    summary = _cli_sort(collection, src_paths, import_mode, kwargs['remove_duplicates'])
+    summary = _cli_sort(collection, src_paths, import_mode)
 
     if log_level < 30:
         summary.print()
@@ -572,10 +566,11 @@ def _sort(**kwargs):
             'glob': kwargs['glob'],
             'dry_run': kwargs['dry_run'],
             'interactive': kwargs['interactive'],
+            'remove_duplicates': kwargs['remove_duplicates'],
         }
     )
 
-    summary = _cli_sort(collection, paths, False, kwargs['remove_duplicates'])
+    summary = _cli_sort(collection, paths, False)
 
     if kwargs['clean']:
         collection.remove_empty_folders(root)

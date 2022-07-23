@@ -477,6 +477,7 @@ class SortMedias:
         db=None,
         dry_run=False,
         interactive=False,
+        remove_duplicates=False,
     ):
 
         # Arguments
@@ -489,6 +490,7 @@ class SortMedias:
         self.dry_run = dry_run
         self.interactive = interactive
         self.log = LOG.getChild(self.__class__.__name__)
+        self.remove_duplicates = remove_duplicates
         self.summary = Summary(self.root)
 
         # Attributes
@@ -600,7 +602,7 @@ class SortMedias:
                 directory_path.mkdir(parents=True, exist_ok=True)
             self.log.info(f'Create {directory_path}')
 
-    def check_conflicts(self, src_path, dest_path, remove_duplicates=False):
+    def check_conflicts(self, src_path, dest_path):
         """
         Check if file can be copied or moved file to dest_path.
         """
@@ -616,7 +618,7 @@ class SortMedias:
 
         if dest_path.is_file():
             self.log.info(f"File {dest_path} already exist")
-            if remove_duplicates:
+            if self.remove_duplicates:
                 if filecmp.cmp(src_path, dest_path):
                     self.log.info(
                         "File in source and destination are identical. Duplicate will be ignored."
@@ -633,13 +635,13 @@ class SortMedias:
 
         return 0
 
-    def _solve_conflicts(self, conflicts, remove_duplicates):
+    def _solve_conflicts(self, conflicts):
         unresolved_conflicts = []
         while conflicts != []:
             src_path, dest_path, metadata = conflicts.pop()
             # Check for conflict status again in case is has changed
 
-            conflict = self.check_conflicts(src_path, dest_path, remove_duplicates)
+            conflict = self.check_conflicts(src_path, dest_path)
 
             for i in range(1, 1000):
                 if conflict != 1:
@@ -652,7 +654,7 @@ class SortMedias:
                 else:
                     stem = dest_path.stem
                 dest_path = dest_path.parent / (stem + '_' + str(i) + suffix)
-                conflict = self.check_conflicts(src_path, dest_path, remove_duplicates)
+                conflict = self.check_conflicts(src_path, dest_path)
 
             if conflict == 1:
                 # i = 100:
@@ -663,7 +665,7 @@ class SortMedias:
 
             yield (src_path, dest_path, metadata), conflict
 
-    def sort_medias(self, imp=False, remove_duplicates=False):
+    def sort_medias(self, imp=False):
         """
         sort files and solve conflicts
         """
@@ -674,7 +676,7 @@ class SortMedias:
         for src_path, metadata in self.medias.datas.items():
             dest_path = self.root / metadata['file_path']
 
-            conflict = self.check_conflicts(src_path, dest_path, remove_duplicates)
+            conflict = self.check_conflicts(src_path, dest_path)
 
             if not conflict:
                 self.sort_file(
@@ -692,9 +694,7 @@ class SortMedias:
                 pass
 
         if conflicts != []:
-            for files_data, conflict in self._solve_conflicts(
-                conflicts, remove_duplicates
-            ):
+            for files_data, conflict in self._solve_conflicts(conflicts):
 
                 src_path, dest_path, metadata = files_data
                 if not conflict:
@@ -727,13 +727,13 @@ class Collection(SortMedias):
         self.log = LOG.getChild(self.__class__.__name__)
 
         # Get config options
-        self.opt = self.get_config_options()
+        self.opt, default_options = self.get_config_options()
 
         # Set client options
         for option, value in cli_options.items():
-            if value not in (None, set()):
-                for section in self.opt:
-                    if option in self.opt[section]:
+            for section in self.opt:
+                if option in self.opt[section]:
+                    if value != default_options[section][option]:
                         if option == 'exclude':
                             self.opt[section][option].union(set(value))
                         elif option in ('ignore_tags', 'extensions'):
@@ -772,6 +772,7 @@ class Collection(SortMedias):
             self.db,
             self.opt['Terminal']['dry_run'],
             self.opt['Terminal']['interactive'],
+            self.opt['Filters']['remove_duplicates'],
         )
 
         # Attributes
@@ -792,7 +793,7 @@ class Collection(SortMedias):
         """Get collection config"""
         config = Config(self.root.joinpath('.ordigi', 'ordigi.conf'))
 
-        return config.get_config_options()
+        return config.get_config_options(), config.get_default_options()
 
     def _set_option(self, section, option, cli_option):
         """if client option is set overwrite collection option value"""
@@ -1003,17 +1004,15 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def sort_files(
-        self, src_dirs, path_format, loc, imp=False, remove_duplicates=False
-    ):
+    def sort_files(self, src_dirs, loc, imp=False):
         """
         Sort files into appropriate folder
         """
         # Check db
         self._init_check_db(loc)
 
-        # if path format client option is set overwrite it
-        self._set_option('Path', 'path_format', path_format)
+        path_format = self.opt['Path']['path_format']
+        self.log.debug(f'path_format: {path_format}')
 
         # Get medias data
         subdirs = set()
@@ -1027,7 +1026,7 @@ class Collection(SortMedias):
             self.medias.datas[src_path] = copy(metadata)
 
         # Sort files and solve conflicts
-        self.summary = self.sort_medias(imp, remove_duplicates)
+        self.summary = self.sort_medias(imp)
 
         if imp != 'copy':
             self.remove_empty_subdirs(subdirs, src_dirs)
@@ -1037,7 +1036,7 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def dedup_path(self, paths, dedup_regex=None, remove_duplicates=False):
+    def dedup_path(self, paths, dedup_regex=None):
         """Deduplicate file path parts"""
 
         # Check db
@@ -1078,7 +1077,7 @@ class Collection(SortMedias):
             self.medias.datas[src_path] = copy(metadata)
 
         # Sort files and solve conflicts
-        self.sort_medias(remove_duplicates=remove_duplicates)
+        self.sort_medias()
 
         if not self.check_db():
             self.summary.append('check', False)
@@ -1110,7 +1109,7 @@ class Collection(SortMedias):
 
         return True
 
-    def sort_similar_images(self, path, similarity=80, remove_duplicates=False):
+    def sort_similar_images(self, path, similarity=80):
         """Sort similar images using imagehash library"""
         # Check db
         self._init_check_db()
@@ -1129,7 +1128,7 @@ class Collection(SortMedias):
             )
             if similar_images:
                 # Move the simlars file into the destination directory
-                self.sort_medias(remove_duplicates=remove_duplicates)
+                self.sort_medias()
 
         nb_row_end = self.db.sqlite.len('metadata')
         if nb_row_ini and nb_row_ini != nb_row_end:
