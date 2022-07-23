@@ -3,6 +3,7 @@
 
 /build/
 /.coverage
+/diagnostics.lua
 docs/_build
 docs/Ordigi_data_scheme.odg
 
