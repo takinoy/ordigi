@@ -218,7 +218,7 @@ def _check(**kwargs):
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
 @click.argument('collection', required=True, nargs=1, type=click.Path())
 def _clean(**kwargs):
-    """Remove empty folders"""
+    """Clean media collection"""
 
     folders = kwargs['folders']
     log_level = log.get_level(kwargs['verbose'])

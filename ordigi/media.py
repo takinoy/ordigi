@@ -359,9 +359,9 @@ class Media(ReadExif):
         stem = os.path.splitext(filename)[0]
         date_original = self.metadata['date_original']
         if self.metadata['original_name']:
-            date_filename = utils.get_date_from_string(self.metadata['original_name'])
+            date_filename, _, _ = utils.get_date_from_string(self.metadata['original_name'])
         else:
-            date_filename = utils.get_date_from_string(stem)
+            date_filename, _, _ = utils.get_date_from_string(stem)
             self.log.debug(f'date_filename: {date_filename}')
 
         date_original = self.metadata['date_original']
@@ -387,7 +387,7 @@ class Media(ReadExif):
 
             return self.metadata['date_original']
 
-        self.log.warning(f"could not find original date for {self.file_path}")
+        self.log.warning(f"could not find date original for {self.file_path}")
 
         if self.use_date_filename and date_filename:
             self.log.info(

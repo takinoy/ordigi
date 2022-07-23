@@ -90,10 +90,10 @@ class TestMedia:
             date_filename = None
             for tag in media.tags_keys['original_name']:
                 if tag in exif_data:
-                    date_filename = get_date_from_string(exif_data[tag])
+                    date_filename, _, _ = get_date_from_string(exif_data[tag])
                 break
             if not date_filename:
-                date_filename = get_date_from_string(file_path.name)
+                date_filename, _, _ = get_date_from_string(file_path.name)
 
             if media.metadata['date_original']:
                 assert date_media == media.metadata['date_original']

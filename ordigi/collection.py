@@ -138,14 +138,12 @@ class FPath:
         elif item == 'name':
             # Remove date prefix added to the name.
             part = stem
-            for regex in utils.get_date_regex().values():
-                part = re.sub(regex, '', part)
+            date_filename, regex, sep = utils.get_date_from_string(stem)
+            if date_filename:
+                part = re.sub(regex, sep, part)
                 # Delete separator
                 if re.search('^[-_ .]', part):
                     part = part[1:]
-                if part != stem:
-                    # We only want to match first result
-                    break
         elif item == 'date':
             date = metadata['date_media']
             # early morning photos can be grouped with previous day
@@ -643,7 +641,7 @@ class SortMedias:
 
             conflict = self.check_conflicts(src_path, dest_path, remove_duplicates)
 
-            for i in range(1, 100):
+            for i in range(1, 1000):
                 if conflict != 1:
                     break
 
