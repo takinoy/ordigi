@@ -718,6 +718,11 @@ class Medias:
         """Get paths"""
         for src_dir in src_dirs:
             src_dir = self.paths.check(src_dir)
+
+            if src_dir.is_file():
+                yield src_dir.parent, src_dir
+                continue
+
             paths = self.paths.get_paths_list(src_dir)
 
             # Get medias and src_dirs
