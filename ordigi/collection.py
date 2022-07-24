@@ -360,7 +360,7 @@ class Paths:
         :return: Path path
         """
         if not path.exists():
-            self.log.error(f'Directory {path} does not exist')
+            self.log.error(f'Path {path} does not exist')
             sys.exit(1)
 
         return path
