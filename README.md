@@ -72,8 +72,8 @@ ordigi check
 ### Edit metadata and Reorganize by changing location and dates (WIP)
 
 ```
-ordigi edit --location="Las Vegas, NV" --sort
-ordigi edit --time="2015-04-15" --sort
+ordigi edit --location="Las Vegas, NV" 
+ordigi edit --time="2015-04-15"
 ```
 
 ### Configuration

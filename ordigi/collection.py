@@ -272,7 +272,7 @@ class CollectionDb:
     def __init__(self, root):
         self.sqlite = Sqlite(root)
 
-    def _set_row_data(self, table, metadata):
+    def _get_row_data(self, table, metadata):
         row_data = {}
         for title in self.sqlite.tables[table]['header']:
             key = utils.camel2snake(title)
@@ -283,11 +283,11 @@ class CollectionDb:
     def add_file_data(self, metadata):
         """Save metadata informations to db"""
         if metadata['latitude'] and metadata['longitude']:
-            loc_values = self._set_row_data('location', metadata)
+            loc_values = self._get_row_data('location', metadata)
             metadata['location_id'] = self.sqlite.upsert_location(loc_values)
 
         if metadata['file_path']:
-            row_data = self._set_row_data('metadata', metadata)
+            row_data = self._get_row_data('metadata', metadata)
             self.sqlite.upsert_metadata(row_data)
 
 
@@ -1144,13 +1144,20 @@ class Collection(SortMedias):
         self._init_check_db()
 
         for file_path, media in self.medias.get_medias_datas(paths, loc=loc):
+            result = False
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
+            exif = WriteExif(
+                file_path,
+                media.metadata,
+                ignore_tags=self.opt['Exif']['ignore_tags'],
+            )
+
             for key in keys:
                 print()
                 value = media.metadata[key]
                 if overwrite or not value:
                     print(f"FILE: '{file_path}'")
-                if overwrite:
+                if overwrite and value:
                     print(f"{key}: '{value}'")
                 if overwrite or not value:
                     # Prompt value for given key for file_path
@@ -1165,11 +1172,11 @@ class Collection(SortMedias):
                         value = media.get_date_format(answer['value'])
                     else:
                         value = answer['value']
-                        if not value.isalnum():
+                        while not value.isalnum():
+                            if not value: break
                             print("Invalid entry, use alphanumeric chars")
                             value = inquirer.prompt(prompt, theme=self.theme)
 
-                    result = False
                     if value:
                         media.metadata[key] = value
                         if key == 'location':
@@ -1179,36 +1186,26 @@ class Collection(SortMedias):
                                 media.metadata['longitude'] = coordinates['longitude']
                                 media.set_location_from_coordinates(loc)
 
-                        # Update database
-                        self.db.add_file_data(media.metadata)
                         # Update exif data
-                        if key in (
-                            'date_original',
-                            'album',
-                            'title',
-                            'latitude',
-                            'location',
-                            'longitude',
-                            'latitude_ref',
-                            'longitude_ref',
-                        ):
-                            exif = WriteExif(
-                                file_path,
-                                media.metadata,
-                                ignore_tags=self.opt['Exif']['ignore_tags'],
+                        if key == 'location':
+                            result = exif.set_key_values(
+                                'latitude', media.metadata['latitude']
                             )
-                            if key == 'location':
-                                result = exif.set_key_values(
-                                    'latitude', media.metadata['latitude']
-                                )
-                                result = exif.set_key_values(
-                                    'longitude', media.metadata['longitude']
-                                )
-                            else:
-                                result = exif.set_key_values(key, value)
-                    if result:
-                        self.summary.append('update', True, file_path)
-                    else:
-                        self.summary.append('update', False, file_path)
+                            result = exif.set_key_values(
+                                'longitude', media.metadata['longitude']
+                            )
+                        elif key in exif.get_tags().keys():
+                            result = exif.set_key_values(key, value)
+
+            # Update checksum
+            media.metadata['checksum'] = utils.checksum(file_path)
+
+            # Update database
+            self.db.add_file_data(media.metadata)
+
+            if result:
+                self.summary.append('update', True, file_path)
+            else:
+                self.summary.append('update', False, file_path)
 
         return self.summary

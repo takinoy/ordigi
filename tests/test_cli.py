@@ -96,6 +96,7 @@ class TestOrdigi:
         args = (
             '--key',
             'date_original',
+            '--overwrite',
             str(self.src_path.joinpath('test_exif/photo.png')),
             str(self.src_path),
         )

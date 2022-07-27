@@ -363,6 +363,13 @@ def _compare(**kwargs):
     multiple=True,
     help="Select exif tags groups to edit",
 )
+@click.option(
+    '--overwrite',
+    '-O',
+    default=False,
+    is_flag=True,
+    help="Overwrite db and exif value by key value",
+)
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def _edit(**kwargs):
@@ -372,6 +379,8 @@ def _edit(**kwargs):
     log.console(LOG, level=log_level)
 
     paths, root = _get_paths(kwargs['subdirs'], kwargs['path'])
+
+    overwrite = kwargs['overwrite']
 
     collection = Collection(
         root,
@@ -389,13 +398,11 @@ def _edit(**kwargs):
         'camera_make',
         'camera_model',
         'city',
-        'coordinates',
         'country',
         # 'date_created',
         'date_media',
         # 'date_modified',
         'date_original',
-        'default',
         'latitude',
         'location',
         'longitude',
@@ -410,16 +417,15 @@ def _edit(**kwargs):
         keys = set(editable_keys)
     else:
         keys = set(kwargs['key'])
+        if 'coordinates' in keys:
+            keys.remove('coordinates')
+            keys.update(['latitude', 'longitude'])
 
     location = False
     for key in keys:
         if key not in editable_keys:
             LOG.error(f"key '{key}' is not valid")
             sys.exit(1)
-
-        if key == 'coordinates':
-            keys.remove('coordinates')
-            keys.update(['latitude', 'longitude'])
 
         if key in (
             'city',
@@ -436,7 +442,7 @@ def _edit(**kwargs):
     else:
         loc = None
 
-    summary = collection.edit_metadata(paths, keys, loc, overwrite=True)
+    summary = collection.edit_metadata(paths, keys, loc, overwrite)
 
     if log_level < 30:
         summary.print()
