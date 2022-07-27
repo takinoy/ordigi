@@ -835,7 +835,9 @@ class Collection(SortMedias):
         file_paths = list(self.get_collection_files())
         db_rows = [row['FilePath'] for row in self.db.sqlite.get_rows('metadata')]
         for file_path in file_paths:
+            # Assuming file_path are inside collection root dir
             relpath = os.path.relpath(file_path, self.root)
+
             # If file not in database
             if relpath not in db_rows:
                 self.log.error('Db data is not accurate')

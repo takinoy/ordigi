@@ -155,6 +155,7 @@ class TestOrdigi:
         shutil.copyfile(file_path, dest_path)
         for opt, arg in self.logger_options:
             self.assert_cli(cli._update, [opt, arg, str(self.src_path)])
+        self.assert_cli(cli._update, ['--checksum', str(self.src_path)])
 
     def assert_check(self):
         for opt, arg in self.logger_options:
@@ -188,7 +189,6 @@ class TestOrdigi:
     def test_init_update_check_clean(self):
         self.assert_init()
         self.assert_update()
-        self.assert_check()
         self.assert_clean()
 
     def test_import(self, tmp_path):
@@ -239,6 +239,9 @@ class TestOrdigi:
 
         self.assert_cli(cli._compare, paths)
         self.assert_options(cli._compare, bool_options, arg_options, paths)
+
+    def test_check(self):
+        self.assert_check()
 
 
 def test_needsfiles(tmpdir):
