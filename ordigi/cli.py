@@ -178,6 +178,7 @@ def _check(**kwargs):
         if log_level < 30:
             summary.print()
         if summary.errors:
+            LOG.error('Db data is not accurate run `ordigi update --checksum`')
             sys.exit(1)
     else:
         LOG.error('Db data is not accurate run `ordigi update`')
@@ -584,6 +585,13 @@ def _sort(**kwargs):
 
 @cli.command('update')
 @add_options(_logger_options)
+@click.option(
+    '--checksum',
+    '-c',
+    default=False,
+    is_flag=True,
+    help='Update checksum, assuming file are changed by the user',
+)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def _update(**kwargs):
     """
@@ -595,7 +603,7 @@ def _update(**kwargs):
 
     collection = Collection(root)
     loc = _cli_get_location(collection)
-    summary = collection.update(loc)
+    summary = collection.update(loc, kwargs['checksum'])
 
     if log_level < 30:
         summary.print()

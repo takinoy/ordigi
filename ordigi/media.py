@@ -527,7 +527,7 @@ class Media(ReadExif):
 
         return db.get_metadata(relpath, 'LocationId')
 
-    def _check_file(self, db, root):
+    def _check_file(self, db, root, check=True):
         """Check if file_path is a subpath of root"""
 
         if str(self.file_path).startswith(str(root)):
@@ -535,14 +535,13 @@ class Media(ReadExif):
             db_checksum = db.get_checksum(relpath)
             file_checksum = self.metadata['checksum']
             # Check if checksum match
-            if db_checksum and db_checksum != file_checksum:
-                self.log.error(f'{self.file_path} checksum has changed')
-                self.log.error('(modified or corrupted file).')
+            if check and db_checksum and db_checksum != file_checksum:
+                self.log.error(f'{self.file_path} checksum has changed, modified or corrupted file.')
                 self.log.error(
                     f'file_checksum={file_checksum},\ndb_checksum={db_checksum}'
                 )
                 self.log.info(
-                    'Use --reset-cache, check database integrity or try to restore the file'
+                    'Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file'
                 )
                 # We d'ont want to silently ignore or correct this without
                 # resetting the cache as is could be due to file corruption
@@ -605,7 +604,7 @@ class Media(ReadExif):
         if not album or album == '':
             self.metadata['album'] = folder
 
-    def get_metadata(self, root, loc=None, db=None, cache=False):
+    def get_metadata(self, root, loc=None, db=None, cache=False, check=True):
         """
         Get a dictionary of metadata from exif.
         All keys will be present and have a value of None if not obtained.
@@ -615,8 +614,9 @@ class Media(ReadExif):
 
         db_checksum = False
         location_id = None
-        if cache and db:
-            relpath, db_checksum = self._check_file(db, root)
+        if cache and db and str(self.file_path).startswith(str(root)):
+            relpath = os.path.relpath(self.file_path, root)
+            db_checksum = db.get_checksum(relpath)
         if db_checksum:
             location_id = self._set_metadata_from_db(db, relpath)
             self.set_location_from_db(location_id, db)
@@ -702,17 +702,17 @@ class Medias:
 
         return media
 
-    def get_media_data(self, file_path, src_dir, loc=None):
+    def get_media_data(self, file_path, src_dir, loc=None, check=True):
         media = self.get_media(file_path, src_dir)
         media.get_metadata(
-            self.root, loc, self.db.sqlite, self.exif_opt['cache']
+            self.root, loc, self.db.sqlite, self.exif_opt['cache'], check
         )
 
         return media
 
-    def get_metadata(self, src_path, src_dir, loc=None):
+    def get_metadata(self, src_path, src_dir, loc=None, check=True):
         """Get metadata"""
-        return self.get_media_data(src_path, src_dir, loc).metadata
+        return self.get_media_data(src_path, src_dir, loc, check).metadata
 
     def get_paths(self, src_dirs, imp=False):
         """Get paths"""
