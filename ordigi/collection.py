@@ -819,13 +819,53 @@ class Collection(SortMedias):
     def init(self, loc):
         """Init collection db"""
         for file_path in self.get_collection_files():
-            metadata = self.medias.get_metadata(file_path, self.root, loc)
+            metadata = self.medias.get_metadata(file_path, self.root, loc=loc)
             metadata['file_path'] = os.path.relpath(file_path, self.root)
 
             self.db.add_file_data(metadata)
             self.summary.append('update', True, file_path)
 
         return self.summary
+
+    def check_files(self):
+        """Check file integrity."""
+        for file_path in self.paths.get_files(self.root):
+            checksum = utils.checksum(file_path)
+            relpath = file_path.relative_to(self.root)
+            if checksum == self.db.sqlite.get_checksum(relpath):
+                self.summary.append('check', True, file_path)
+            else:
+                self.log.error(f'{file_path} is corrupted')
+                self.summary.append('check', False, file_path)
+
+        return self.summary
+
+    def file_in_db(self, file_path, db_rows):
+        # Assuming file_path are inside collection root dir
+        relpath = os.path.relpath(file_path, self.root)
+
+        # If file not in database
+        if relpath not in db_rows:
+            return False
+
+        return True
+
+    def _check_file(self, file_path, file_checksum):
+        """Check if file checksum as changed"""
+        relpath = os.path.relpath(file_path, self.root)
+        db_checksum = self.db.sqlite.get_checksum(relpath)
+        # Check if checksum match
+        if not db_checksum:
+            return None
+
+        if db_checksum != file_checksum:
+            self.log.warning(f'{file_path} checksum as changed')
+            self.log.info(
+                f'file_checksum={file_checksum},\ndb_checksum={db_checksum}'
+            )
+            return False
+
+        return True
 
     def check_db(self):
         """
@@ -835,13 +875,19 @@ class Collection(SortMedias):
         file_paths = list(self.get_collection_files())
         db_rows = [row['FilePath'] for row in self.db.sqlite.get_rows('metadata')]
         for file_path in file_paths:
-            # Assuming file_path are inside collection root dir
-            relpath = os.path.relpath(file_path, self.root)
-
-            # If file not in database
-            if relpath not in db_rows:
+            result = self.file_in_db(file_path, db_rows)
+            checksum = utils.checksum(file_path)
+            if not result:
                 self.log.error('Db data is not accurate')
                 self.log.info(f'{file_path} not in db')
+                return False
+            elif not self._check_file(file_path, checksum):
+                # We d'ont want to silently ignore or correct this without
+                # resetting the cache as is could be due to file corruption
+                self.log.error(f'modified or corrupted file.')
+                self.log.info(
+                    'Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file'
+                )
                 return False
 
         nb_files = len(file_paths)
@@ -886,7 +932,7 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def update(self, loc):
+    def update(self, loc, update_checksum=False):
         """Update collection db"""
         file_paths = list(self.get_collection_files())
         db_rows = list(self.db.sqlite.get_rows('metadata'))
@@ -901,9 +947,22 @@ class Collection(SortMedias):
 
         for file_path in file_paths:
             relpath = os.path.relpath(file_path, self.root)
+            metadata = {}
+
+            checksum = utils.checksum(file_path)
+            if not self._check_file(file_path, checksum) and update_checksum:
+                # metatata will fill checksum from file
+                metadata = self.medias.get_metadata(
+                    file_path, self.root, checksum, loc=loc
+                )
+                metadata['file_path'] = relpath
+                # set row attribute to the file
+                self.db.add_file_data(metadata)
+                self.summary.append('update', file_path)
+
             # If file not in database
             if relpath not in db_paths:
-                metadata = self.medias.get_metadata(file_path, self.root, loc)
+                metadata = self.medias.get_metadata(file_path, self.root, loc=loc)
                 metadata['file_path'] = relpath
                 # Check if file checksum is in invalid rows
                 row = []
@@ -924,19 +983,6 @@ class Collection(SortMedias):
         # Finally delete invalid rows
         for row in invalid_db_rows:
             self.db.sqlite.delete_filepath(row['FilePath'])
-
-        return self.summary
-
-    def check_files(self):
-        """Check file integrity."""
-        for file_path in self.paths.get_files(self.root):
-            checksum = utils.checksum(file_path)
-            relpath = file_path.relative_to(self.root)
-            if checksum == self.db.sqlite.get_checksum(relpath):
-                self.summary.append('check', True, file_path)
-            else:
-                self.log.error(f'{file_path} is corrupted')
-                self.summary.append('check', False, file_path)
 
         return self.summary
 
