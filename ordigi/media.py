@@ -646,6 +646,7 @@ class Medias:
         paths,
         root,
         exif_options,
+        checksums=None,
         db=None,
         interactive=False,
     ):
@@ -658,6 +659,11 @@ class Medias:
         self.root = root
 
         # Options
+        if checksums:
+            self.checksums = checksums
+        else:
+            self.checksums = {}
+
         self.exif_opt = exif_options
 
         self.ignore_tags = self.exif_opt['ignore_tags']
@@ -684,7 +690,14 @@ class Medias:
 
         return media
 
-    def get_media_data(self, file_path, src_dir, checksum=None, loc=None):
+    def get_media_data(self, file_path, src_dir, loc=None):
+        """Get media class instance with metadata"""
+
+        if self.checksums and file_path in self.checksums.keys():
+            checksum = self.checksums[file_path]
+        else:
+            checksum = None
+
         media = self.get_media(file_path, src_dir, checksum)
         media.get_metadata(
             self.root, loc, self.db.sqlite, self.exif_opt['cache']
@@ -692,9 +705,9 @@ class Medias:
 
         return media
 
-    def get_metadata(self, src_path, src_dir, checksum=None, loc=None):
+    def get_metadata(self, src_path, src_dir, loc=None):
         """Get metadata"""
-        return self.get_media_data(src_path, src_dir, checksum, loc).metadata
+        return self.get_media_data(src_path, src_dir, loc).metadata
 
     def get_paths(self, src_dirs, imp=False):
         """Get paths"""
