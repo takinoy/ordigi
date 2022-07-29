@@ -760,6 +760,7 @@ class Collection(SortMedias):
             self.paths,
             root,
             self.opt['Exif'],
+            {},
             self.db,
             self.opt['Terminal']['interactive'],
         )
@@ -876,12 +877,12 @@ class Collection(SortMedias):
         db_rows = [row['FilePath'] for row in self.db.sqlite.get_rows('metadata')]
         for file_path in file_paths:
             result = self.file_in_db(file_path, db_rows)
-            checksum = utils.checksum(file_path)
+            self.medias.checksums[file_path] = utils.checksum(file_path)
             if not result:
                 self.log.error('Db data is not accurate')
                 self.log.info(f'{file_path} not in db')
                 return False
-            elif not self._check_file(file_path, checksum):
+            elif not self._check_file(file_path, self.medias.checksums[file_path]):
                 # We d'ont want to silently ignore or correct this without
                 # resetting the cache as is could be due to file corruption
                 self.log.error(f'modified or corrupted file.')
@@ -949,12 +950,13 @@ class Collection(SortMedias):
             relpath = os.path.relpath(file_path, self.root)
             metadata = {}
 
-            checksum = utils.checksum(file_path)
-            if not self._check_file(file_path, checksum) and update_checksum:
+            self.medias.checksums[file_path] = utils.checksum(file_path)
+            if (
+                not self._check_file(file_path, self.medias.checksums[file_path])
+                and update_checksum
+            ):
                 # metatata will fill checksum from file
-                metadata = self.medias.get_metadata(
-                    file_path, self.root, checksum, loc=loc
-                )
+                metadata = self.medias.get_metadata(file_path, self.root, loc=loc)
                 metadata['file_path'] = relpath
                 # set row attribute to the file
                 self.db.add_file_data(metadata)
