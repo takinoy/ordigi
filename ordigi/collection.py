@@ -494,6 +494,7 @@ class SortMedias:
         self.summary = Summary(self.root)
 
         # Attributes
+        self.input = request.Input()
         self.theme = request.load_theme()
 
     def _checkcomp(self, dest_path, src_checksum):
@@ -580,14 +581,10 @@ class SortMedias:
                     self.log.warning(f'Target directory {dir_path} is a file')
                     # Rename the src_file
                     if self.interactive:
-                        prompt = [
-                            inquirer.Text(
-                                'file_path',
-                                message="New name for" f"'{dir_path.name}' file",
-                            ),
-                        ]
-                        answers = inquirer.prompt(prompt, theme=self.theme)
-                        file_path = dir_path.parent / answers['file_path']
+                        answer = self.input.text(
+                            "New name for" f"'{dir_path.name}' file"
+                        )
+                        file_path = dir_path.parent / answer
                     else:
                         file_path = dir_path.parent / (dir_path.name + '_file')
 
@@ -1201,6 +1198,7 @@ class Collection(SortMedias):
 
     def edit_metadata(self, paths, keys, loc=None, overwrite=False):
         """Edit metadata and exif data for given key"""
+
         if self.db.sqlite.is_empty('metadata'):
             self.init(loc)
         for file_path, media in self.medias.get_medias_datas(paths, loc=loc):
@@ -1225,21 +1223,17 @@ class Collection(SortMedias):
                     print(f"{key}: '{value}'")
                 if overwrite or not value:
                     # Prompt value for given key for file_path
-                    prompt = [
-                        inquirer.Text('value', message=key),
-                    ]
-                    answer = inquirer.prompt(prompt, theme=self.theme)
-                    # answer = {'value': '03-12-2021 08:12:35'}
-                    # Validate value
+                    answer = self.input.text(key)
+                    # Check value
                     if key in ('date_original', 'date_created', 'date_modified'):
                         # Check date format
-                        value = media.get_date_format(answer['value'])
+                        value = media.get_date_format(answer)
                     else:
-                        value = answer['value']
+                        value = answer
                         while not value.isalnum():
                             if not value: break
                             print("Invalid entry, use alphanumeric chars")
-                            value = inquirer.prompt(prompt, theme=self.theme)
+                            value = self.input.text(key)
 
                     if value:
                         media.metadata[key] = value

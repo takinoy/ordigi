@@ -1,5 +1,6 @@
 import inquirer
 from blessed import Terminal
+from colorama import init,Fore,Style,Back
 
 term = Terminal()
 
@@ -33,6 +34,15 @@ def load_theme():
 
     return inquirer.themes.load_theme_from_dict(custom_theme)
 
+
+class Input():
+
+    def __init__(self):
+
+        init()
+ 
+    def text(self, message):
+        return input(f'{Fore.BLUE}[{Fore.YELLOW}?{Fore.BLUE}]{Fore.WHITE} {message}: ')
 
 
 # def edit_prompt(self, key: str, value: str) -> str:

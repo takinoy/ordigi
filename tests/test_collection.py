@@ -8,13 +8,14 @@ import inquirer
 
 from ordigi import LOG
 from ordigi import constants
+from ordigi import utils
+from ordigi.summary import Summary
 from ordigi.collection import Collection, FPath, Paths
 from ordigi.exiftool import ExifTool, ExifToolCaching, exiftool_is_running, terminate_exiftool
 from ordigi.geolocation import GeoLocation
 from ordigi.media import Media, ReadExif
-from ordigi import utils
+from ordigi.request import Input
 from .conftest import randomize_files, randomize_db
-from ordigi.summary import Summary
 
 LOG.setLevel(10)
 
@@ -257,10 +258,10 @@ class TestCollection:
         shutil.copytree(self.src_path, path)
         collection = Collection(path, {'cache': False})
 
-        def mockreturn(prompt, theme):
-            return {'value': '03-12-2021 08:12:35'}
+        def mockreturn(self, message):
+            return '03-12-2021 08:12:35'
 
-        monkeypatch.setattr(inquirer, 'prompt', mockreturn)
+        monkeypatch.setattr(Input, 'text', mockreturn)
 
         collection.edit_metadata({path}, {'date_original'}, overwrite=True)
         # check if db value is set
@@ -278,10 +279,10 @@ class TestCollection:
         collection = Collection(path, {'cache': False})
         loc = GeoLocation()
 
-        def mockreturn(prompt, theme):
-            return {'value': 'lyon'}
+        def mockreturn(self, message):
+            return 'lyon'
 
-        monkeypatch.setattr(inquirer, 'prompt', mockreturn)
+        monkeypatch.setattr(Input, 'text', mockreturn)
 
         collection.edit_metadata({path}, {'location'}, loc, True)
         # check if db value is set
