@@ -345,11 +345,8 @@ class Media(ReadExif):
             sys.exit()
 
         if not answers['date_list']:
-            prompt = [
-                inquirer.Text('date_custom', message="date"),
-            ]
-            answers = inquirer.prompt(prompt, theme=self.theme)
-            return self.get_date_format(answers['date_custom'])
+            answer = self.prompt.text("date")
+            return self.get_date_format(answer)
 
         return answers['date_list']
 
@@ -467,17 +464,12 @@ class Media(ReadExif):
                 default=f'{album}',
             ),
         ]
-        prompt = [
-            inquirer.Text('custom', message="album"),
-        ]
-
         answers = inquirer.prompt(choices_list, theme=self.theme)
         if not answers:
             sys.exit()
 
         if not answers['album']:
-            answers = inquirer.prompt(prompt, theme=self.theme)
-            return answers['custom']
+            return self.input.text("album")
 
         return answers['album']
 

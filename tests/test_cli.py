@@ -5,6 +5,7 @@ import pytest
 import inquirer
 
 from ordigi import cli
+from ordigi.request import Input
 
 CONTENT = "content"
 
@@ -88,10 +89,10 @@ class TestOrdigi:
             *self.filter_options,
         )
 
-        def mockreturn(prompt, theme):
-            return {'value': '03-12-2021 08:12:35'}
+        def mockreturn(self, message):
+            return '03-12-2021 08:12:35'
 
-        monkeypatch.setattr(inquirer, 'prompt', mockreturn)
+        monkeypatch.setattr(Input, 'text', mockreturn)
 
         args = (
             '--key',
