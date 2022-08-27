@@ -868,7 +868,20 @@ class Collection(SortMedias):
 
         return True
 
-    def check_db(self):
+    def check_file(self, file_path):
+        self.medias.checksums[file_path] = utils.checksum(file_path)
+        if self._check_file(file_path, self.medias.checksums[file_path]):
+            return True
+
+        # We d'ont want to silently ignore or correct this without
+        # resetting the cache as is could be due to file corruption
+        self.log.error(f'modified or corrupted file.')
+        self.log.info(
+            'Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file'
+        )
+        return False
+
+    def check_db(self, checksums=True):
         """
         Check if db FilePath match to collection filesystem
         :returns: bool
@@ -877,18 +890,11 @@ class Collection(SortMedias):
         db_rows = [row['FilePath'] for row in self.db.sqlite.get_rows('metadata')]
         for file_path in file_paths:
             result = self.file_in_db(file_path, db_rows)
-            self.medias.checksums[file_path] = utils.checksum(file_path)
             if not result:
                 self.log.error('Db data is not accurate')
                 self.log.info(f'{file_path} not in db')
                 return False
-            elif not self._check_file(file_path, self.medias.checksums[file_path]):
-                # We d'ont want to silently ignore or correct this without
-                # resetting the cache as is could be due to file corruption
-                self.log.error(f'modified or corrupted file.')
-                self.log.info(
-                    'Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file'
-                )
+            elif checksums and not self.check_file(file_path):
                 return False
 
         nb_files = len(file_paths)
@@ -899,18 +905,18 @@ class Collection(SortMedias):
 
         return True
 
-    def check(self):
+    def check(self, checksums=True):
         if self.db.sqlite.is_empty('metadata'):
             self.log.error('Db data does not exist run `ordigi init`')
             sys.exit(1)
-        elif not self.check_db():
+        elif not self.check_db(checksums):
             self.log.error('Db data is not accurate run `ordigi update`')
             sys.exit(1)
 
-    def _init_check_db(self, loc=None):
+    def _init_check_db(self, checksums=True, loc=None):
         if self.db.sqlite.is_empty('metadata'):
             self.init(loc)
-        elif not self.check_db():
+        elif not self.check_db(checksums):
             self.log.error('Db data is not accurate run `ordigi update`')
             sys.exit(1)
 
@@ -939,6 +945,7 @@ class Collection(SortMedias):
         db_rows = list(self.db.sqlite.get_rows('metadata'))
         invalid_db_rows = set()
         db_paths = set()
+        self.log.info(f"Update database:")
         for db_row in db_rows:
             abspath = self.root / db_row['FilePath']
             if abspath not in file_paths:
@@ -960,6 +967,7 @@ class Collection(SortMedias):
                 metadata['file_path'] = relpath
                 # set row attribute to the file
                 self.db.add_file_data(metadata)
+                self.log.info(f"Update '{file_path}' checksum to db")
                 self.summary.append('update', file_path)
 
             # If file not in database
@@ -980,11 +988,13 @@ class Collection(SortMedias):
                         break
                 # set row attribute to the file
                 self.db.add_file_data(metadata)
+                self.log.info(f"Add '{file_path}' to db")
                 self.summary.append('update', file_path)
 
         # Finally delete invalid rows
         for row in invalid_db_rows:
             self.db.sqlite.delete_filepath(row['FilePath'])
+            self.log.info(f"Delete invalid row : '{row['FilePath']}' from db")
 
         return self.summary
 
@@ -1059,7 +1069,7 @@ class Collection(SortMedias):
         Sort files into appropriate folder
         """
         # Check db
-        self._init_check_db(loc)
+        self._init_check_db(loc=loc)
 
         path_format = self.opt['Path']['path_format']
         self.log.debug(f'path_format: {path_format}')
@@ -1191,11 +1201,15 @@ class Collection(SortMedias):
 
     def edit_metadata(self, paths, keys, loc=None, overwrite=False):
         """Edit metadata and exif data for given key"""
-        self._init_check_db()
-
+        if self.db.sqlite.is_empty('metadata'):
+            self.init(loc)
         for file_path, media in self.medias.get_medias_datas(paths, loc=loc):
             result = False
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
+            if not self.check_file(file_path):
+                self.log.error('Db data is not accurate run `ordigi update`')
+                sys.exit(1)
+
             exif = WriteExif(
                 file_path,
                 media.metadata,
