@@ -46,9 +46,16 @@ def file_logger(logger, file, level=30):
     logger.addHandler(handler)
 
 
-def get_level(verbose):
-    """Return int logging level from string"""
-    if verbose.isnumeric():
+def get_level(quiet=False, verbose=False, debug=False, num=None):
+    """Return int logging level from command line args"""
+    if num and num.isnumeric():
         return int(verbose)
 
-    return int(logging.getLevelName(verbose))
+    if debug:
+        return int(logging.getLevelName('DEBUG'))
+    if verbose:
+        return int(logging.getLevelName('INFO'))
+    if quiet:
+        return int(logging.getLevelName('ERROR'))
+
+    return int(logging.getLevelName('WARNING'))
