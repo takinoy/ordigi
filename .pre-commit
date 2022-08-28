@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-flake8 elodie --exclude=tests,external && nosetests -w elodie/tests
