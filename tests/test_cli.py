@@ -27,7 +27,7 @@ class TestOrdigi:
     def setup_class(cls, sample_files_paths):
         cls.runner = CliRunner()
         cls.src_path, cls.file_paths = sample_files_paths
-        cls.logger_options = (('--verbose', 'DEBUG'),)
+        cls.logger_options = ('--debug',)
         cls.filter_options = (
             ('--ignore-tags', 'CreateDate'),
             ('--ext', 'jpg'),
@@ -82,10 +82,11 @@ class TestOrdigi:
 
     def test_edit(self, monkeypatch):
 
-        bool_options = ()
+        bool_options = (
+            *self.logger_options,
+        )
 
         arg_options = (
-            *self.logger_options,
             *self.filter_options,
         )
 
@@ -109,6 +110,7 @@ class TestOrdigi:
 
     def test_sort(self):
         bool_options = (
+            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--album-from-folder',
@@ -119,7 +121,6 @@ class TestOrdigi:
         )
 
         arg_options = (
-            *self.logger_options,
             *self.filter_options,
             ('--path-format', '{%Y}/{folder}/{name}.{ext}'),
 
@@ -134,36 +135,41 @@ class TestOrdigi:
 
     def test_clone(self, tmp_path):
 
-        arg_options = (
-            *self.logger_options,
-
-        )
-
         paths = (str(self.src_path), str(tmp_path))
 
         self.assert_cli(cli._init, [str(self.src_path)])
-        self.assert_cli(cli._clone, ['--dry-run', '--verbose', 'DEBUG', *paths])
-        self.assert_cli(cli._clone, paths)
-
+        self.assert_cli(cli._clone, ['--dry-run', '--debug', *paths])
 
     def assert_init(self):
-        for opt, arg in self.logger_options:
-            self.assert_cli(cli._init, [opt, arg, str(self.src_path)])
+        bool_options = (*self.logger_options,)
+        arg_options = ()
+
+        paths = (str(self.src_path),)
+        self.assert_options(cli._init, bool_options, arg_options, paths)
 
     def assert_update(self):
+        bool_options = (
+            *self.logger_options,
+            '--checksum',
+        )
+        arg_options = ()
+
         file_path = Path(ORDIGI_PATH, 'samples/test_exif/photo.cr2')
         dest_path = self.src_path / 'photo_moved.cr2'
+        src_path = (str(self.src_path),)
         shutil.copyfile(file_path, dest_path)
-        for opt, arg in self.logger_options:
-            self.assert_cli(cli._update, [opt, arg, str(self.src_path)])
-        self.assert_cli(cli._update, ['--checksum', str(self.src_path)])
+        self.assert_options(cli._update, bool_options, arg_options, src_path)
 
     def assert_check(self):
-        for opt, arg in self.logger_options:
-            self.assert_cli(cli._check, [opt, arg, str(self.src_path)])
+        bool_options = (*self.logger_options,)
+        arg_options = ()
+
+        paths = (str(self.src_path),)
+        self.assert_options(cli._check, bool_options, arg_options, paths)
 
     def assert_clean(self):
         bool_options = (
+            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--delete-excluded',
@@ -173,7 +179,6 @@ class TestOrdigi:
         )
 
         arg_options = (
-            *self.logger_options,
             *self.filter_options,
             ('--dedup-regex', r'\d{4}-\d{2}'),
         )
@@ -194,6 +199,7 @@ class TestOrdigi:
 
     def test_import(self, tmp_path):
         bool_options = (
+            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--album-from-folder',
@@ -204,7 +210,6 @@ class TestOrdigi:
         )
 
         arg_options = (
-            *self.logger_options,
             ('--exclude', '.DS_Store'),
             *self.filter_options,
             ('--path-format', '{%Y}/{folder}/{stem}.{ext}'),
@@ -220,6 +225,7 @@ class TestOrdigi:
 
     def test_compare(self):
         bool_options = (
+            *self.logger_options,
             # '--interactive',
             '--dry-run',
             '--find-duplicates',
@@ -227,7 +233,6 @@ class TestOrdigi:
         )
 
         arg_options = (
-            *self.logger_options,
             *self.filter_options,
             # ('--similar-to', ''),
             ('--similarity', '65'),
