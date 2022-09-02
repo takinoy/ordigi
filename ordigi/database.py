@@ -5,7 +5,7 @@ import sqlite3
 import sys
 
 from ordigi import LOG
-from ordigi.utils import distance_between_two_points
+from ordigi.utils import check_dir, distance_between_two_points
 
 
 class Sqlite:
@@ -16,11 +16,7 @@ class Sqlite:
         # Create dir for target database
         db_dir = Path(target_dir, '.ordigi')
 
-        if not db_dir.exists():
-            try:
-                db_dir.mkdir()
-            except OSError:
-                pass
+        check_dir(db_dir)
 
         self.db_type = 'SQLite format 3'
         self.log = LOG.getChild(self.__class__.__name__)

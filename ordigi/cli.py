@@ -33,6 +33,13 @@ _logger_options = [
         is_flag=True,
         help='Log level set to DEBUG',
     ),
+    click.option(
+        '--log',
+        '-l',
+        default=False,
+        is_flag=True,
+        help='Save logs to .ordigi folder',
+    ),
 ]
 
 _input_options = [
@@ -184,7 +191,7 @@ def _check(**kwargs):
     root = Path(kwargs['path']).expanduser().absolute()
 
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
+    log.init_logger(LOG, root, log_level, False, kwargs['log'])
 
     collection = Collection(root)
     result = collection.check_db()
@@ -233,11 +240,13 @@ def _clean(**kwargs):
     """Clean media collection"""
 
     folders = kwargs['folders']
-    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
 
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
+
+    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
+    log.init_logger(LOG, root, log_level, kwargs['dry_run'], kwargs['log'])
+
     paths, root = _get_paths(subdirs, root)
 
     collection = Collection(
@@ -283,21 +292,19 @@ def _clean(**kwargs):
 def _clone(**kwargs):
     """Clone media collection to another location"""
 
-    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
-
     src_path = Path(kwargs['src']).expanduser().absolute()
     dest_path = Path(kwargs['dest']).expanduser().absolute()
-
-    dry_run = kwargs['dry_run']
-
-    src_collection = Collection(
-        src_path, {'cache': True, 'dry_run': dry_run}
-    )
 
     if dest_path.exists() and not utils.empty_dir(dest_path):
         LOG.error(f'Destination collection path {dest_path} must be empty directory')
         sys.exit(1)
+
+    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
+    log.init_logger(LOG, dest_path, log_level, kwargs['dry_run'], kwargs['log'])
+
+    src_collection = Collection(
+        src_path, {'cache': True, 'dry_run': kwargs['dry_run']}
+    )
 
     summary = src_collection.clone(dest_path)
 
@@ -336,9 +343,10 @@ def _compare(**kwargs):
     subdirs = kwargs['subdirs']
     root = kwargs['collection']
 
-    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
     paths, root = _get_paths(subdirs, root)
+
+    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
+    log.init_logger(LOG, root, log_level, kwargs['dry_run'], kwargs['log'])
 
     collection = Collection(
         root,
@@ -385,10 +393,10 @@ def _compare(**kwargs):
 def _edit(**kwargs):
     """Edit EXIF metadata in files or directories"""
 
-    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
-
     paths, root = _get_paths(kwargs['subdirs'], kwargs['path'])
+
+    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
+    log.init_logger(LOG, root, log_level, False, kwargs['log'])
 
     overwrite = kwargs['overwrite']
 
@@ -469,8 +477,9 @@ def _init(**kwargs):
     Init media collection database.
     """
     root = Path(kwargs['path']).expanduser().absolute()
+
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
+    log.init_logger(LOG, root, log_level, False, kwargs['log'])
 
     collection = Collection(root)
 
@@ -506,10 +515,10 @@ def _import(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
     """
-    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
-
     src_paths, root = _get_paths(kwargs['src'], kwargs['dest'])
+
+    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
+    log.init_logger(LOG, root, log_level, kwargs['dry_run'], kwargs['log'])
 
     collection = Collection(
         root,
@@ -562,10 +571,10 @@ def _sort(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
     """
-    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
-
     paths, root = _get_paths(kwargs['subdirs'], kwargs['dest'])
+
+    log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
+    log.init_logger(LOG, root, log_level, kwargs['dry_run'], kwargs['log'])
 
     cache = not kwargs['reset_cache']
 
@@ -613,8 +622,9 @@ def _update(**kwargs):
     Update media collection database.
     """
     root = Path(kwargs['path']).expanduser().absolute()
+
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.console(LOG, level=log_level)
+    log.init_logger(LOG, root, log_level, False, kwargs['log'])
 
     collection = Collection(root)
     loc = _cli_get_location(collection)

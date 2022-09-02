@@ -27,7 +27,7 @@ class TestOrdigi:
     def setup_class(cls, sample_files_paths):
         cls.runner = CliRunner()
         cls.src_path, cls.file_paths = sample_files_paths
-        cls.logger_options = ('--debug',)
+        cls.logger_options = ('--debug', '--log')
         cls.filter_options = (
             ('--ignore-tags', 'CreateDate'),
             ('--ext', 'jpg'),
@@ -139,6 +139,7 @@ class TestOrdigi:
 
         self.assert_cli(cli._init, [str(self.src_path)])
         self.assert_cli(cli._clone, ['--dry-run', '--debug', *paths])
+        self.assert_cli(cli._clone, ['--log', *paths])
 
     def assert_init(self):
         bool_options = (*self.logger_options,)

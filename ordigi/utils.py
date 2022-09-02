@@ -5,6 +5,22 @@ import os
 import platform
 import re
 import subprocess
+import sys
+
+
+def check_dir(directory):
+    if not directory.exists():
+        try:
+            directory.mkdir()
+        except OSError:
+            sys.exit(1)
+
+    return True
+
+
+def date_now(date_string):
+    """return datetime string"""
+    return datetime.now().strftime(date_string)
 
 
 def checksum(file_path, blocksize=65536):
