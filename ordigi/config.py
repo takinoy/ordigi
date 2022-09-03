@@ -79,6 +79,7 @@ class Config:
                 'timeout': gopt.default_timeout,
             },
             'Path': {
+                'src_paths': set(),
                 'day_begins': 0,
                 'path_format': constants.DEFAULT_PATH_FORMAT,
             },
@@ -158,6 +159,7 @@ class Config:
             'exclude',
             'extensions',
             'ignore_tags',
+            'src_paths',
         }
 
         value = self.options[section][option]

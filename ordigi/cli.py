@@ -515,7 +515,10 @@ def _import(**kwargs):
     """Sort files or directories by reading their EXIF and organizing them
     according to ordigi.conf preferences.
     """
-    src_paths, root = _get_paths(kwargs['src'], kwargs['dest'])
+    root = Path(kwargs['dest']).expanduser().absolute()
+    src_paths = set()
+    for path in kwargs['src']:
+        src_paths.add(Path(path).expanduser().absolute())
 
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
     log.init_logger(LOG, root, log_level, kwargs['dry_run'], kwargs['log'])
@@ -537,6 +540,15 @@ def _import(**kwargs):
             'remove_duplicates': kwargs['remove_duplicates'],
         }
     )
+
+    src_paths_option = collection.opt['Path']['src_paths']
+    if not src_paths:
+        if src_paths_option:
+            for path in src_paths_option:
+                src_paths.add(Path(path).expanduser().absolute())
+        else:
+            LOG.error(f"Config option src_paths is empty")
+            sys.exit(1)
 
     if kwargs['copy']:
         import_mode = 'copy'
