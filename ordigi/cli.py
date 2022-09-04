@@ -258,11 +258,10 @@ def _clean(**kwargs):
             'remove_duplicates': kwargs['remove_duplicates'],
         },
     )
+    collection.check()
 
-    # os.path.join(
-    # TODO make function to remove duplicates
-    # path_format = collection.opt['Path']['path_format']
-    # summary = collection.sort_files(paths, None)
+    if kwargs['remove_duplicates']:
+        collection.dedup_files()
 
     if kwargs['path_string']:
         dedup_regex = set(kwargs['dedup_regex'])
@@ -275,12 +274,13 @@ def _clean(**kwargs):
         if kwargs['delete_excluded']:
             collection.remove_excluded_files()
 
-    summary = collection.summary
+    if not collection.check_db():
+        collection.summary.append('check', False)
 
     if log_level < 30:
-        summary.print()
+        collection.summary.print()
 
-    if summary.errors:
+    if collection.summary.errors:
         sys.exit(1)
 
 
