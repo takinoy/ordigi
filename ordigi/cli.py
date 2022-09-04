@@ -304,7 +304,7 @@ def _clone(**kwargs):
     log.init_logger(LOG, dest_path, log_level, False, kwargs['log'])
 
     src_collection = Collection(
-        src_path, {'cache': True}
+        src_path, {'cache': True}, init=True
     )
 
     summary = src_collection.clone(dest_path)
@@ -472,6 +472,19 @@ def _edit(**kwargs):
 
 @cli.command('init')
 @add_options(_logger_options)
+@click.option(
+    '--config',
+    '-c',
+    default=None,
+    help="Copy config file from another location to .ordigi subfolder",
+)
+@click.option(
+    '--user-config',
+    '-C',
+    default=False,
+    is_flag=True,
+    help="Copy user config file to collection to .ordigi subfolder",
+)
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def _init(**kwargs):
     """
@@ -482,7 +495,13 @@ def _init(**kwargs):
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
     log.init_logger(LOG, root, log_level, False, kwargs['log'])
 
-    collection = Collection(root, init=True)
+    src_conf = None
+    if kwargs['user_config']:
+        src_conf = constants.CONFIG_FILE
+    elif kwargs['config']:
+        src_conf = Path(kwargs['config']).expanduser().absolute()
+
+    collection = Collection(root, src_conf=src_conf, init=True)
 
     loc = _cli_get_location(collection)
 

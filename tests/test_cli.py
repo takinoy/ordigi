@@ -142,9 +142,14 @@ class TestOrdigi:
         self.assert_cli(cli._init, [str(self.src_path)])
         self.assert_cli(cli._clone, ['--log', *paths])
 
-    def assert_init(self, tmp_path):
-        bool_options = (*self.logger_options,)
-        arg_options = ()
+    def assert_init(self, tmp_path, conf_path):
+        bool_options = (
+            *self.logger_options,
+            '--user-config',
+        )
+        arg_options = (
+            ('--config', conf_path),
+        )
 
         paths = (str(self.src_path),)
         self.assert_options(cli._init, bool_options, arg_options, paths)
@@ -196,8 +201,8 @@ class TestOrdigi:
         self.assert_options(cli._clean, bool_options, arg_options, paths)
         self.assert_all_options(cli._clean, bool_options, arg_options, paths)
 
-    def test_init_update_check_clean(self, tmp_path):
-        self.assert_init(tmp_path)
+    def test_init_update_check_clean(self, tmp_path, conf_path):
+        self.assert_init(tmp_path, conf_path)
         self.assert_update()
         self.assert_clean()
 

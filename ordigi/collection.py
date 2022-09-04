@@ -270,8 +270,8 @@ class FPath:
 
 class CollectionDb:
 
-    def __init__(self, root):
-        self.sqlite = Sqlite(root)
+    def __init__(self, ordigi_dir):
+        self.sqlite = Sqlite(ordigi_dir)
 
     def _get_row_data(self, table, metadata):
         row_data = {}
@@ -747,16 +747,18 @@ class SortMedias:
 class Collection(SortMedias):
     """Class of the media collection."""
 
-    def __init__(self, root, cli_options=None, init=False):
+    def __init__(self, root, cli_options=None, src_conf=None, init=False):
 
         if not cli_options:
             cli_options = {}
 
-        self.root = root
         self.log = LOG.getChild(self.__class__.__name__)
 
+        self.root = root
+        ordigi_dir = self.check_root(init)
+
         # Get config options
-        self.opt, default_options = self.get_config_options()
+        self.opt, default_options = self.get_config_options(src_conf)
 
         # Set client options
         for option, value in cli_options.items():
@@ -777,9 +779,8 @@ class Collection(SortMedias):
 
         self.fileio = FileIO(self.opt['Terminal']['dry_run'])
 
-        self.root_is_valid(init)
+        self.db = CollectionDb(ordigi_dir)
 
-        self.db = CollectionDb(root)
         self.paths = Paths(
             self.opt['Filters'],
             interactive=self.opt['Terminal']['interactive'],
@@ -809,21 +810,32 @@ class Collection(SortMedias):
         self.summary = Summary(self.root)
         self.theme = request.load_theme()
 
-    def root_is_valid(self, init=False):
+    def check_root(self, init=False):
         """Check if collection path is valid"""
         if self.root.exists():
             if not self.root.is_dir():
                 self.log.error(f'Collection path {self.root} is not a directory')
                 sys.exit(1)
         elif init:
-            self.fileio.mkdir(self.root)
+            self.root.mkdir()
         else:
             self.log.error(f'Collection path {self.root} does not exist')
             sys.exit(1)
 
-    def get_config_options(self):
+        ordigi_dir = Path(self.root, '.ordigi')
+        if not ordigi_dir.exists():
+            ordigi_dir.mkdir()
+
+        return ordigi_dir
+
+    def get_config_options(self, src_conf=None):
         """Get collection config"""
-        config = Config(self.root.joinpath('.ordigi', 'ordigi.conf'))
+        conf_file = self.root.joinpath('.ordigi', 'ordigi.conf')
+
+        if src_conf:
+            shutil.copy2(src_conf, conf_file)
+
+        config = Config(conf_file)
 
         return config.get_config_options(), config.get_default_options()
 

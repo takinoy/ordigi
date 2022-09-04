@@ -12,6 +12,8 @@ class TestSqlite:
     @pytest.fixture(autouse=True)
     def setup_class(cls, tmp_path):
         cls.test='abs'
+        ordigi_dir = tmp_path.joinpath('.ordigi')
+        ordigi_dir.mkdir()
         cls.sqlite = Sqlite(tmp_path)
 
         row_data = {
