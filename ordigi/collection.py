@@ -568,12 +568,9 @@ class SortMedias:
         else:
             self.fileio.move(src_path, dest_path)
 
-        if self.db:
-            result = self._record_file(
-                src_path, dest_path, metadata, imp=imp
-            )
-        else:
-            result = True
+        result = self._record_file(
+            src_path, dest_path, metadata, imp=imp
+        )
 
         self._set_summary(result, src_path, dest_path, imp)
 
@@ -661,10 +658,10 @@ class SortMedias:
                 # Add appendix to the name
                 suffix = dest_path.suffix
                 if i > 1:
-                    stem = dest_path.stem.rsplit('_' + str(i - 1))[0]
+                    stem = dest_path.stem.rsplit('(' + str(i - 1) + ')')[0]
                 else:
                     stem = dest_path.stem
-                dest_path = dest_path.parent / (stem + '_' + str(i) + suffix)
+                dest_path = dest_path.parent / (stem + '(' + str(i) + ')' + suffix)
                 conflict = self.check_conflicts(src_path, dest_path)
 
             if conflict == 1:
@@ -1088,9 +1085,11 @@ class Collection(SortMedias):
                 # Retrive path to keep
                 original_file = dup_paths[-1]
                 if len(original_file.stem.rsplit('(')) != 1:
+                    # set original_file and remove from dup_paths list
                     original_file = dup_paths.pop(0)
+                else:
+                    dup_paths.remove(original_file)
 
-                dup_paths.remove(original_file)
                 dedup_checksums[original_file] = checksum
 
                 for dup_path in dup_paths:
@@ -1121,7 +1120,7 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def sort_files(self, src_dirs, loc, imp=False):
+    def sort_files(self, paths, loc, imp=False):
         """
         Sort files into appropriate folder
         """
@@ -1131,11 +1130,14 @@ class Collection(SortMedias):
         path_format = self.opt['Path']['path_format']
         self.log.debug(f'path_format: {path_format}')
 
+        if self.remove_duplicates:
+            self.dedup_files(paths, imp)
+
         # Get medias data
         subdirs = set()
 
         self.medias.datas = {}
-        for src_path, metadata in self.medias.get_metadatas(src_dirs, imp=imp, loc=loc):
+        for src_path, metadata in self.medias.get_metadatas(paths, imp=imp, loc=loc):
             # Get the destination path according to metadata
             self.log.info(f'src_path: {src_path}')
             fpath = FPath(path_format, self.opt['Path']['day_begins'])
@@ -1147,8 +1149,11 @@ class Collection(SortMedias):
         # Sort files and solve conflicts
         self.summary = self.sort_medias(imp)
 
+        if self.remove_duplicates:
+            self.dedup_collection_files()
+
         if imp != 'copy':
-            self.remove_empty_subdirs(subdirs, src_dirs)
+            self.remove_empty_subdirs(subdirs, paths)
 
         if not self.check_db():
             self.summary.append('check', False)
@@ -1250,7 +1255,7 @@ class Collection(SortMedias):
 
         nb_row_end = self.db.sqlite.len('metadata')
         if nb_row_ini and nb_row_ini != nb_row_end:
-            self.log.error('Nb of row have changed unexpectedly')
+            self.log.error("Nb of row have changed unexpectedly")
 
         if not self.check_db():
             self.summary.append('check', False)
