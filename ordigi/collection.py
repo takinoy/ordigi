@@ -546,14 +546,14 @@ class SortMedias:
             else:
                 self.summary.append('sort', False, src_path, dest_path)
 
-    def remove_file(self, src_path):
+    def remove_file(self, src_path, imp=False):
         """Delete file and remove it from db"""
 
         # remove file
         self.fileio.remove(src_path)
 
         # delete the file from db
-        if not self.dry_run:
+        if not imp and not self.dry_run:
             self.db.sqlite.delete_filepath(str(src_path.relative_to(self.root)))
 
         self.summary.append('remove', True, src_path)
@@ -1075,14 +1075,14 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def dedup_files(self):
+    def _dedup_files(self, checksums, imp=False):
         dedup_checksums = {}
-        for file_path, checksum in self.medias.checksums.items():
+        for file_path, checksum in checksums.items():
             if checksum in dedup_checksums.values():
                 continue
 
             dup_paths = sorted([
-                f for f, v in self.medias.checksums.items() if v == checksum
+                f for f, v in checksums.items() if v == checksum
             ])
             if len(dup_paths) > 1:
                 # Retrive path to keep
@@ -1095,8 +1095,28 @@ class Collection(SortMedias):
 
                 for dup_path in dup_paths:
                     # Remove duplicates
-                    self.summary = self.remove_file(dup_path)
+                    self.summary = self.remove_file(dup_path, imp)
 
+        return dedup_checksums
+
+    def dedup_files(self, paths, imp=False):
+        """Dedup files in directories"""
+        checksums = {}
+        for _, file_path in self.medias.get_paths(paths, imp=imp):
+            if file_path in self.medias.checksums:
+                checksums[file_path] = self.medias.checksums[file_path]
+            else:
+                checksums[file_path] = utils.checksum(file_path)
+
+        dedup_checksums = self._dedup_files(checksums, imp)
+
+        self.medias.checksums = dedup_checksums
+
+        return self.summary
+
+    def dedup_collection_files(self):
+        """Dedup files in collection"""
+        dedup_checksums = self._dedup_files(self.medias.checksums)
         self.medias.checksums = dedup_checksums
 
         return self.summary

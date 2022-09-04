@@ -261,7 +261,10 @@ def _clean(**kwargs):
     collection.check()
 
     if kwargs['remove_duplicates']:
-        collection.dedup_files()
+        if paths == root:
+            collection.dedup_collection_files()
+        else:
+            collection.dedup_files(paths)
 
     if kwargs['path_string']:
         dedup_regex = set(kwargs['dedup_regex'])
