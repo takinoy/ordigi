@@ -277,8 +277,7 @@ def _clean(**kwargs):
         if kwargs['delete_excluded']:
             collection.remove_excluded_files()
 
-    if not collection.check_db():
-        collection.summary.append('check', False)
+    collection.check_db()
 
     if log_level < 30:
         collection.summary.print()

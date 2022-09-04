@@ -901,17 +901,22 @@ class Collection(SortMedias):
             if not result:
                 self.log.error('Db data is not accurate')
                 self.log.info(f'{file_path} not in db')
-                return False
+                result = False
             elif checksums and not self.check_file(file_path):
-                return False
+                result = False
 
         nb_files = len(file_paths)
         nb_row = len(db_rows)
         if nb_row != nb_files:
             self.log.error('Db data is not accurate')
-            return False
+            result = False
 
-        return True
+        if result:
+            self.summary.append('check', True)
+            return True
+
+        self.summary.append('check', False)
+        return False
 
     def check(self, checksums=True):
         if self.db.sqlite.is_empty('metadata'):
@@ -942,8 +947,7 @@ class Collection(SortMedias):
                 dest_path, {'cache': True, 'dry_run': self.dry_run}
             )
 
-            if not dest_collection.check_db():
-                self.summary.append('check', False)
+        dest_collection.check_db()
 
         return self.summary
 
@@ -1155,8 +1159,7 @@ class Collection(SortMedias):
         if imp != 'copy':
             self.remove_empty_subdirs(subdirs, paths)
 
-        if not self.check_db():
-            self.summary.append('check', False)
+        self.check_db()
 
         return self.summary
 
@@ -1257,8 +1260,7 @@ class Collection(SortMedias):
         if nb_row_ini and nb_row_ini != nb_row_end:
             self.log.error("Nb of row have changed unexpectedly")
 
-        if not self.check_db():
-            self.summary.append('check', False)
+        self.check_db()
 
         return self.summary
 
