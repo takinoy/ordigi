@@ -701,30 +701,9 @@ class Medias:
         """Get metadata"""
         return self.get_media_data(src_path, src_dir, loc).metadata
 
-    def get_paths(self, src_dirs, imp=False):
-        """Get paths"""
-        for src_dir in src_dirs:
-            src_dir = self.paths.check(src_dir)
-
-            if src_dir.is_file():
-                yield src_dir.parent, src_dir
-                continue
-
-            paths = self.paths.get_paths_list(src_dir)
-
-            # Get medias and src_dirs
-            for src_path in paths:
-                if self.root not in src_path.parents:
-                    if not imp:
-                        self.log.error(f"""{src_path} not in {self.root}
-                                collection, use `ordigi import`""")
-                        sys.exit(1)
-
-                yield src_dir, src_path
-
     def get_medias_datas(self, src_dirs, imp=False, loc=None):
         """Get medias datas"""
-        for src_dir, src_path in self.get_paths(src_dirs, imp=imp):
+        for src_dir, src_path in self.paths.get_paths(src_dirs, self.root, imp=imp):
             # Get file metadata
             media = self.get_media_data(src_path, src_dir, loc=loc)
 
@@ -732,7 +711,7 @@ class Medias:
 
     def get_metadatas(self, src_dirs, imp=False, loc=None):
         """Get medias data"""
-        for src_dir, src_path in self.get_paths(src_dirs, imp=imp):
+        for src_dir, src_path in self.paths.get_paths(src_dirs, self.root, imp=imp):
             # Get file metadata
             metadata = self.get_metadata(src_path, src_dir, loc=loc)
 
