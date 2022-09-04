@@ -145,10 +145,10 @@ class TestCollection:
         loc = GeoLocation()
         summary = collection.sort_files([self.src_path], loc, imp='copy')
 
-        self.assert_import(summary, 29)
+        self.assert_import(summary, 25)
 
         summary = collection.check_files()
-        assert summary.success_table.sum('import') == 29
+        assert summary.success_table.sum('import') == 25
         assert summary.success_table.sum('update') == 0
         assert not summary.errors
 
@@ -170,14 +170,14 @@ class TestCollection:
         path_format = 'test_exif/<city>/<%Y>-<name>.%l<ext>'
         summary = collection.sort_files([tmp_path], loc)
 
-        self.assert_sort(summary, 23)
+        self.assert_sort(summary, 22)
 
         shutil.copytree(tmp_path / 'test_exif', tmp_path / 'test_exif_copy')
         collection.summary = Summary(tmp_path)
         assert collection.summary.success_table.sum() == 0
         summary = collection.update(loc)
-        assert summary.success_table.sum('update') == 2
-        assert summary.success_table.sum() == 2
+        assert summary.success_table.sum('update') == 1
+        assert summary.success_table.sum() == 1
         assert not summary.errors
         collection.summary = Summary(tmp_path)
         summary = collection.update(loc)
@@ -237,7 +237,7 @@ class TestCollection:
         }
         paths = Paths(filters)
         paths = list(paths.get_files(self.src_path))
-        assert len(paths) == 9
+        assert len(paths) == 8
         assert Path(self.src_path, 'test_exif/photo.dng') not in paths
         for path in paths:
             assert isinstance(path, Path)
