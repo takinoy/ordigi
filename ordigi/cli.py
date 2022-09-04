@@ -288,7 +288,6 @@ def _clean(**kwargs):
 
 @cli.command('clone')
 @add_options(_logger_options)
-@add_options(_dry_run_options)
 @click.argument('src', required=True, nargs=1, type=click.Path())
 @click.argument('dest', required=True, nargs=1, type=click.Path())
 def _clone(**kwargs):
@@ -302,10 +301,10 @@ def _clone(**kwargs):
         sys.exit(1)
 
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
-    log.init_logger(LOG, dest_path, log_level, kwargs['dry_run'], kwargs['log'])
+    log.init_logger(LOG, dest_path, log_level, False, kwargs['log'])
 
     src_collection = Collection(
-        src_path, {'cache': True, 'dry_run': kwargs['dry_run']}
+        src_path, {'cache': True}
     )
 
     summary = src_collection.clone(dest_path)
