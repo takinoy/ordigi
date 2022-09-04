@@ -482,7 +482,7 @@ def _init(**kwargs):
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
     log.init_logger(LOG, root, log_level, False, kwargs['log'])
 
-    collection = Collection(root)
+    collection = Collection(root, init=True)
 
     loc = _cli_get_location(collection)
 
