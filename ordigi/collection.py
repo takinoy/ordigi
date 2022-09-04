@@ -457,6 +457,27 @@ class Paths:
 
         sys.exit()
 
+    def get_paths(self, src_dirs, root, imp=False):
+        """Get paths"""
+        for src_dir in src_dirs:
+            src_dir = self.check(src_dir)
+
+            if src_dir.is_file():
+                yield src_dir.parent, src_dir
+                continue
+
+            paths = self.get_paths_list(src_dir)
+
+            # Get medias and src_dirs
+            for src_path in paths:
+                if root not in src_path.parents:
+                    if not imp:
+                        self.log.error(f"""{src_path} not in {root}
+                                collection, use `ordigi import`""")
+                        sys.exit(1)
+
+                yield src_dir, src_path
+
     def get_paths_list(self, path):
         self.paths_list = list(self.get_files(path))
         if self.interactive:
@@ -1106,7 +1127,7 @@ class Collection(SortMedias):
     def dedup_files(self, paths, imp=False):
         """Dedup files in directories"""
         checksums = {}
-        for _, file_path in self.medias.get_paths(paths, imp=imp):
+        for _, file_path in self.paths.get_paths(paths, self.root, imp=imp):
             if file_path in self.medias.checksums:
                 checksums[file_path] = self.medias.checksums[file_path]
             else:
