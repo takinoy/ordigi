@@ -59,7 +59,7 @@ class TestOrdigi:
             *bool_options, *arg_options_list, *paths,
         ])
 
-    def test_commands(self):
+    def test_commands(self, tmp_path):
         # Check if fail if path not exist
         commands = [
             cli._check,
@@ -67,18 +67,20 @@ class TestOrdigi:
             cli._compare,
             cli._edit,
             cli._import,
-            cli._init,
             cli._sort,
             cli._update,
         ]
 
+        not_exist = tmp_path.joinpath('not_exist')
+
         for command in commands:
             if command.name == 'edit':
-                self.assert_cli(command, ['-k', 'date_original', 'not_exist'], state=1)
+                self.assert_cli(command, ['-k', 'date_original', not_exist], state=1)
             else:
-                self.assert_cli(command, ['not_exist'], state=1)
+                self.assert_cli(command, [not_exist], state=1)
 
-        self.assert_cli(cli._clone, ['not_exist'], state=2)
+        self.assert_cli(cli._clone, [str(not_exist)], state=2)
+        self.assert_cli(cli._init, [str(not_exist)], state=0)
 
     def test_edit(self, monkeypatch):
 
@@ -140,12 +142,14 @@ class TestOrdigi:
         self.assert_cli(cli._init, [str(self.src_path)])
         self.assert_cli(cli._clone, ['--log', *paths])
 
-    def assert_init(self):
+    def assert_init(self, tmp_path):
         bool_options = (*self.logger_options,)
         arg_options = ()
 
         paths = (str(self.src_path),)
         self.assert_options(cli._init, bool_options, arg_options, paths)
+        path = (str(tmp_path.joinpath('test')),)
+        self.assert_options(cli._init, bool_options, arg_options, path)
 
     def assert_update(self):
         bool_options = (
@@ -192,8 +196,8 @@ class TestOrdigi:
         self.assert_options(cli._clean, bool_options, arg_options, paths)
         self.assert_all_options(cli._clean, bool_options, arg_options, paths)
 
-    def test_init_update_check_clean(self):
-        self.assert_init()
+    def test_init_update_check_clean(self, tmp_path):
+        self.assert_init(tmp_path)
         self.assert_update()
         self.assert_clean()
 

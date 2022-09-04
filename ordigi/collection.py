@@ -726,7 +726,7 @@ class SortMedias:
 class Collection(SortMedias):
     """Class of the media collection."""
 
-    def __init__(self, root, cli_options=None):
+    def __init__(self, root, cli_options=None, init=False):
 
         if not cli_options:
             cli_options = {}
@@ -756,7 +756,7 @@ class Collection(SortMedias):
 
         self.fileio = FileIO(self.opt['Terminal']['dry_run'])
 
-        self.root_is_valid()
+        self.root_is_valid(init)
 
         self.db = CollectionDb(root)
         self.paths = Paths(
@@ -788,12 +788,14 @@ class Collection(SortMedias):
         self.summary = Summary(self.root)
         self.theme = request.load_theme()
 
-    def root_is_valid(self):
+    def root_is_valid(self, init=False):
         """Check if collection path is valid"""
         if self.root.exists():
             if not self.root.is_dir():
                 self.log.error(f'Collection path {self.root} is not a directory')
                 sys.exit(1)
+        elif init:
+            self.fileio.mkdir(self.root)
         else:
             self.log.error(f'Collection path {self.root} does not exist')
             sys.exit(1)
