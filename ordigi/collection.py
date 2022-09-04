@@ -546,6 +546,20 @@ class SortMedias:
             else:
                 self.summary.append('sort', False, src_path, dest_path)
 
+    def remove_file(self, src_path):
+        """Delete file and remove it from db"""
+
+        # remove file
+        self.fileio.remove(src_path)
+
+        # delete the file from db
+        if not self.dry_run:
+            self.db.sqlite.delete_filepath(str(src_path.relative_to(self.root)))
+
+        self.summary.append('remove', True, src_path)
+
+        return self.summary
+
     def sort_file(self, src_path, dest_path, metadata, imp=False):
         """Sort file and register it to db"""
 
@@ -1061,6 +1075,32 @@ class Collection(SortMedias):
 
         return self.summary
 
+    def dedup_files(self):
+        dedup_checksums = {}
+        for file_path, checksum in self.medias.checksums.items():
+            if checksum in dedup_checksums.values():
+                continue
+
+            dup_paths = sorted([
+                f for f, v in self.medias.checksums.items() if v == checksum
+            ])
+            if len(dup_paths) > 1:
+                # Retrive path to keep
+                original_file = dup_paths[-1]
+                if len(original_file.stem.rsplit('(')) != 1:
+                    original_file = dup_paths.pop(0)
+
+                dup_paths.remove(original_file)
+                dedup_checksums[original_file] = checksum
+
+                for dup_path in dup_paths:
+                    # Remove duplicates
+                    self.summary = self.remove_file(dup_path)
+
+        self.medias.checksums = dedup_checksums
+
+        return self.summary
+
     def sort_files(self, src_dirs, loc, imp=False):
         """
         Sort files into appropriate folder
@@ -1138,9 +1178,6 @@ class Collection(SortMedias):
 
         # Sort files and solve conflicts
         self.sort_medias()
-
-        if not self.check_db():
-            self.summary.append('check', False)
 
         return self.summary
 
