@@ -896,6 +896,7 @@ class Collection(SortMedias):
         """
         file_paths = list(self.get_collection_files())
         db_rows = [row['FilePath'] for row in self.db.sqlite.get_rows('metadata')]
+        result = True
         for file_path in file_paths:
             result = self.file_in_db(file_path, db_rows)
             if not result:
@@ -937,15 +938,13 @@ class Collection(SortMedias):
         """Clone collection in another location"""
         self.check()
 
-        if not self.dry_run:
-            copy_tree(str(self.root), str(dest_path))
+        copy_tree(str(self.root), str(dest_path))
 
         self.log.info(f'copy: {self.root} -> {dest_path}')
 
-        if not self.dry_run:
-            dest_collection = Collection(
-                dest_path, {'cache': True, 'dry_run': self.dry_run}
-            )
+        dest_collection = Collection(
+            dest_path, {'cache': True}
+        )
 
         dest_collection.check_db()
 

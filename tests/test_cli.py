@@ -138,7 +138,6 @@ class TestOrdigi:
         paths = (str(self.src_path), str(tmp_path))
 
         self.assert_cli(cli._init, [str(self.src_path)])
-        self.assert_cli(cli._clone, ['--dry-run', '--debug', *paths])
         self.assert_cli(cli._clone, ['--log', *paths])
 
     def assert_init(self):
