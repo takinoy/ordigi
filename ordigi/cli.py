@@ -17,28 +17,28 @@ _logger_options = [
         '-q',
         default=False,
         is_flag=True,
-        help='Log level set to ERROR',
+        help="Log level set to ERROR",
     ),
     click.option(
         '--verbose',
         '-v',
         default=False,
         is_flag=True,
-        help='Log level set to INFO',
+        help="Log level set to INFO",
     ),
     click.option(
         '--debug',
         '-d',
         default=False,
         is_flag=True,
-        help='Log level set to DEBUG',
+        help="Log level set to DEBUG",
     ),
     click.option(
         '--log',
         '-l',
         default=False,
         is_flag=True,
-        help='Save logs to .ordigi folder',
+        help="Save logs to .ordigi folder",
     ),
 ]
 
@@ -53,7 +53,7 @@ _dry_run_options = [
         '--dry-run',
         default=False,
         is_flag=True,
-        help='Dry run only, no change made to the filesystem.',
+        help="Dry run only, no change made to the filesystem.",
     ),
 ]
 
@@ -63,7 +63,7 @@ _exclude_options = [
         '-E',
         default=None,
         multiple=True,
-        help='Directories or files to exclude.',
+        help="Directories or files to exclude.",
     ),
 ]
 
@@ -83,10 +83,10 @@ _filter_options = [
         '-I',
         default=None,
         multiple=True,
-        help='Specific tags or group that will be ignored when\
-                  searching for file data. Example \'File:FileModifyDate\' or \'Filename\'',
+        help="Specific tags or group that will be ignored when\
+                  searching for file data. Example \'File:FileModifyDate\' or \'Filename\'",
     ),
-    click.option('--glob', '-g', default='**/*', help='Glob file selection'),
+    click.option('--glob', '-g', default='**/*', help="Glob file selection"),
 ]
 
 
@@ -109,15 +109,15 @@ _sort_options = [
         '--path-format',
         '-p',
         default=constants.DEFAULT_PATH_FORMAT,
-        help='Custom featured path format',
+        help="Custom featured path format",
     ),
     click.option(
         '--remove-duplicates',
         '-R',
         default=False,
         is_flag=True,
-        help='True to remove files that are exactly the same in name\
-                          and a file hash',
+        help="True to remove files that are exactly the same in name\
+                          and a file hash",
     ),
     click.option(
         '--use-date-filename',
@@ -200,10 +200,10 @@ def _check(**kwargs):
         if log_level < 30:
             summary.print()
         if summary.errors:
-            LOG.error('Db data is not accurate run `ordigi update --checksum`')
+            LOG.error("Db data is not accurate run `ordigi update --checksum`")
             sys.exit(1)
     else:
-        LOG.error('Db data is not accurate run `ordigi update`')
+        LOG.error("Db data is not accurate run `ordigi update`")
         sys.exit(1)
 
 
@@ -216,23 +216,23 @@ def _check(**kwargs):
     '-D',
     default=None,
     multiple=True,
-    help='Regex to match duplicate strings parts',
+    help="Regex to match duplicate strings parts",
 )
 @click.option(
-    '--delete-excluded', '-d', default=False, is_flag=True, help='Remove excluded files'
+    '--delete-excluded', '-d', default=False, is_flag=True, help="Remove excluded files"
 )
 @click.option(
-    '--folders', '-f', default=False, is_flag=True, help='Remove empty folders'
+    '--folders', '-f', default=False, is_flag=True, help="Remove empty folders"
 )
 @click.option(
-    '--path-string', '-p', default=False, is_flag=True, help='Deduplicate path string'
+    '--path-string', '-p', default=False, is_flag=True, help="Deduplicate path string"
 )
 @click.option(
     '--remove-duplicates',
     '-R',
     default=False,
     is_flag=True,
-    help='True to remove files that are exactly the same in name and a file hash',
+    help="True to remove files that are exactly the same in name and a file hash",
 )
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
 @click.argument('collection', required=True, nargs=1, type=click.Path())
@@ -297,7 +297,7 @@ def _clone(**kwargs):
     dest_path = Path(kwargs['dest']).expanduser().absolute()
 
     if dest_path.exists() and not utils.empty_dir(dest_path):
-        LOG.error(f'Destination collection path {dest_path} must be empty directory')
+        LOG.error(f"Destination collection path {dest_path} must be empty directory")
         sys.exit(1)
 
     log_level = log.get_level(kwargs['quiet'], kwargs['verbose'], kwargs['debug'])
@@ -326,13 +326,13 @@ def _clone(**kwargs):
     '--similar-to',
     '-s',
     default=False,
-    help='Similar to given image',
+    help="Similar to given image",
 )
 @click.option(
     '--similarity',
     '-S',
     default=80,
-    help='Similarity level for images',
+    help="Similarity level for images",
 )
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
 @click.argument('collection', required=True, nargs=1, type=click.Path())
@@ -526,8 +526,8 @@ def _init(**kwargs):
     '-c',
     default=False,
     is_flag=True,
-    help='True if you want files to be copied over from src_dir to\
-              dest_dir rather than moved',
+    help="True if you want files to be copied over from src_dir to\
+              dest_dir rather than moved",
 )
 @click.argument('src', required=False, nargs=-1, type=click.Path())
 @click.argument('dest', required=True, nargs=1, type=click.Path())
@@ -595,7 +595,7 @@ def _import(**kwargs):
     '-r',
     default=False,
     is_flag=True,
-    help='Regenerate the hash.json and location.json database ',
+    help="Regenerate the hash.json and location.json database ",
 )
 @click.argument('subdirs', required=False, nargs=-1, type=click.Path())
 @click.argument('dest', required=True, nargs=1, type=click.Path())
@@ -646,7 +646,7 @@ def _sort(**kwargs):
     '-c',
     default=False,
     is_flag=True,
-    help='Update checksum, assuming file are changed by the user',
+    help="Update checksum, assuming file are changed by the user",
 )
 @click.argument('path', required=True, nargs=1, type=click.Path())
 def _update(**kwargs):
