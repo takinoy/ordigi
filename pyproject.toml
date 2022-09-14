@@ -1,6 +1,46 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+skip-excluded-dirs = true
+exclude = ["samples"]
+
+[project]
+name = "ordigi"
+version = "0.1.3"
+authors = [{name = "Cedric Leporcq", email = "cedl38@gmail.com"}]
+description = "Media organizer tools"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
+dependencies = [
+    "click",
+    "python-dateutil",
+    "geopy",
+    "imagehash",
+    "inquirer",
+    "configparser",
+    "tabulate",
+    "Pillow",
 ]
-build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+opt = [
+    "xpyheif_pillow_opener",
+]
+test = [
+    "pytest >=2.7.3",
+    "pytest-cov",
+]
+
+[project.urls]
+Source = "https://github.com/takinoy/ordigi"
+Bug_Tracker = "https://github.com/takinoy/ordigi/issues"
+
+[project.scripts]
+ordigi = "ordigi.cli:cli"
+
+[tool.pycodestyle]
+max-line-length = 88

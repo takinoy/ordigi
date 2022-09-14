@@ -1,9 +1,0 @@
-click
-python-dateutil
-geopy
-imagehash
-inquirer
-configparser
-tabulate
-Pillow
-#xpyheif_pillow_opener
