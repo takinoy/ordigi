@@ -133,9 +133,10 @@ dmypy.json
 
 # Other
 /diagnostics.lua
-docs/Ordigi_data_scheme.odg
+/docs
 /ressources
 /Session.vim
 /tags
-/workflow.sh
+/todo.md
+/workflow.md
 
