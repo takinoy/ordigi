@@ -373,7 +373,7 @@ class Media(ReadExif):
         file_modify_date = self.metadata['file_modify_date']
         if self.metadata['date_original']:
             if date_filename and date_filename != date_original:
-                timedelta = abs(date_original - date_filename)
+                timedelta = abs(date_original.replace(tzinfo=None) - date_filename)
                 if timedelta.total_seconds() > 60:
                     self.log.warning(
                         f"{filename} time mark is different from {date_original}"
@@ -397,7 +397,7 @@ class Media(ReadExif):
                 f"use date from filename:{date_filename} for {self.file_path}"
             )
             if date_created and date_filename > date_created:
-                timedelta = abs(date_created - date_filename)
+                timedelta = abs(date_created.replace(tzinfo=None) - date_filename)
                 if timedelta.total_seconds() > 60:
                     self.log.warning(
                         f"{filename} time mark is more recent than {date_created}"

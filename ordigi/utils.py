@@ -1,5 +1,6 @@
 from math import radians, cos, sqrt
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import hashlib
 import os
 import platform
@@ -85,17 +86,17 @@ def get_date_regex(user_regex=None):
             # regex to match date format type %Y%m%d, %y%m%d, %d%m%Y,
             # etc...
             'a': re.compile(
-                r'[-_./ ](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_.]?(?P<hour>\d{2})[-_.]?(?P<minute>\d{2})[-_.]?(?P<second>\d{2})([-_./ ])'
+                r'([-_./ ]|^)(?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})[-_.]?(?P<hour>\d{2})[-_.]?(?P<minute>\d{2})[-_.]?(?P<second>\d{2})([-_./ ])'
             ),
             'b': re.compile(
-                r'[-_./ ](?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})([-_./ ])'
+                r'([-_./ ]|^)(?P<year>\d{4})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})([-_./ ])'
             ),
             # not very accurate
             'c': re.compile(
-                r'[-_./ ](?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})([-_./ ])'
+                r'([-_./ ]|^)(?P<year>\d{2})[-_.]?(?P<month>\d{2})[-_.]?(?P<day>\d{2})([-_./ ])'
             ),
             'd': re.compile(
-                r'[-_./ ](?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})([-_./ ])'
+                r'([-_./ ]|^)(?P<day>\d{2})[-_.](?P<month>\d{2})[-_.](?P<year>\d{4})([-_./ ])'
             ),
         }
 
@@ -116,14 +117,23 @@ def get_date_from_string(string):
     for i, regex in DATE_REGEX.items():
         match = re.findall(regex, string)
         if match != []:
-            sep = match[0][3]
+            sep = match[0][4]
+            if i == 'a':
+                match = [(
+                    match[0][1],
+                    match[0][2],
+                    match[0][3],
+                    match[0][4],
+                    match[0][5],
+                    match[0][6],
+                )]
+            if i == 'b':
+                match = [(match[0][1], match[0][2], match[0][3])]
             if i == 'c':
-                match = [('20' + match[0][0], match[0][1], match[0][2])]
+                match = [('20' + match[0][1], match[0][2], match[0][3])]
             elif i == 'd':
                 # reorder items
-                match = [(match[0][2], match[0][1], match[0][0])]
-            else:
-                match = [(match[0][0], match[0][1], match[0][2])]
+                match = [(match[0][3], match[0][2], match[0][1])]
             if len(match) != 1:
                 # The time string is not uniq
                 continue
