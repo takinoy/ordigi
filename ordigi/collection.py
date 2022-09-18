@@ -195,9 +195,9 @@ class FPath:
         for item, regex in self.items.items():
             matched = re.search(regex, this_part)
             if matched:
-                self.log.debug(f'item: {item}, mask: <matched.group()[1:-1]>')
+                self.log.debug(f"item: {item}, mask: <matched.group()[1:-1]>")
                 part = self.get_part(item, matched.group()[1:-1], metadata)
-                self.log.debug(f'part: {part}')
+                self.log.debug(f"part: {part}")
 
                 part = part.strip()
 
@@ -302,32 +302,32 @@ class FileIO:
     def copy(self, src_path, dest_path):
         if not self.dry_run:
             shutil.copy2(src_path, dest_path)
-        self.log.info(f'copy: {src_path} -> {dest_path}')
+        self.log.info(f"copy: {src_path} -> {dest_path}")
 
     def move(self, src_path, dest_path):
         if not self.dry_run:
             # Move the file into the destination directory
             shutil.move(src_path, dest_path)
 
-        self.log.info(f'move: {src_path} -> {dest_path}')
+        self.log.info(f"move: {src_path} -> {dest_path}")
 
     def remove(self, path):
         if not self.dry_run:
             os.remove(path)
 
-        self.log.info(f'remove: {path}')
+        self.log.info(f"remove: {path}")
 
     def mkdir(self, directory):
         if not self.dry_run:
             directory.mkdir(exist_ok=True)
 
-        self.log.info(f'create dir: {directory}')
+        self.log.info(f"create dir: {directory}")
 
     def rmdir(self, directory):
         if not self.dry_run:
             directory.rmdir()
 
-        self.log.info(f'remove dir: {directory}')
+        self.log.info(f"remove dir: {directory}")
 
 
 class Paths:
@@ -360,7 +360,7 @@ class Paths:
         :return: Path path
         """
         if not path.exists():
-            self.log.error(f'Path {path} does not exist')
+            self.log.error(f"Path {path} does not exist")
             sys.exit(1)
 
         return path
@@ -457,6 +457,14 @@ class Paths:
 
         sys.exit()
 
+    def get_paths_list(self, path):
+        self.paths_list = list(self.get_files(path))
+        if self.interactive:
+            self.paths_list = self._modify_selection()
+            print('Processing...')
+
+        return self.paths_list
+
     def get_paths(self, src_dirs, root, imp=False):
         """Get paths"""
         for src_dir in src_dirs:
@@ -477,14 +485,6 @@ class Paths:
                         sys.exit(1)
 
                 yield src_dir, src_path
-
-    def get_paths_list(self, path):
-        self.paths_list = list(self.get_files(path))
-        if self.interactive:
-            self.paths_list = self._modify_selection()
-            print('Processing...')
-
-        return self.paths_list
 
 
 class SortMedias:
@@ -538,7 +538,7 @@ class SortMedias:
         # Check if file remain the same
         checksum = metadata['checksum']
         if not self._checkcomp(dest_path, checksum):
-            self.log.error(f'Files {src_path} and {dest_path} are not identical')
+            self.log.error(f"Files {src_path} and {dest_path} are not identical")
             self.summary.append('check', False, src_path, dest_path)
             return False
 
@@ -610,7 +610,7 @@ class SortMedias:
             for i, _ in enumerate(parts):
                 dir_path = self.root / Path(*parts[0: i + 1])
                 if dir_path.is_file():
-                    self.log.warning(f'Target directory {dir_path} is a file')
+                    self.log.warning(f"Target directory {dir_path} is a file")
                     # Rename the src_file
                     if self.interactive:
                         answer = self.input.text(
@@ -620,7 +620,7 @@ class SortMedias:
                     else:
                         file_path = dir_path.parent / (dir_path.name + '_file')
 
-                    self.log.warning(f'Renaming {dir_path} to {file_path}')
+                    self.log.warning(f"Renaming {dir_path} to {file_path}")
                     if not self.dry_run:
                         shutil.move(dir_path, file_path)
                     metadata = self.medias.datas[dir_path]
@@ -629,7 +629,7 @@ class SortMedias:
 
             if not self.dry_run:
                 directory_path.mkdir(parents=True, exist_ok=True)
-            self.log.info(f'Create {directory_path}')
+            self.log.info(f"Create {directory_path}")
 
     def check_conflicts(self, src_path, dest_path):
         """
@@ -814,12 +814,12 @@ class Collection(SortMedias):
         """Check if collection path is valid"""
         if self.root.exists():
             if not self.root.is_dir():
-                self.log.error(f'Collection path {self.root} is not a directory')
+                self.log.error(f"Collection path {self.root} is not a directory")
                 sys.exit(1)
         elif init:
             self.root.mkdir()
         else:
-            self.log.error(f'Collection path {self.root} does not exist')
+            self.log.error(f"Collection path {self.root} does not exist")
             sys.exit(1)
 
         ordigi_dir = Path(self.root, '.ordigi')
@@ -879,7 +879,7 @@ class Collection(SortMedias):
             if checksum == self.db.sqlite.get_checksum(relpath):
                 self.summary.append('check', True, file_path)
             else:
-                self.log.error(f'{file_path} is corrupted')
+                self.log.error(f"{file_path} is corrupted")
                 self.summary.append('check', False, file_path)
 
         return self.summary
@@ -903,9 +903,9 @@ class Collection(SortMedias):
             return None
 
         if db_checksum != file_checksum:
-            self.log.warning(f'{file_path} checksum as changed')
+            self.log.warning(f"{file_path} checksum as changed")
             self.log.info(
-                f'file_checksum={file_checksum},\ndb_checksum={db_checksum}'
+                f"file_checksum={file_checksum},\ndb_checksum={db_checksum}"
             )
             return False
 
@@ -918,9 +918,9 @@ class Collection(SortMedias):
 
         # We d'ont want to silently ignore or correct this without
         # resetting the cache as is could be due to file corruption
-        self.log.error(f'modified or corrupted file.')
+        self.log.error("modified or corrupted file.")
         self.log.info(
-            'Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file'
+            "Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file"
         )
         return False
 
@@ -935,8 +935,8 @@ class Collection(SortMedias):
         for file_path in file_paths:
             result = self.file_in_db(file_path, db_rows)
             if not result:
-                self.log.error('Db data is not accurate')
-                self.log.info(f'{file_path} not in db')
+                self.log.error("Db data is not accurate")
+                self.log.info(f"{file_path} not in db")
                 result = False
             elif checksums and not self.check_file(file_path):
                 result = False
@@ -944,7 +944,7 @@ class Collection(SortMedias):
         nb_files = len(file_paths)
         nb_row = len(db_rows)
         if nb_row != nb_files:
-            self.log.error('Db data is not accurate')
+            self.log.error("Db data is not accurate")
             result = False
 
         if result:
@@ -956,17 +956,17 @@ class Collection(SortMedias):
 
     def check(self, checksums=True):
         if self.db.sqlite.is_empty('metadata'):
-            self.log.error('Db data does not exist run `ordigi init`')
+            self.log.error("Db data does not exist run `ordigi init`")
             sys.exit(1)
         elif not self.check_db(checksums):
-            self.log.error('Db data is not accurate run `ordigi update`')
+            self.log.error("Db data is not accurate run `ordigi update`")
             sys.exit(1)
 
     def _init_check_db(self, checksums=True, loc=None):
         if self.db.sqlite.is_empty('metadata'):
             self.init(loc)
         elif not self.check_db(checksums):
-            self.log.error('Db data is not accurate run `ordigi update`')
+            self.log.error("Db data is not accurate run `ordigi update`")
             sys.exit(1)
 
     def clone(self, dest_path):
@@ -975,7 +975,7 @@ class Collection(SortMedias):
 
         copy_tree(str(self.root), str(dest_path))
 
-        self.log.info(f'copy: {self.root} -> {dest_path}')
+        self.log.info(f"copy: {self.root} -> {dest_path}")
 
         dest_collection = Collection(
             dest_path, {'cache': True}
@@ -991,7 +991,7 @@ class Collection(SortMedias):
         db_rows = list(self.db.sqlite.get_rows('metadata'))
         invalid_db_rows = set()
         db_paths = set()
-        self.log.info(f"Update database:")
+        self.log.info("Update database:")
         for db_row in db_rows:
             abspath = self.root / db_row['FilePath']
             if abspath not in file_paths:
@@ -1166,7 +1166,7 @@ class Collection(SortMedias):
         self._init_check_db(loc=loc)
 
         path_format = self.opt['Path']['path_format']
-        self.log.debug(f'path_format: {path_format}')
+        self.log.debug(f"path_format: {path_format}")
 
         if self.remove_duplicates:
             self.dedup_files(paths, imp)
@@ -1177,7 +1177,7 @@ class Collection(SortMedias):
         self.medias.datas = {}
         for src_path, metadata in self.medias.get_metadatas(paths, imp=imp, loc=loc):
             # Get the destination path according to metadata
-            self.log.info(f'src_path: {src_path}')
+            self.log.info(f"src_path: {src_path}")
             fpath = FPath(path_format, self.opt['Path']['day_begins'])
             metadata['file_path'] = fpath.get_path(metadata)
             subdirs.add(src_path.parent)
@@ -1307,7 +1307,7 @@ class Collection(SortMedias):
             result = False
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
             if not self.check_file(file_path):
-                self.log.error('Db data is not accurate run `ordigi update`')
+                self.log.error("Db data is not accurate run `ordigi update`")
                 sys.exit(1)
 
             exif = WriteExif(
