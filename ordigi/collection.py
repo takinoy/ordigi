@@ -999,6 +999,7 @@ class Collection(SortMedias):
 
             db_paths.add(db_row['FilePath'])
 
+        self.log.info("Update files:")
         for file_path in file_paths:
             relpath = os.path.relpath(file_path, self.root)
             metadata = {}
@@ -1037,7 +1038,7 @@ class Collection(SortMedias):
                 self.log.info(f"Add '{file_path}' to db")
                 self.summary.append('update', file_path)
 
-        # Finally delete invalid rows
+        self.log.info("Delete invalid rows:")
         for row in invalid_db_rows:
             self.db.sqlite.delete_filepath(row['FilePath'])
             self.log.info(f"Delete invalid row : '{row['FilePath']}' from db")
@@ -1162,7 +1163,7 @@ class Collection(SortMedias):
         """
         Sort files into appropriate folder
         """
-        # Check db
+        self.log.info("Check db:")
         self._init_check_db(loc=loc)
 
         path_format = self.opt['Path']['path_format']
@@ -1171,7 +1172,7 @@ class Collection(SortMedias):
         if self.remove_duplicates:
             self.dedup_files(paths, imp)
 
-        # Get medias data
+        self.log.info("Get medias data:")
         subdirs = set()
 
         self.medias.datas = {}
@@ -1184,7 +1185,7 @@ class Collection(SortMedias):
 
             self.medias.datas[src_path] = copy(metadata)
 
-        # Sort files and solve conflicts
+        self.log.info("Sort files and solve conflicts:")
         self.summary = self.sort_medias(imp)
 
         if self.remove_duplicates:
@@ -1200,7 +1201,7 @@ class Collection(SortMedias):
     def dedup_path(self, paths, dedup_regex=None):
         """Deduplicate file path parts"""
 
-        # Check db
+        self.log.info("Check db:")
         self._init_check_db()
 
         # Delimiter regex
@@ -1219,8 +1220,8 @@ class Collection(SortMedias):
             default = re.compile(r'([^-_ .]+[-_ .])')
             dedup_regex = [date_num3, date_num2, default]
 
-        # Get medias data
         self.medias.datas = {}
+        self.log.info("Get medias data:")
         for src_path, metadata in self.medias.get_metadatas(paths):
             # Deduplicate the path
             path_parts = src_path.relative_to(self.root).parts
@@ -1238,7 +1239,7 @@ class Collection(SortMedias):
             metadata['file_path'] = os.path.join(*dedup_path)
             self.medias.datas[src_path] = copy(metadata)
 
-        # Sort files and solve conflicts
+        self.log.info("Sort files and solve conflicts:")
         self.sort_medias()
 
         return self.summary
@@ -1260,7 +1261,7 @@ class Collection(SortMedias):
             self.medias.datas[img_path] = copy(metadata)
 
         if self.medias.datas:
-            # Found similar images to image
+            self.log.info("Found similar images to image:")
             self.paths.paths_list.append(image.img_path)
             metadata = self.medias.get_metadata(image.img_path, path)
             relpath = os.path.join(directory_name, image.img_path.name)
@@ -1271,12 +1272,13 @@ class Collection(SortMedias):
 
     def sort_similar_images(self, path, similarity=80):
         """Sort similar images using imagehash library"""
-        # Check db
+        self.log.info("Check db:")
         self._init_check_db()
 
         dest_dir = 'similar_images'
         path = self.paths.check(path)
 
+        self.log.info("Check for similar images and sort:")
         images_paths = set(self.paths.get_images(path))
         images = Images(images_paths)
         nb_row_ini = self.db.sqlite.len('metadata')

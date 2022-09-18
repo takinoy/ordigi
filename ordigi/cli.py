@@ -267,9 +267,11 @@ def _clean(**kwargs):
             collection.dedup_files(paths)
 
     if kwargs['path_string']:
+        LOG.info("Dedup file path string")
         dedup_regex = set(kwargs['dedup_regex'])
         collection.dedup_path(paths, dedup_regex)
 
+    LOG.info("Remove empty folders and excluded files")
     for path in paths:
         if folders:
             collection.remove_empty_folders(path)
