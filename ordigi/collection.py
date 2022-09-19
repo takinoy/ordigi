@@ -978,10 +978,8 @@ class Collection(SortMedias):
             result = False
 
         if result:
-            self.summary.append('check', True)
             return True
 
-        self.summary.append('check', False)
         return False
 
     def check_db(self, checksums=True, imp=False, loc=None):
