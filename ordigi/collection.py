@@ -290,8 +290,29 @@ class FPath:
 
 class CollectionDb:
 
-    def __init__(self, ordigi_dir):
+    def __init__(self, root, init=False):
+        self.log = LOG.getChild(self.__class__.__name__)
+        self.root = root
+        ordigi_dir = self._check_root(init)
         self.sqlite = Sqlite(ordigi_dir)
+
+    def _check_root(self, init=False):
+        """Check if collection path is valid"""
+        if self.root.exists():
+            if not self.root.is_dir():
+                self.log.error(f"Collection path {self.root} is not a directory")
+                sys.exit(1)
+        elif init:
+            self.root.mkdir()
+        else:
+            self.log.error(f"Collection path {self.root} does not exist")
+            sys.exit(1)
+
+        ordigi_dir = Path(self.root, '.ordigi')
+        if not ordigi_dir.exists():
+            ordigi_dir.mkdir()
+
+        return ordigi_dir
 
     def _get_row_data(self, table, metadata):
         row_data = {}
@@ -301,7 +322,7 @@ class CollectionDb:
 
         return row_data
 
-    def add_file_data(self, metadata):
+    def upsert_file_data(self, metadata):
         """Save metadata informations to db"""
         if metadata['latitude'] and metadata['longitude']:
             loc_values = self._get_row_data('location', metadata)
@@ -310,6 +331,16 @@ class CollectionDb:
         if metadata['file_path']:
             row_data = self._get_row_data('metadata', metadata)
             self.sqlite.upsert_metadata(row_data)
+
+    def delete_file_data(self, src_path, imp=False):
+        """Delete file data from db"""
+        if imp != 'copy' and self.root in src_path.parents:
+            self.sqlite.delete_filepath(str(src_path.relative_to(self.root)))
+
+    def update_file_path(self, metadata, src_path, imp=False):
+        """Update file path to db and save metadata to db"""
+        self.upsert_file_data(metadata)
+        self.delete_file_data(src_path, imp)
 
 
 class FileIO:
@@ -569,9 +600,7 @@ class SortMedias:
                 checksum = utils.checksum(dest_path)
                 metadata['checksum'] = checksum
 
-            self.db.add_file_data(metadata)
-            if imp != 'copy' and self.root in src_path.parents:
-                self.db.sqlite.delete_filepath(str(src_path.relative_to(self.root)))
+            self.db.update_file_path(metadata, src_path, imp)
 
         return True
 
@@ -775,7 +804,6 @@ class Collection(SortMedias):
         self.log = LOG.getChild(self.__class__.__name__)
 
         self.root = root
-        ordigi_dir = self.check_root(init)
 
         # Get config options
         self.opt, default_options = self.get_config_options(src_conf)
@@ -799,7 +827,7 @@ class Collection(SortMedias):
 
         self.fileio = FileIO(self.opt['Terminal']['dry_run'])
 
-        self.db = CollectionDb(ordigi_dir)
+        self.db = CollectionDb(root, init)
 
         self.paths = Paths(
             self.opt['Filters'],
@@ -829,24 +857,6 @@ class Collection(SortMedias):
         # Attributes
         self.summary = Summary(self.root)
         self.theme = request.load_theme()
-
-    def check_root(self, init=False):
-        """Check if collection path is valid"""
-        if self.root.exists():
-            if not self.root.is_dir():
-                self.log.error(f"Collection path {self.root} is not a directory")
-                sys.exit(1)
-        elif init:
-            self.root.mkdir()
-        else:
-            self.log.error(f"Collection path {self.root} does not exist")
-            sys.exit(1)
-
-        ordigi_dir = Path(self.root, '.ordigi')
-        if not ordigi_dir.exists():
-            ordigi_dir.mkdir()
-
-        return ordigi_dir
 
     def get_config_options(self, src_conf=None):
         """Get collection config"""
@@ -886,7 +896,7 @@ class Collection(SortMedias):
             metadata = self.medias.get_metadata(file_path, self.root, loc=loc)
             metadata['file_path'] = os.path.relpath(file_path, self.root)
 
-            self.db.add_file_data(metadata)
+            self.db.upsert_file_data(metadata)
             self.summary.append('update', True, file_path)
 
         return self.summary
@@ -1033,7 +1043,7 @@ class Collection(SortMedias):
                 metadata = self.medias.get_metadata(file_path, self.root, loc=loc)
                 metadata['file_path'] = relpath
                 # set row attribute to the file
-                self.db.add_file_data(metadata)
+                self.db.upsert_file_data(metadata)
                 self.log.info(f"Update '{file_path}' checksum to db")
                 self.summary.append('update', file_path)
 
@@ -1054,7 +1064,7 @@ class Collection(SortMedias):
                         metadata['Filename'] = row['Filename']
                         break
                 # set row attribute to the file
-                self.db.add_file_data(metadata)
+                self.db.upsert_file_data(metadata)
                 self.log.info(f"Add '{file_path}' to db")
                 self.summary.append('update', file_path)
 
@@ -1383,7 +1393,7 @@ class Collection(SortMedias):
             media.metadata['checksum'] = utils.checksum(file_path)
 
             # Update database
-            self.db.add_file_data(media.metadata)
+            self.db.upsert_file_data(media.metadata)
 
             if result:
                 self.summary.append('update', True, file_path)
