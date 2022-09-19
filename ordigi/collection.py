@@ -642,9 +642,8 @@ class SortMedias:
             src_path, dest_path, metadata, imp=imp
         )
 
-        self._set_summary(result, src_path, dest_path, imp)
-
-        return self.summary
+        if result is not None:
+            self._set_summary(result, src_path, dest_path, imp)
 
     def _create_directories(self):
         """Create a directory if it does not already exist.
