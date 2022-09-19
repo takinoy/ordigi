@@ -638,7 +638,6 @@ class Medias:
         paths,
         root,
         exif_options,
-        checksums=None,
         db=None,
         interactive=False,
     ):
@@ -651,10 +650,7 @@ class Medias:
         self.root = root
 
         # Options
-        if checksums:
-            self.checksums = checksums
-        else:
-            self.checksums = {}
+        self.checksums = {}
 
         self.exif_opt = exif_options
 
@@ -709,10 +705,12 @@ class Medias:
 
             yield src_path, media
 
-    def get_metadatas(self, src_dirs, imp=False, loc=None):
+    def get_metadatas(self, src_dirs, checksums=None, imp=False, loc=None):
         """Get medias data"""
         for src_dir, src_path in self.paths.get_paths(src_dirs, self.root, imp=imp):
-            # Get file metadata
+            if src_path in checksums:
+                self.checksums[src_path] = checksums[src_path]
+
             metadata = self.get_metadata(src_path, src_dir, loc=loc)
 
             yield src_path, metadata
