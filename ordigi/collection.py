@@ -337,11 +337,6 @@ class CollectionDb:
         if imp != 'copy' and self.root in src_path.parents:
             self.sqlite.delete_filepath(str(src_path.relative_to(self.root)))
 
-    def update_file_path(self, metadata, src_path, imp=False):
-        """Update file path to db and save metadata to db"""
-        self.upsert_file_data(metadata)
-        self.delete_file_data(src_path, imp)
-
 
 class FileIO:
     """File Input/Ouput operations for collection"""
@@ -584,6 +579,18 @@ class SortMedias:
 
         return True
 
+    def _remove_file(self, file_path, imp=False):
+        """Delete file and remove it from db"""
+
+        if imp != 'copy' and not self.dry_run:
+            # remove file
+            self.fileio.remove(file_path)
+            if self.root in file_path.parents:
+                # delete the file in collection from db
+                self.db.sqlite.delete_filepath(str(file_path.relative_to(self.root)))
+
+        self.summary.append('remove', True, file_path)
+
     def _record_file(self, src_path, dest_path, metadata, imp=False):
         """Check file and record the file to db"""
         # Check if file remain the same
@@ -597,10 +604,21 @@ class SortMedias:
         if not self.dry_run:
             updated = self.medias.update_exif_data(metadata, imp)
             if updated:
-                checksum = utils.checksum(dest_path)
-                metadata['checksum'] = checksum
+                metadata['checksum'] = utils.checksum(dest_path)
 
-            self.db.update_file_path(metadata, src_path, imp)
+            self.db.delete_file_data(src_path, imp)
+
+            if updated and self.remove_duplicates:
+                file_path = self.db.sqlite.get_filepath('Checksum', metadata['checksum'])
+                if file_path:
+                    self.log.info(f"File {file_path} with same checksum \
+as {dest_path} already in db, removing...")
+                    # remove src_path in db and dest_path who as just been created
+                    self.fileio.remove(dest_path)
+                    self.db.delete_file_data(src_path, imp)
+                    return None
+
+            self.db.upsert_file_data(metadata)
 
         return True
 
@@ -615,20 +633,6 @@ class SortMedias:
                 self.summary.append('import', False, src_path, dest_path)
             else:
                 self.summary.append('sort', False, src_path, dest_path)
-
-    def remove_file(self, src_path, imp=False):
-        """Delete file and remove it from db"""
-
-        # remove file
-        self.fileio.remove(src_path)
-
-        # delete the file from db
-        if not imp and not self.dry_run:
-            self.db.sqlite.delete_filepath(str(src_path.relative_to(self.root)))
-
-        self.summary.append('remove', True, src_path)
-
-        return self.summary
 
     def sort_file(self, src_path, dest_path, metadata, imp=False):
         """Sort file and register it to db"""
@@ -756,16 +760,14 @@ class SortMedias:
             conflict = self.check_conflicts(src_path, dest_path)
 
             if not conflict:
-                self.sort_file(
-                    src_path, dest_path, metadata, imp=imp
-                    )
+                self.sort_file(src_path, dest_path, metadata, imp=imp)
             elif conflict == 1:
-                # There is conflict and file are different
+                # There is conflict
                 conflicts.append((src_path, dest_path, metadata))
             elif conflict == 3:
-                # Same file checksum
-                if imp in (False, 'move'):
-                    self.fileio.remove(src_path)
+                # Same file checksum and we want to remove duplicates
+                # if imp == 'copy' duplicates will not be removed in source file
+                self._remove_file(src_path, imp)
             elif conflict == 2:
                 # File already sorted
                 pass
@@ -775,16 +777,13 @@ class SortMedias:
 
                 src_path, dest_path, metadata = files_data
                 if not conflict:
-                    self.sort_file(
-                        src_path, dest_path, metadata, imp=imp
-                        )
+                    self.sort_file(src_path, dest_path, metadata, imp=imp)
                 elif conflict == 1:
                     # There is unresolved conflict
                     self._set_summary(False, src_path, dest_path, imp)
                 elif conflict == 3:
                     # Same file checksum
-                    if imp in (False, 'move'):
-                        self.fileio.remove(src_path)
+                    self._remove_file(src_path, imp)
                 elif conflict == 2:
                     # File already sorted
                     pass
@@ -1082,7 +1081,7 @@ class Collection(SortMedias):
         for file_path in self.get_collection_files(exclude=False):
             for exclude in self.exclude:
                 if fnmatch(file_path, exclude):
-                    self.fileio.remove(file_path)
+                    self._remove_file(file_path)
                     self.summary.append('remove', True, file_path)
                     break
 
@@ -1155,7 +1154,7 @@ class Collection(SortMedias):
 
                 for dup_path in dup_paths:
                     # Remove duplicates
-                    self.remove_file(dup_path, imp)
+                    self._remove_file(dup_path, imp)
             else:
                 original_file = file_path
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import shutil
 import sqlite3
 from pathlib import Path
@@ -9,6 +10,7 @@ import inquirer
 from ordigi import LOG
 from ordigi import constants
 from ordigi import utils
+from ordigi.database import Sqlite
 from ordigi.summary import Summary
 from ordigi.collection import Collection, FPath, Paths
 from ordigi.exiftool import ExifTool, ExifToolCaching, exiftool_is_running, terminate_exiftool
@@ -139,7 +141,10 @@ class TestCollection:
 
     def test_sort_files(self, tmp_path):
         cli_options = {
-            'album_from_folder': True, 'cache': False, 'path_format': self.path_format
+            'album_from_folder': True,
+            'cache': False,
+            'path_format': self.path_format,
+            'remove_duplicates': True,
         }
         collection = Collection(tmp_path, cli_options=cli_options)
         loc = GeoLocation()
@@ -167,21 +172,27 @@ class TestCollection:
 
         collection = Collection(tmp_path, cli_options=cli_options)
         # Try to change path format and sort files again
-        path_format = 'test_exif/<city>/<%Y>-<name>.%l<ext>'
+        cli_options['path_format'] = 'test_exif/<city>/<%Y>-<name>.%l<ext>'
+        collection = Collection(tmp_path, cli_options=cli_options)
         summary = collection.sort_files([tmp_path], loc)
 
-        self.assert_sort(summary, 22)
+        self.assert_sort(summary, 25)
 
         shutil.copytree(tmp_path / 'test_exif', tmp_path / 'test_exif_copy')
         collection.summary = Summary(tmp_path)
         assert collection.summary.success_table.sum() == 0
         summary = collection.update(loc)
-        assert summary.success_table.sum('update') == 1
-        assert summary.success_table.sum() == 1
+        assert summary.success_table.sum('update') == 25
+        assert summary.success_table.sum() == 25
         assert not summary.errors
         collection.summary = Summary(tmp_path)
         summary = collection.update(loc)
         assert summary.success_table.sum() == 0
+        assert not summary.errors
+
+        # Test sort file and remove duplicates
+        summary = collection.sort_files([tmp_path], loc, imp=False)
+        assert summary.success_table.sum('sort') == 25
         assert not summary.errors
 
         # test with populated dest dir
@@ -204,29 +215,34 @@ class TestCollection:
             summary = collection.sort_files([self.src_path], loc, imp='copy')
 
     def test_sort_file(self, tmp_path):
-        for imp in ('copy', 'move', False):
-            collection = Collection(tmp_path)
-            # copy mode
-            src_path = Path(self.src_path, 'test_exif', 'photo.png')
-            media = Media(src_path, self.src_path)
+        collection = Collection(tmp_path)
+        sqlite = Sqlite(Path(tmp_path, '.ordigi'))
+
+        for imp in ('copy', False, 'move'):
+            if imp == 'move':
+                src_path = dest_path
+                media = Media(src_path, tmp_path)
+            else:
+                src_path = Path(self.src_path, 'test_exif', 'photo.png')
+                media = Media(src_path, self.src_path)
             media.get_metadata(tmp_path)
             name = 'photo_' + str(imp) + '.png'
             media.metadata['file_path'] = name
             dest_path = Path(tmp_path, name)
             src_checksum = utils.checksum(src_path)
-            collection.sort_file(
-                src_path, dest_path, media.metadata, imp=imp
-            )
+            collection.sort_file(src_path, dest_path, media.metadata, imp=imp)
             assert not collection.summary.errors
-            # Ensure files remain the same
-            if not imp:
-                assert collection._checkcomp(dest_path, src_checksum)
 
             if imp == 'copy':
-                assert src_path.exists()
+                assert src_path.exists() and dest_path.exists()
+                os.remove(dest_path)
+                sqlite.delete_filepath(str(dest_path.relative_to(tmp_path)))
+            elif not imp:
+                # Ensure files remain the same
+                assert collection._checkcomp(dest_path, src_checksum)
+                assert dest_path.exists() and not src_path.exists()
             else:
-                assert not src_path.exists()
-                shutil.copyfile(dest_path, src_path)
+                assert dest_path.exists() and not src_path.exists()
 
     def test_get_files(self):
         filters = {
