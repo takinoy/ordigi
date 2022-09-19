@@ -260,9 +260,9 @@ def _clean(**kwargs):
 
     if kwargs['remove_duplicates']:
         if paths == root:
-            collection.dedup_collection_files()
+            collection.dedup_files_in_collection()
         else:
-            collection.dedup_files(paths)
+            collection.dedup_files_in_paths(paths)
 
     if kwargs['path_string']:
         LOG.info("Dedup file path string")

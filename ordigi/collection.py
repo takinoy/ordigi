@@ -820,6 +820,7 @@ class Collection(SortMedias):
                             self.opt[section][option] = value
                         break
 
+        self.checksums = {}
         self.exclude = self.opt['Filters']['exclude']
         if not self.exclude:
             self.exclude = set()
@@ -837,9 +838,8 @@ class Collection(SortMedias):
             self.paths,
             root,
             self.opt['Exif'],
-            {},
-            self.db,
-            self.opt['Terminal']['interactive'],
+            db=self.db,
+            interactive=self.opt['Terminal']['interactive'],
         )
 
         # Features
@@ -940,9 +940,9 @@ class Collection(SortMedias):
 
         return True
 
-    def check_file(self, file_path):
-        self.medias.checksums[file_path] = utils.checksum(file_path)
-        if self._check_file(file_path, self.medias.checksums[file_path]):
+    def check_collection_file(self, file_path):
+        self.checksums[file_path] = utils.checksum(file_path)
+        if self._check_file(file_path, self.checksums[file_path]):
             return True
 
         # We d'ont want to silently ignore or correct this without
@@ -967,7 +967,7 @@ class Collection(SortMedias):
                 self.log.error("Db data is not accurate")
                 self.log.info(f"{file_path} not in db")
                 result = False
-            elif checksums and not self.check_file(file_path):
+            elif checksums and not self.check_collection_file(file_path):
                 result = False
 
         nb_files = len(file_paths)
@@ -1027,9 +1027,9 @@ class Collection(SortMedias):
             relpath = os.path.relpath(file_path, self.root)
             metadata = {}
 
-            self.medias.checksums[file_path] = utils.checksum(file_path)
+            self.checksums[file_path] = utils.checksum(file_path)
             if (
-                not self._check_file(file_path, self.medias.checksums[file_path])
+                not self._check_file(file_path, self.checksums[file_path])
                 and update_checksum
             ):
                 # metatata will fill checksum from file
@@ -1163,24 +1163,23 @@ class Collection(SortMedias):
 
         return dedup_checksums
 
-    def dedup_files(self, paths, imp=False):
+    def dedup_files_in_paths(self, paths, imp=False):
         """Dedup files in directories"""
         checksums = {}
         for _, file_path in self.paths.get_paths(paths, self.root, imp=imp):
-            if file_path in self.medias.checksums:
-                checksums[file_path] = self.medias.checksums[file_path]
+            if file_path in checksums:
+                checksums[file_path] = self.checksums[file_path]
             else:
                 checksums[file_path] = utils.checksum(file_path)
 
         dedup_checksums = self._dedup_files(checksums, imp)
 
-        self.medias.checksums = dedup_checksums
+        # return de duplicated path and checksum
+        return set(dedup_checksums.keys()), dedup_checksums
 
-        return self.summary
-
-    def dedup_collection_files(self):
+    def dedup_files_in_collection(self):
         """Dedup files in collection"""
-        dedup_checksums = self._dedup_files(self.medias.checksums)
+        dedup_checksums = self._dedup_files(self.checksums)
         self.medias.checksums = dedup_checksums
 
         return self.summary
@@ -1195,14 +1194,16 @@ class Collection(SortMedias):
         path_format = self.opt['Path']['path_format']
         self.log.debug(f"path_format: {path_format}")
 
+        checksums = {}
         if self.remove_duplicates:
-            self.dedup_files(paths, imp)
+            # Remove duplicates in paths
+            paths, checksums = self.dedup_files_in_paths(paths, imp)
 
         self.log.info("Get medias data:")
         subdirs = set()
 
         self.medias.datas = {}
-        for src_path, metadata in self.medias.get_metadatas(paths, imp=imp, loc=loc):
+        for src_path, metadata in self.medias.get_metadatas(paths, checksums, imp, loc):
             # Get the destination path according to metadata
             self.log.info(f"src_path: {src_path}")
             fpath = FPath(path_format, self.opt['Path']['day_begins'])
@@ -1213,9 +1214,6 @@ class Collection(SortMedias):
 
         self.log.info("Sort files and solve conflicts:")
         self.summary = self.sort_medias(imp)
-
-        if self.remove_duplicates:
-            self.dedup_collection_files()
 
         if imp != 'copy':
             self.remove_empty_subdirs(subdirs, paths)
@@ -1248,7 +1246,7 @@ class Collection(SortMedias):
 
         self.medias.datas = {}
         self.log.info("Get medias data:")
-        for src_path, metadata in self.medias.get_metadatas(paths):
+        for src_path, metadata in self.medias.get_metadatas(paths, checksums=self.checksums):
             # Deduplicate the path
             path_parts = src_path.relative_to(self.root).parts
             dedup_path = []
@@ -1334,7 +1332,7 @@ class Collection(SortMedias):
         for file_path, media in self.medias.get_medias_datas(paths, loc=loc):
             result = False
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
-            if not self.check_file(file_path):
+            if not self.check_collection_file(file_path):
                 self.log.error("Db data is not accurate run `ordigi update`")
                 sys.exit(1)
 
