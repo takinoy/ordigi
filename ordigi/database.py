@@ -130,7 +130,10 @@ class Sqlite:
             result = False
 
         if result:
-            return result[n]
+            if n < 0:
+                return result
+            else:
+                return result[n]
         else:
             return False
 
@@ -256,10 +259,8 @@ class Sqlite:
 
         return True
 
-
     def escape_quote(self, string):
         return string.translate(str.maketrans({"'":  r"''"}))
-
 
     def get_checksum(self, file_path):
         file_path_e = self.escape_quote(str(file_path))
@@ -270,6 +271,10 @@ class Sqlite:
         file_path_e = self.escape_quote(str(file_path))
         query = f"select {column} from metadata where FilePath='{file_path_e}'"
         return self._run(query)
+
+    def get_filepath(self, column, value, n=0):
+        query = f"select FilePath from metadata where {column}='{value}'"
+        return self._run(query, n)
 
     def match_location(self, latitude, longitude):
         query = f"""select 1 from location where Latitude='{latitude}'
