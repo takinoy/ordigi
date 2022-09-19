@@ -214,10 +214,10 @@ class TestCollection:
             media.metadata['file_path'] = name
             dest_path = Path(tmp_path, name)
             src_checksum = utils.checksum(src_path)
-            summary = collection.sort_file(
+            collection.sort_file(
                 src_path, dest_path, media.metadata, imp=imp
             )
-            assert not summary.errors
+            assert not collection.summary.errors
             # Ensure files remain the same
             if not imp:
                 assert collection._checkcomp(dest_path, src_checksum)
