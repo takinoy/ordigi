@@ -105,6 +105,7 @@ class TestOrdigi:
             str(self.src_path),
         )
 
+        self.assert_cli(cli._init, [str(self.src_path)])
         self.assert_cli(cli._edit, args)
 
         # self.assert_options(cli._edit, bool_options, arg_options, args)
@@ -125,11 +126,11 @@ class TestOrdigi:
         arg_options = (
             *self.filter_options,
             ('--path-format', '{%Y}/{folder}/{name}.{ext}'),
-
         )
 
         paths = (str(self.src_path),)
 
+        self.assert_cli(cli._init, paths)
         self.assert_cli(cli._sort, paths)
 
         self.assert_options(cli._sort, bool_options, arg_options, paths)
@@ -256,6 +257,7 @@ class TestOrdigi:
         self.assert_options(cli._compare, bool_options, arg_options, paths)
 
     def test_check(self):
+        self.assert_cli(cli._init, (str(self.src_path),))
         self.assert_check()
 
 

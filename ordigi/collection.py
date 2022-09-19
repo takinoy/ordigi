@@ -954,7 +954,7 @@ class Collection(SortMedias):
         )
         return False
 
-    def check_db(self, checksums=True):
+    def _check_db(self, checksums=True):
         """
         Check if db FilePath match to collection filesystem
         :returns: bool
@@ -984,24 +984,20 @@ class Collection(SortMedias):
         self.summary.append('check', False)
         return False
 
-    def check(self, checksums=True):
+    def check_db(self, checksums=True, imp=False, loc=None):
         if self.db.sqlite.is_empty('metadata'):
-            self.log.error("Db data does not exist run `ordigi init`")
-            sys.exit(1)
-        elif not self.check_db(checksums):
-            self.log.error("Db data is not accurate run `ordigi update`")
-            sys.exit(1)
-
-    def _init_check_db(self, checksums=True, loc=None):
-        if self.db.sqlite.is_empty('metadata'):
-            self.init(loc)
-        elif not self.check_db(checksums):
+            if imp:
+                self.init(loc)
+            else:
+                self.log.error("Db data does not exist run `ordigi init`")
+                sys.exit(1)
+        elif not self._check_db(checksums):
             self.log.error("Db data is not accurate run `ordigi update`")
             sys.exit(1)
 
     def clone(self, dest_path):
         """Clone collection in another location"""
-        self.check()
+        self.check_db()
 
         copy_tree(str(self.root), str(dest_path))
 
@@ -1194,7 +1190,7 @@ class Collection(SortMedias):
         Sort files into appropriate folder
         """
         self.log.info("Check db:")
-        self._init_check_db(loc=loc)
+        self.check_db(imp=imp, loc=loc)
 
         path_format = self.opt['Path']['path_format']
         self.log.debug(f"path_format: {path_format}")
@@ -1232,7 +1228,7 @@ class Collection(SortMedias):
         """Deduplicate file path parts"""
 
         self.log.info("Check db:")
-        self._init_check_db()
+        self.check_db()
 
         # Delimiter regex
         delim = r'[-_ .]'
@@ -1303,7 +1299,7 @@ class Collection(SortMedias):
     def sort_similar_images(self, path, similarity=80):
         """Sort similar images using imagehash library"""
         self.log.info("Check db:")
-        self._init_check_db()
+        self.check_db()
 
         dest_dir = 'similar_images'
         path = self.paths.check(path)
