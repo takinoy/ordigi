@@ -74,6 +74,18 @@ class FPath:
 
         return date.strftime(mask)
 
+    def _get_list_limits(self, mask, regex_begin, regex_end):
+        limits = []
+        for n, regex in enumerate((regex_begin, regex_end)):
+            matched = re.search(re.compile(regex), mask)
+
+            if matched:
+                limits.append(int(matched[0][n]))
+            else:
+                limits.append(None)
+
+        return limits
+
     def _get_folders(self, folders, mask):
         """
         Get folders part
@@ -92,29 +104,34 @@ class FPath:
                     # i is out of range, use ''
                     return ['']
                 else:
-                    return folders[i]
+                    return [folders[i]]
             else:
                 # all folders example: folders
                 return folders
         else:
             # multiple folder selection: example folders[1:3]
-            regex0 = re.compile(r'[0-9]:')
-            regex1 = re.compile(r':[0-9]')
-            begin = int(re.search(regex0, mask)[0][0])
-            end = int(re.search(regex1, mask)[0][1])
+            regex_begin = r'[0-9]:'
+            regex_end = r':[0-9]'
 
-            if begin > n:
-                # no matched folders
-                return ['']
+            begin, end = self._get_list_limits(mask, regex_begin, regex_end)
 
-            if end > n:
-                end = n
+            if begin and end:
+                if begin > n:
+                    # no matched folders
+                    return ['']
 
-            if begin >= end:
-                return ['']
+                if end > n:
+                    end = n
+
+                if begin >= end:
+                    return ['']
 
             # select matched folders
-            return folders[begin:end]
+            folders = folders[begin:end]
+            if isinstance(folders, list):
+                return folders
+            else:
+                return []
 
     def get_part(self, item, mask, metadata):
         """
@@ -157,7 +174,10 @@ class FPath:
                     part = folder
                 else:
                     folders = self._get_folders(folders, mask)
-                    part = os.path.join(*folders)
+                    if folders:
+                        part = os.path.join(*folders)
+                    else:
+                        part = ""
 
         elif item in (
             'album',
@@ -195,7 +215,7 @@ class FPath:
         for item, regex in self.items.items():
             matched = re.search(regex, this_part)
             if matched:
-                self.log.debug(f"item: {item}, mask: <matched.group()[1:-1]>")
+                self.log.debug(f"item: {item}, mask: <{matched.group()[1:-1]}>")
                 part = self.get_part(item, matched.group()[1:-1], metadata)
                 self.log.debug(f"part: {part}")
 
