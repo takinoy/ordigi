@@ -194,16 +194,14 @@ def _check(**kwargs):
     log.init_logger(LOG, root, log_level, False, kwargs['log'])
 
     collection = Collection(root)
-    result = collection.check_db()
-    if result:
-        summary = collection.check_files()
-        if log_level < 30:
-            summary.print()
-        if summary.errors:
-            LOG.error("Db data is not accurate run `ordigi update --checksum`")
-            sys.exit(1)
-    else:
-        LOG.error("Db data is not accurate run `ordigi update`")
+
+    collection.check_db()
+
+    summary = collection.check_files()
+    if log_level < 30:
+        summary.print()
+    if summary.errors:
+        LOG.error("Db data is not accurate run `ordigi update --checksum`")
         sys.exit(1)
 
 
@@ -258,7 +256,7 @@ def _clean(**kwargs):
             'remove_duplicates': kwargs['remove_duplicates'],
         },
     )
-    collection.check()
+    collection.check_db()
 
     if kwargs['remove_duplicates']:
         if paths == root:
