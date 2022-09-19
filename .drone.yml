@@ -1,0 +1,22 @@
+kind: pipeline
+name: default
+
+steps:
+- name: test and build
+  image: python:3.10-slim-bullseye
+  commands:
+  - apt-get update && apt-get install -y libimage-exiftool-perl
+  - pip install .[test]
+  # - pytest  tests/*
+  - python3 -m pip install --upgrade build
+  - python3 -m build
+
+
+# TODO fail to install numpy in alpine
+# steps:
+# - name: test
+#   image: python:alpine
+#   commands:
+#   - apk add exiftool python3-dev py3-pip
+#   - pip install .[test]
+#   - pytest  tests/*
