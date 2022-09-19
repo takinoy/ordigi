@@ -8,7 +8,7 @@ exclude = ["samples"]
 
 [project]
 name = "ordigi"
-version = "0.1.3"
+version = "0.1.4"
 authors = [{name = "Cedric Leporcq", email = "cedl38@gmail.com"}]
 description = "Media organizer tools"
 readme = "README.md"
@@ -31,6 +31,7 @@ opt = [
     "xpyheif_pillow_opener",
 ]
 test = [
+    "colorama",
     "pytest >=2.7.3",
     "pytest-cov",
 ]
