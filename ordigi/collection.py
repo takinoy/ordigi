@@ -1141,6 +1141,7 @@ class Collection(SortMedias):
         dedup_checksums = {}
         for file_path, checksum in checksums.items():
             if checksum in dedup_checksums.values():
+                # Identical files with same checksum already de-duplicated
                 continue
 
             dup_paths = sorted([
@@ -1155,11 +1156,13 @@ class Collection(SortMedias):
                 else:
                     dup_paths.remove(original_file)
 
-                dedup_checksums[original_file] = checksum
-
                 for dup_path in dup_paths:
                     # Remove duplicates
-                    self.summary = self.remove_file(dup_path, imp)
+                    self.remove_file(dup_path, imp)
+            else:
+                original_file = file_path
+
+            dedup_checksums[original_file] = checksum
 
         return dedup_checksums
 
