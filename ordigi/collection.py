@@ -1073,6 +1073,8 @@ class Collection(SortMedias):
 
         # Get medias data
         subdirs = set()
+
+        self.medias.datas = {}
         for src_path, metadata in self.medias.get_metadatas(src_dirs, imp=imp, loc=loc):
             # Get the destination path according to metadata
             self.log.info(f'src_path: {src_path}')
@@ -1116,6 +1118,7 @@ class Collection(SortMedias):
             dedup_regex = [date_num3, date_num2, default]
 
         # Get medias data
+        self.medias.datas = {}
         for src_path, metadata in self.medias.get_metadatas(paths):
             # Deduplicate the path
             path_parts = src_path.relative_to(self.root).parts
@@ -1148,6 +1151,7 @@ class Collection(SortMedias):
         name = image.img_path.stem
         directory_name = os.path.join(dest_dir, name.replace('.', '_'))
 
+        self.medias.datas = {}
         for img_path in images.find_similar(image, similarity):
             self.paths.paths_list.append(img_path)
 
