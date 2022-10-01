@@ -24,9 +24,11 @@ def get_arg_options_list(arg_options):
 class TestOrdigi:
 
     @pytest.fixture(autouse=True)
-    def setup_class(cls, sample_files_paths):
+    def setup_class(cls, sample_files_paths, sample_collection_paths):
         cls.runner = CliRunner()
         cls.src_path, cls.file_paths = sample_files_paths
+        cls.collection_path = sample_collection_paths
+        # cls.runner.invoke(cli._init, [str(cls.collection_path)])
         cls.logger_options = ('--debug', '--log')
         cls.filter_options = (
             ('--ignore-tags', 'CreateDate'),
@@ -101,11 +103,11 @@ class TestOrdigi:
             '--key',
             'date_original',
             '--overwrite',
-            str(self.src_path.joinpath('test_exif/photo.png')),
-            str(self.src_path),
+            str(self.collection_path.joinpath('test_exif/photo.png')),
+            str(self.collection_path),
         )
 
-        self.assert_cli(cli._init, [str(self.src_path)])
+        self.assert_cli(cli._init, [str(self.collection_path)])
         self.assert_cli(cli._edit, args)
 
         # self.assert_options(cli._edit, bool_options, arg_options, args)
@@ -128,7 +130,7 @@ class TestOrdigi:
             ('--path-format', '{%Y}/{folder}/{name}.{ext}'),
         )
 
-        paths = (str(self.src_path),)
+        paths = (str(self.collection_path),)
 
         self.assert_cli(cli._init, paths)
         self.assert_cli(cli._sort, paths)
@@ -138,21 +140,21 @@ class TestOrdigi:
 
     def test_clone(self, tmp_path):
 
-        paths = (str(self.src_path), str(tmp_path))
+        paths = (str(self.collection_path), str(tmp_path))
 
-        self.assert_cli(cli._init, [str(self.src_path)])
+        self.assert_cli(cli._init, [str(self.collection_path)])
         self.assert_cli(cli._clone, ['--log', *paths])
 
     def assert_init(self, tmp_path, conf_path):
         bool_options = (
             *self.logger_options,
-            '--user-config',
+            # '--user-config',
         )
         arg_options = (
             ('--config', conf_path),
         )
 
-        paths = (str(self.src_path),)
+        paths = (str(self.collection_path),)
         self.assert_options(cli._init, bool_options, arg_options, paths)
         path = (str(tmp_path.joinpath('test')),)
         self.assert_options(cli._init, bool_options, arg_options, path)
@@ -165,16 +167,15 @@ class TestOrdigi:
         arg_options = ()
 
         file_path = Path(ORDIGI_PATH, 'samples/test_exif/photo.cr2')
-        dest_path = self.src_path / 'photo_moved.cr2'
-        src_path = (str(self.src_path),)
+        dest_path = self.collection_path / 'photo_moved.cr2'
+        collection_path = (str(self.collection_path),)
         shutil.copyfile(file_path, dest_path)
-        self.assert_options(cli._update, bool_options, arg_options, src_path)
+        self.assert_options(cli._update, bool_options, arg_options, collection_path)
 
-    def assert_check(self):
+    def assert_check(self, paths):
         bool_options = (*self.logger_options,)
         arg_options = ()
 
-        paths = (str(self.src_path),)
         self.assert_options(cli._check, bool_options, arg_options, paths)
 
     def assert_clean(self):
@@ -193,10 +194,10 @@ class TestOrdigi:
             ('--dedup-regex', r'\d{4}-\d{2}'),
         )
 
-        paths = ('test_exif', str(self.src_path))
+        paths = ('test_exif', str(self.collection_path))
         self.assert_cli(cli._clean, paths)
 
-        paths = (str(self.src_path),)
+        paths = (str(self.collection_path),)
         self.assert_cli(cli._clean, paths)
 
         self.assert_options(cli._clean, bool_options, arg_options, paths)
@@ -248,17 +249,17 @@ class TestOrdigi:
             ('--similarity', '65'),
         )
 
-        paths = (str(self.src_path),)
+        paths = (str(self.collection_path),)
 
-        # Workaround
-        self.assert_cli(cli._update, paths)
+        self.assert_cli(cli._init, paths)
 
         self.assert_cli(cli._compare, paths)
         self.assert_options(cli._compare, bool_options, arg_options, paths)
 
     def test_check(self):
-        self.assert_cli(cli._init, (str(self.src_path),))
-        self.assert_check()
+        paths = (str(self.collection_path),)
+        self.assert_cli(cli._init, paths)
+        self.assert_check(paths)
 
 
 def test_needsfiles(tmpdir):
