@@ -139,14 +139,17 @@ class TestCollection:
         assert summary.errors == 0
         assert summary.success_table.sum('sort') == nb
 
-    def test_sort_files(self, tmp_path):
+    def test_sort_files(self, tmp_path, conf_path):
         cli_options = {
             'album_from_folder': True,
             'cache': False,
+            'exclude': {'**/.directory', '**/.DS_Store'},
+            'fill_date_original': True,
             'path_format': self.path_format,
             'remove_duplicates': True,
+            'use_date_filename': True,
         }
-        collection = Collection(tmp_path, cli_options=cli_options)
+        collection = Collection(tmp_path, cli_options=cli_options, src_conf=conf_path)
         loc = GeoLocation()
         summary = collection.sort_files([self.src_path], loc, imp='copy')
 
@@ -170,10 +173,10 @@ class TestCollection:
                 for value in ReadExif(file_path).get_key_values('album'):
                     assert value != '' or None
 
-        collection = Collection(tmp_path, cli_options=cli_options)
+        collection = Collection(tmp_path, cli_options=cli_options, src_conf=conf_path)
         # Try to change path format and sort files again
         cli_options['path_format'] = 'test_exif/<city>/<%Y>-<name>.%l<ext>'
-        collection = Collection(tmp_path, cli_options=cli_options)
+        collection = Collection(tmp_path, cli_options=cli_options, src_conf=conf_path)
         summary = collection.sort_files([tmp_path], loc)
 
         self.assert_sort(summary, 25)
@@ -192,7 +195,7 @@ class TestCollection:
 
         # Test sort file and remove duplicates
         summary = collection.sort_files([tmp_path], loc, imp=False)
-        assert summary.success_table.sum('sort') == 25
+        assert summary.success_table.sum('sort') == 24
         assert not summary.errors
 
         # test with populated dest dir

@@ -20,15 +20,26 @@ def reset_singletons():
     _ExifToolProc.instance = None
 
 
-@pytest.fixture(scope="module")
-def sample_files_paths(tmpdir_factory):
-    tmp_path = Path(tmpdir_factory.mktemp("ordigi-src-"))
+def copy_sample_path(tmpdir_factory, path_name):
+    tmp_path = Path(tmpdir_factory.mktemp(path_name))
     path = Path(ORDIGI_PATH, 'samples/test_exif')
     shutil.copytree(path, tmp_path / path.name)
+
+    return tmp_path
+
+
+@pytest.fixture(scope="module")
+def sample_files_paths(tmpdir_factory):
+    tmp_path = copy_sample_path(tmpdir_factory, "ordigi-src-")
     paths = Path(tmp_path).glob('**/*')
     file_paths = [x for x in paths if x.is_file()]
 
     return tmp_path, file_paths
+
+
+@pytest.fixture(scope="module")
+def sample_collection_paths(tmpdir_factory):
+    return copy_sample_path(tmpdir_factory, "ordigi-collection-")
 
 
 def randomize_files(dest_dir):
