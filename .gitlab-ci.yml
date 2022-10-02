@@ -34,9 +34,17 @@ test:
     - pip install .[test]
     - apt-get update && apt-get install -y libimage-exiftool-perl procps
   script:
-    - pytest  tests/*
+    - coverage run -m pytest
+    - coverage report
+    - coverage xml
  #   - pip install tox flake8  # you can also use tox
  #   - tox -e py36,flake8
+
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
 
 run:
   before_script:

@@ -1,6 +1,7 @@
 # Ordigi
 
 ![](https://rezistema.ynh.fr/gitlab/github/ordigi-github/badges/main/pipeline.svg)
+![](https://rezistema.ynh.fr/gitlab/github/ordigi-github/badges/main/coverage.svg)
 
 ## Description
 
