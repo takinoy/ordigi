@@ -802,6 +802,7 @@ class Collection(SortMedias):
         self.log = LOG.getChild(self.__class__.__name__)
 
         self.root = root
+        self.db = CollectionDb(root, init)
 
         # Get config options
         self.opt, default_options = self.get_config_options(src_conf)
@@ -812,7 +813,7 @@ class Collection(SortMedias):
                 if option in self.opt[section]:
                     if value != default_options[section][option]:
                         if option == 'exclude':
-                            self.opt[section][option].union(set(value))
+                            self.opt[section][option] = self.opt[section][option].union(set(value))
                         elif option in ('ignore_tags', 'extensions'):
                             self.opt[section][option] = set(value)
                         else:
@@ -825,8 +826,6 @@ class Collection(SortMedias):
             self.exclude = set()
 
         self.fileio = FileIO(self.opt['Terminal']['dry_run'])
-
-        self.db = CollectionDb(root, init)
 
         self.paths = Paths(
             self.opt['Filters'],
