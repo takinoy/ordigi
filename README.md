@@ -1,5 +1,7 @@
 # Ordigi
 
+![](https://rezistema.ynh.fr/gitlab/%{project_path}/-/commits/%{default_branch})
+
 ## Description
 
 This tool aims to make media files organized among giving pattern. It is based on
