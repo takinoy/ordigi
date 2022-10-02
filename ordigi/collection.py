@@ -980,7 +980,7 @@ class Collection(SortMedias):
         return False
 
     def check_db(self, checksums=True, imp=False, loc=None):
-        if self.db.sqlite.is_empty('metadata'):
+        if not self.db.sqlite.is_table('metadata'):
             if imp:
                 self.init(loc)
             else:
