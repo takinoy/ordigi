@@ -1,5 +1,7 @@
 # Ordigi
 
+![](https://rezistema.ynh.fr/gitlab/github/ordigi-github/badges/main/pipeline.svg)
+
 ## Description
 
 This tool aims to make media files organized among giving pattern. It is based on
