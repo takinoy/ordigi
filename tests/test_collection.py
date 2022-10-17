@@ -155,7 +155,7 @@ class TestCollection:
 
         self.assert_import(summary, 25)
 
-        summary = collection.check_files()
+        summary = collection.check_files_integrity()
         assert summary.success_table.sum('import') == 25
         assert summary.success_table.sum('update') == 0
         assert not summary.errors
@@ -200,7 +200,7 @@ class TestCollection:
 
         # test with populated dest dir
         randomize_files(tmp_path)
-        summary = collection.check_files()
+        summary = collection.check_files_integrity()
         assert summary.errors
 
         # test summary update

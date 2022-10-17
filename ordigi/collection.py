@@ -291,6 +291,7 @@ class FPath:
 class CollectionDb:
 
     def __init__(self, root, init=False):
+        self.checksums = {}
         self.log = LOG.getChild(self.__class__.__name__)
         self.root = root
         ordigi_dir = self._check_root(init)
@@ -313,6 +314,84 @@ class CollectionDb:
             ordigi_dir.mkdir()
 
         return ordigi_dir
+
+    def check_file(self, file_path, file_checksum):
+        """Check if file checksum as changed"""
+        relpath = os.path.relpath(file_path, self.root)
+        db_checksum = self.sqlite.get_checksum(relpath)
+        # Check if checksum match
+        if not db_checksum:
+            return None
+
+        if db_checksum != file_checksum:
+            self.log.warning(f"{file_path} checksum as changed")
+            self.log.info(
+                f"file_checksum={file_checksum},\ndb_checksum={db_checksum}"
+            )
+            return False
+
+        return True
+
+    def check_collection_file(self, file_path):
+        self.checksums[file_path] = utils.checksum(file_path)
+        if self.check_file(file_path, self.checksums[file_path]):
+            return True
+
+        # We d'ont want to silently ignore or correct this without
+        # resetting the cache as is could be due to file corruption
+        self.log.error("modified or corrupted file.")
+        self.log.info(
+            "Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file"
+        )
+        return False
+
+    def file_in_db(self, file_path, db_rows):
+        # Assuming file_path are inside collection root dir
+        relpath = os.path.relpath(file_path, self.root)
+
+        # If file not in database
+        if relpath not in db_rows:
+            return False
+
+        return True
+
+    def _check_db(self, file_paths, checksums=True):
+        """
+        Check if db FilePath match to collection filesystem
+        :returns: bool
+        """
+        db_rows = [row['FilePath'] for row in self.sqlite.get_rows('metadata')]
+        result = True
+        for file_path in file_paths:
+            result = self.file_in_db(file_path, db_rows)
+            if not result:
+                self.log.error("Db data is not accurate")
+                self.log.info(f"{file_path} not in db")
+                result = False
+            elif checksums and not self.check_collection_file(file_path):
+                result = False
+
+        nb_files = len(file_paths)
+        nb_row = len(db_rows)
+        if nb_row != nb_files:
+            self.log.error("Db data is not accurate")
+            result = False
+
+        if result:
+            return True
+
+        return False
+
+    def check(self, file_paths, checksums=True, imp=False, loc=None):
+        if not self.sqlite.is_table('metadata'):
+            if imp:
+                self.init(loc)
+            else:
+                self.log.error("Db data does not exist run `ordigi init`")
+                sys.exit(1)
+        elif not self._check_db(file_paths, checksums):
+            self.log.error("Db data is not accurate run `ordigi update`")
+            sys.exit(1)
 
     def _get_row_data(self, table, metadata):
         row_data = {}
@@ -820,7 +899,6 @@ class Collection(SortMedias):
                             self.opt[section][option] = value
                         break
 
-        self.checksums = {}
         self.exclude = self.opt['Filters']['exclude']
         if not self.exclude:
             self.exclude = set()
@@ -898,7 +976,7 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def check_files(self):
+    def check_files_integrity(self):
         """Check file integrity."""
         for file_path in self.paths.get_files(self.root):
             checksum = utils.checksum(file_path)
@@ -911,88 +989,13 @@ class Collection(SortMedias):
 
         return self.summary
 
-    def file_in_db(self, file_path, db_rows):
-        # Assuming file_path are inside collection root dir
-        relpath = os.path.relpath(file_path, self.root)
-
-        # If file not in database
-        if relpath not in db_rows:
-            return False
-
-        return True
-
-    def _check_file(self, file_path, file_checksum):
-        """Check if file checksum as changed"""
-        relpath = os.path.relpath(file_path, self.root)
-        db_checksum = self.db.sqlite.get_checksum(relpath)
-        # Check if checksum match
-        if not db_checksum:
-            return None
-
-        if db_checksum != file_checksum:
-            self.log.warning(f"{file_path} checksum as changed")
-            self.log.info(
-                f"file_checksum={file_checksum},\ndb_checksum={db_checksum}"
-            )
-            return False
-
-        return True
-
-    def check_collection_file(self, file_path):
-        self.checksums[file_path] = utils.checksum(file_path)
-        if self._check_file(file_path, self.checksums[file_path]):
-            return True
-
-        # We d'ont want to silently ignore or correct this without
-        # resetting the cache as is could be due to file corruption
-        self.log.error("modified or corrupted file.")
-        self.log.info(
-            "Use ordigi update --checksum or --reset-cache, check database integrity or try to restore the file"
-        )
-        return False
-
-    def _check_db(self, checksums=True):
-        """
-        Check if db FilePath match to collection filesystem
-        :returns: bool
-        """
+    def check_collection(self, checksums=True, imp=False, loc=None):
         file_paths = list(self.get_collection_files())
-        db_rows = [row['FilePath'] for row in self.db.sqlite.get_rows('metadata')]
-        result = True
-        for file_path in file_paths:
-            result = self.file_in_db(file_path, db_rows)
-            if not result:
-                self.log.error("Db data is not accurate")
-                self.log.info(f"{file_path} not in db")
-                result = False
-            elif checksums and not self.check_collection_file(file_path):
-                result = False
-
-        nb_files = len(file_paths)
-        nb_row = len(db_rows)
-        if nb_row != nb_files:
-            self.log.error("Db data is not accurate")
-            result = False
-
-        if result:
-            return True
-
-        return False
-
-    def check_db(self, checksums=True, imp=False, loc=None):
-        if not self.db.sqlite.is_table('metadata'):
-            if imp:
-                self.init(loc)
-            else:
-                self.log.error("Db data does not exist run `ordigi init`")
-                sys.exit(1)
-        elif not self._check_db(checksums):
-            self.log.error("Db data is not accurate run `ordigi update`")
-            sys.exit(1)
+        self.db.check(file_paths, checksums, imp, loc)
 
     def clone(self, dest_path):
         """Clone collection in another location"""
-        self.check_db()
+        self.check_collection()
 
         copy_tree(str(self.root), str(dest_path))
 
@@ -1002,7 +1005,7 @@ class Collection(SortMedias):
             dest_path, {'cache': True}
         )
 
-        dest_collection.check_db()
+        dest_collection.check_collection()
 
         return self.summary
 
@@ -1025,9 +1028,9 @@ class Collection(SortMedias):
             relpath = os.path.relpath(file_path, self.root)
             metadata = {}
 
-            self.checksums[file_path] = utils.checksum(file_path)
+            self.db.checksums[file_path] = utils.checksum(file_path)
             if (
-                not self._check_file(file_path, self.checksums[file_path])
+                not self.db.check_file(file_path, self.db.checksums[file_path])
                 and update_checksum
             ):
                 # metatata will fill checksum from file
@@ -1166,7 +1169,7 @@ class Collection(SortMedias):
         checksums = {}
         for _, file_path in self.paths.get_paths(paths, self.root, imp=imp):
             if file_path in checksums:
-                checksums[file_path] = self.checksums[file_path]
+                checksums[file_path] = self.db.checksums[file_path]
             else:
                 checksums[file_path] = utils.checksum(file_path)
 
@@ -1177,7 +1180,7 @@ class Collection(SortMedias):
 
     def dedup_files_in_collection(self):
         """Dedup files in collection"""
-        dedup_checksums = self._dedup_files(self.checksums)
+        dedup_checksums = self._dedup_files(self.db.checksums)
         self.medias.checksums = dedup_checksums
 
         return self.summary
@@ -1187,7 +1190,7 @@ class Collection(SortMedias):
         Sort files into appropriate folder
         """
         self.log.info("Check db:")
-        self.check_db(imp=imp, loc=loc)
+        self.check_collection(imp=imp, loc=loc)
 
         path_format = self.opt['Path']['path_format']
         self.log.debug(f"path_format: {path_format}")
@@ -1216,7 +1219,7 @@ class Collection(SortMedias):
         if imp != 'copy':
             self.remove_empty_subdirs(subdirs, paths)
 
-        self.check_db()
+        self.check_collection()
 
         return self.summary
 
@@ -1224,7 +1227,7 @@ class Collection(SortMedias):
         """Deduplicate file path parts"""
 
         self.log.info("Check db:")
-        self.check_db()
+        self.check_collection()
 
         # Delimiter regex
         delim = r'[-_ .]'
@@ -1244,7 +1247,7 @@ class Collection(SortMedias):
 
         self.medias.datas = {}
         self.log.info("Get medias data:")
-        for src_path, metadata in self.medias.get_metadatas(paths, checksums=self.checksums):
+        for src_path, metadata in self.medias.get_metadatas(paths, checksums=self.db.checksums):
             # Deduplicate the path
             path_parts = src_path.relative_to(self.root).parts
             dedup_path = []
@@ -1295,7 +1298,7 @@ class Collection(SortMedias):
     def sort_similar_images(self, path, similarity=80):
         """Sort similar images using imagehash library"""
         self.log.info("Check db:")
-        self.check_db()
+        self.check_collection()
 
         dest_dir = 'similar_images'
         path = self.paths.check(path)
@@ -1318,7 +1321,7 @@ class Collection(SortMedias):
         if nb_row_ini and nb_row_ini != nb_row_end:
             self.log.error("Nb of row have changed unexpectedly")
 
-        self.check_db()
+        self.check_collection()
 
         return self.summary
 
@@ -1330,7 +1333,7 @@ class Collection(SortMedias):
         for file_path, media in self.medias.get_medias_datas(paths, loc=loc):
             result = False
             media.metadata['file_path'] = os.path.relpath(file_path, self.root)
-            if not self.check_collection_file(file_path):
+            if not self.db.check_collection_file(file_path):
                 self.log.error("Db data is not accurate run `ordigi update`")
                 sys.exit(1)
 

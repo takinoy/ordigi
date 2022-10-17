@@ -195,9 +195,9 @@ def _check(**kwargs):
 
     collection = Collection(root)
 
-    collection.check_db()
+    collection.check_collection()
 
-    summary = collection.check_files()
+    summary = collection.check_files_integrity()
     if log_level < 30:
         summary.print()
     if summary.errors:
@@ -256,7 +256,7 @@ def _clean(**kwargs):
             'remove_duplicates': kwargs['remove_duplicates'],
         },
     )
-    collection.check_db()
+    collection.check_collection()
 
     if kwargs['remove_duplicates']:
         if paths == root:
@@ -277,7 +277,7 @@ def _clean(**kwargs):
         if kwargs['delete_excluded']:
             collection.remove_excluded_files()
 
-    collection.check_db()
+    collection.check_collection()
 
     if log_level < 30:
         collection.summary.print()
